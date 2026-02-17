@@ -263,7 +263,7 @@ python server.py --transport sse --port 8000
 
 MCP Hub is free and open-source. Development is funded by community donations.
 
-**Donate via crypto** (NOWPayments): Global, no geographic restrictions.
+[**Donate with Crypto (NOWPayments)**](https://nowpayments.io/donation/airano) — Global, no geographic restrictions.
 
 | Goal | Monthly | Enables |
 |------|---------|---------|
