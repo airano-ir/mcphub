@@ -1804,10 +1804,12 @@ def register_project_tools():
 
     logger.info("=" * 60)
 
-    # System tools count (health + rate limit + API keys):
-    # - 10 system/health/rate limit tools
+    # System tools count:
+    # - 10 health/monitoring/rate-limit tools
+    # - 4 system config tools (endpoints, system_info, audit_log, set_rate_limit_config)
     # - 6 API key management tools
-    system_tools_count = 16
+    # - 4 OAuth management tools
+    system_tools_count = 24
 
     total_tools = tool_registry.get_count() + system_tools_count
     logger.info(
@@ -3338,7 +3340,7 @@ def create_system_mcp():
     """
     from fastmcp import FastMCP
 
-    system_instructions = """This is the System Management endpoint (17 tools).
+    system_instructions = """This is the System Management endpoint (24 tools).
 
 Available tools:
 • API Key Management: create, list, get_info, revoke, delete, rotate
@@ -3455,7 +3457,7 @@ Use get_endpoints() to see all available MCP endpoints."""
             requests_per_minute, requests_per_hour, requests_per_day
         )
 
-    logger.info("Created System endpoint with 17 tools")
+    logger.info("Created System endpoint with 24 tools")
     return system_mcp
 
 
@@ -4277,21 +4279,21 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
     app = Starlette(routes=routes, lifespan=combined_lifespan, middleware=middleware)
 
     logger.info("=" * 60)
-    logger.info("Multi-Endpoint Architecture (Phase K) Active")
+    logger.info("Multi-Endpoint Architecture Active")
     logger.info("=" * 60)
-    logger.info("Dashboard: /dashboard")  # Phase K
+    logger.info("Dashboard: /dashboard")
     logger.info("Endpoints:")
-    logger.info("  /mcp                     - Admin (all 589 tools)")
-    logger.info("  /system/mcp              - System (17 tools)")
+    logger.info(f"  /mcp                     - Admin (all {_total_tool_count} tools)")
+    logger.info("  /system/mcp              - System (24 tools)")
     logger.info("  /wordpress/mcp           - WordPress Core (67 tools)")
-    logger.info("  /woocommerce/mcp         - WooCommerce (28 tools)")  # Phase D.1
+    logger.info("  /woocommerce/mcp         - WooCommerce (28 tools)")
     logger.info("  /wordpress-advanced/mcp  - WordPress Advanced (22 tools)")
     logger.info("  /gitea/mcp               - Gitea (56 tools)")
-    logger.info("  /n8n/mcp                 - n8n Automation (56 tools)")  # Phase F
-    logger.info("  /supabase/mcp            - Supabase (70 tools)")  # Phase G
-    logger.info("  /openpanel/mcp           - OpenPanel Analytics (73 tools)")  # Phase H
-    logger.info("  /appwrite/mcp            - Appwrite Backend (100 tools)")  # Phase I
-    logger.info("  /directus/mcp            - Directus CMS (100 tools)")  # Phase J
+    logger.info("  /n8n/mcp                 - n8n Automation (56 tools)")
+    logger.info("  /supabase/mcp            - Supabase (70 tools)")
+    logger.info("  /openpanel/mcp           - OpenPanel Analytics (73 tools)")
+    logger.info("  /appwrite/mcp            - Appwrite Backend (100 tools)")
+    logger.info("  /directus/mcp            - Directus CMS (100 tools)")
 
     # Log per-project endpoints
     if project_apps:

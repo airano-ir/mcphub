@@ -119,8 +119,8 @@ Then register in `plugins/__init__.py` and add tests.
 ```
 core/       # Core system (auth, site manager, tool registry, dashboard)
 plugins/    # Plugin system (9 plugins, each with handlers + schemas)
-templates/  # Jinja2 templates (dashboard + OAuth)
-tests/      # Test suite (289 tests)
+core/templates/  # Jinja2 templates (dashboard + OAuth)
+tests/           # Test suite (290 tests)
 scripts/    # Setup & deployment scripts
 docs/       # Documentation
 ```

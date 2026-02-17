@@ -107,7 +107,7 @@ ENDPOINT_CONFIGS = {
         allowed_scopes={"admin"},
         max_tools=400,
     ),
-    # System endpoint - system tools only (17 tools) - Phase X.3
+    # System endpoint - system tools only (24 tools)
     # For API key management, OAuth, rate limiting without loading all plugins
     EndpointType.SYSTEM: EndpointConfig(
         path="/system",

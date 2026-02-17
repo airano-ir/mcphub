@@ -11,7 +11,7 @@ Connect your sites, stores, repos, and databases — manage them all through Cla
 [![PyPI](https://img.shields.io/pypi/v/mcphub-server.svg)](https://pypi.org/project/mcphub-server/)
 [![Docker](https://img.shields.io/docker/v/airano/mcphub?label=docker)](https://hub.docker.com/r/airano/mcphub)
 [![Tests: 289 passing](https://img.shields.io/badge/tests-289%20passing-brightgreen.svg)]()
-[![Tools: 589](https://img.shields.io/badge/tools-589-orange.svg)]()
+[![Tools: 596](https://img.shields.io/badge/tools-596-orange.svg)]()
 [![CI](https://github.com/airano-ir/mcphub/actions/workflows/ci.yml/badge.svg)](https://github.com/airano-ir/mcphub/actions/workflows/ci.yml)
 
 </div>
@@ -46,7 +46,7 @@ MCP Hub is the first MCP server that lets you manage WordPress, WooCommerce, and
 
 ---
 
-## 589 Tools Across 9 Plugins
+## 596 Tools Across 9 Plugins
 
 | Plugin | Tools | What You Can Do |
 |--------|-------|-----------------|
@@ -59,8 +59,8 @@ MCP Hub is the first MCP server that lets you manage WordPress, WooCommerce, and
 | **OpenPanel** | 73 | Events, funnels, profiles, dashboards, projects |
 | **Appwrite** | 100 | Databases, auth, storage, functions, teams, messaging |
 | **Directus** | 100 | Collections, items, users, files, flows, permissions |
-| **System** | 17 | Health monitoring, API keys, project discovery |
-| **Total** | **589** | Constant count — scales to unlimited sites |
+| **System** | 24 | Health monitoring, API keys, OAuth management, audit |
+| **Total** | **596** | Constant count — scales to unlimited sites |
 
 ---
 
@@ -224,8 +224,8 @@ MCP Hub supports **Open Dynamic Client Registration** (RFC 7591). ChatGPT can au
 ## Architecture
 
 ```
-/mcp                        → Admin endpoint (all 589 tools)
-/system/mcp                 → System tools only (17 tools)
+/mcp                        → Admin endpoint (all 596 tools)
+/system/mcp                 → System tools only (24 tools)
 /wordpress/mcp              → WordPress tools (67 tools)
 /woocommerce/mcp            → WooCommerce tools (28 tools)
 /gitea/mcp                  → Gitea tools (56 tools)

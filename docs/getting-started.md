@@ -202,7 +202,7 @@ After starting (via Docker or locally), wait ~30 seconds for the server to initi
 
 ```bash
 curl http://localhost:8000/health
-# Expected: {"status": "ok", "tools_loaded": 589, ...}
+# Expected: {"status": "ok", "tools_loaded": 596, ...}
 ```
 
 **2. Open the web dashboard:**
@@ -313,7 +313,7 @@ MCP Hub supports **Open Dynamic Client Registration** (RFC 7591). ChatGPT can au
 
 ## Using MCP Tools
 
-### 589 Tools Across 9 Plugins
+### 596 Tools Across 9 Plugins
 
 | Plugin | Tools | Env Prefix |
 |--------|-------|------------|
@@ -326,7 +326,7 @@ MCP Hub supports **Open Dynamic Client Registration** (RFC 7591). ChatGPT can au
 | OpenPanel | 73 | `OPENPANEL_` |
 | Appwrite | 100 | `APPWRITE_` |
 | Directus | 100 | `DIRECTUS_` |
-| System | 17 | (no config needed) |
+| System | 24 | (no config needed) |
 
 ### Unified Tool Pattern
 
@@ -346,8 +346,8 @@ The `site` parameter accepts either a **site_id** (e.g., `site1`) or an **alias*
 Use specific endpoints to limit tool access:
 
 ```
-/mcp                        → All 589 tools (Master API Key)
-/system/mcp                 → System tools only (17 tools)
+/mcp                        → All 596 tools (Master API Key)
+/system/mcp                 → System tools only (24 tools)
 /wordpress/mcp              → WordPress tools (67 tools)
 /woocommerce/mcp            → WooCommerce tools (28 tools)
 /gitea/mcp                  → Gitea tools (56 tools)
@@ -448,7 +448,7 @@ The server auto-discovers all `WORDPRESS_*`, `WOOCOMMERCE_*`, `GITEA_*`, and oth
 
 ## Next Steps
 
-1. **Explore the full tool list**: See the [README](../README.md) for all 589 tools
+1. **Explore the full tool list**: See the [README](../README.md) for all 596 tools
 2. **Set up API keys**: [API Keys Guide](API_KEYS_GUIDE.md) for per-project access control
 3. **Configure OAuth**: [OAuth Guide](OAUTH_GUIDE.md) for Claude/ChatGPT auto-registration
 4. **Monitor health**: Use `check_all_projects_health` tool or visit the web dashboard

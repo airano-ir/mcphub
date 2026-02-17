@@ -30,7 +30,7 @@ After 2-month hiatus (Dec 2025 - Feb 2026), updated all dependencies and verifie
 - All 54 tests now pass (previously 5 were failing)
 
 #### Verified
-- All 589 tools generate correctly
+- All 596 tools generate correctly
 - Middleware API stable (Middleware, MiddlewareContext, get_http_headers)
 - 30+ custom routes operational (dashboard + OAuth)
 - Multi-endpoint architecture functional

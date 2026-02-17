@@ -157,14 +157,9 @@ DASHBOARD_TRANSLATIONS = {
 
 
 def detect_language(accept_language: str | None, query_lang: str | None = None) -> str:
-    """Detect language from Accept-Language header or query parameter."""
+    """Detect language from query parameter. Default is English."""
     if query_lang and query_lang in DASHBOARD_TRANSLATIONS:
         return query_lang
-
-    if accept_language:
-        # Check for Persian/Farsi
-        if "fa" in accept_language.lower() or "fa-ir" in accept_language.lower():
-            return "fa"
 
     return "en"
 

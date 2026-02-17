@@ -64,22 +64,18 @@ class TestPluginDisplayNames:
 
 
 class TestLanguageDetection:
-    """Test language detection from headers and query params."""
+    """Test language detection from query params (default English)."""
 
     def test_default_english(self):
         """Should default to English."""
         assert detect_language(None) == "en"
 
-    def test_detect_farsi_from_header(self):
-        """Should detect Farsi from Accept-Language header."""
-        assert detect_language("fa-IR,fa;q=0.9,en;q=0.8") == "fa"
+    def test_header_ignored(self):
+        """Accept-Language header should be ignored (always default to English)."""
+        assert detect_language("fa-IR,fa;q=0.9,en;q=0.8") == "en"
 
-    def test_detect_farsi_short(self):
-        """Should detect 'fa' in Accept-Language."""
-        assert detect_language("fa") == "fa"
-
-    def test_query_param_overrides_header(self):
-        """Query parameter should override Accept-Language header."""
+    def test_query_param_farsi(self):
+        """Should detect Farsi from explicit query parameter."""
         assert detect_language("en-US", query_lang="fa") == "fa"
 
     def test_query_param_english(self):
@@ -87,8 +83,8 @@ class TestLanguageDetection:
         assert detect_language("fa-IR", query_lang="en") == "en"
 
     def test_invalid_query_lang_ignored(self):
-        """Invalid query lang should be ignored, fall back to header."""
-        assert detect_language("fa-IR", query_lang="de") == "fa"
+        """Invalid query lang should be ignored, default to English."""
+        assert detect_language("fa-IR", query_lang="de") == "en"
 
     def test_english_header(self):
         """Should return English for English header."""
