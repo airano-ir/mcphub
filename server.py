@@ -23,8 +23,12 @@ import logging
 import os
 import sys
 import time
+import warnings
 from datetime import UTC, datetime
 from typing import Optional
+
+# Suppress noisy deprecation warning from websockets (transitive dependency)
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="websockets")
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
@@ -45,7 +49,7 @@ from core import (
     get_auth_manager,
     get_project_manager,
     get_rate_limiter,
-    # Option B modules (new clean architecture)
+    # Core architecture modules
     get_site_manager,
     get_site_registry,
     get_tool_registry,
@@ -235,7 +239,9 @@ mcp = FastMCP("MCP Hub")
 _TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "core", "templates")
 if not os.path.isdir(_TEMPLATES_DIR):
     # Fallback for pip-installed package: resolve relative to core package
-    _TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.abspath(core.__file__)), "templates")
+    import core as _core_pkg
+
+    _TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.abspath(_core_pkg.__file__)), "templates")
 templates = Jinja2Templates(directory=_TEMPLATES_DIR)
 logger.info("Jinja2 template engine initialized")
 
@@ -244,7 +250,7 @@ auth_manager = get_auth_manager()
 api_key_manager = get_api_key_manager()
 project_manager = get_project_manager()
 audit_logger = get_audit_logger()
-csrf_manager = get_csrf_manager()  # Phase E: CSRF protection
+csrf_manager = get_csrf_manager()
 
 # Initialize site registry (legacy - kept for backward compatibility)
 site_registry = get_site_registry()
@@ -254,8 +260,7 @@ site_registry.discover_sites(plugin_types)
 # Initialize unified tool generator (legacy - kept for backward compatibility)
 unified_tool_generator = UnifiedToolGenerator(project_manager)
 
-# === Option B Architecture (New Clean Architecture) ===
-# Initialize site manager (replacement for SiteRegistry)
+# Initialize site manager
 site_manager = get_site_manager()
 site_manager.discover_sites(plugin_types)
 
@@ -280,7 +285,7 @@ logger.info(f"Site breakdown: {site_manager.get_count_by_type()}")
 for full_id, plugin in project_manager.projects.items():
     logger.info(f"  - {full_id} ({plugin.get_plugin_name()})")
 
-# Log discovered sites (Option B)
+# Log discovered sites
 logger.info("\nDiscovered sites:")
 for site_info in site_manager.list_all_sites():
     alias_display = (
@@ -462,7 +467,6 @@ def extract_plugin_type_from_tool(tool_name: str) -> str | None:
     """
     Extract plugin type from tool name for tool visibility filtering.
 
-    Phase 5.5: Tool Visibility Filter
     Each API key should only see tools related to its plugin type.
 
     Examples:
@@ -510,8 +514,6 @@ def extract_plugin_type_from_tool(tool_name: str) -> str | None:
 def check_tool_visibility(tool_name: str, api_key_project_id: str) -> bool:
     """
     Check if API key has visibility to the requested tool.
-
-    Phase 5.5: Tool Visibility Filter
 
     Rules:
     - Global API keys (project_id="*") see ALL tools
@@ -787,7 +789,6 @@ class UserAuthMiddleware(Middleware):
                 key = api_key_manager.keys.get(key_id) if key_id else None
 
                 if key:
-                    # Phase 5.5: Tool Visibility Filter
                     # Check if API key has visibility to this tool
                     if not check_tool_visibility(tool_name, key.project_id):
                         plugin_type = extract_plugin_type_from_tool(tool_name)
@@ -945,16 +946,16 @@ mcp.add_middleware(AuditLoggingMiddleware())
 logger.info("Audit logging middleware enabled")
 
 
-# === RATE LIMITING (Phase 7.3) ===
+# === RATE LIMITING ===
 
 # Initialize rate limiter
 rate_limiter = get_rate_limiter()
-logger.info("Rate limiter initialized (Phase 7.3)")
+logger.info("Rate limiter initialized")
 
 
 class RateLimitMiddleware(Middleware):
     """
-    Middleware to enforce rate limiting for all tool calls (Phase 7.3).
+    Middleware to enforce rate limiting for all tool calls.
 
     Uses Token Bucket algorithm to prevent API abuse with multi-level limits:
     - Per minute: 60 requests (default)
@@ -1040,10 +1041,10 @@ class RateLimitMiddleware(Middleware):
 
 # Add rate limiting middleware to MCP server
 mcp.add_middleware(RateLimitMiddleware())
-logger.info("Rate limiting middleware enabled (Phase 7.3)")
+logger.info("Rate limiting middleware enabled")
 
 
-# === HEALTH MONITORING (Phase 7.2) ===
+# === HEALTH MONITORING ===
 
 from core import initialize_health_monitor
 
@@ -1054,12 +1055,12 @@ health_monitor = initialize_health_monitor(
     metrics_retention_hours=24,
     max_metrics_per_project=1000,
 )
-logger.info("Health monitor initialized (Phase 7.2)")
+logger.info("Health monitor initialized")
 
 
 class HealthMetricsMiddleware(Middleware):
     """
-    Middleware to track health metrics for all tool calls (Phase 7.2).
+    Middleware to track health metrics for all tool calls.
 
     Tracks:
     - Response time
@@ -1148,7 +1149,7 @@ class HealthMetricsMiddleware(Middleware):
 
 # Add health metrics middleware
 mcp.add_middleware(HealthMetricsMiddleware())
-logger.info("Health metrics middleware enabled (Phase 7.2)")
+logger.info("Health metrics middleware enabled")
 
 
 # === ENDPOINT MIDDLEWARE HELPER ===
@@ -1269,7 +1270,7 @@ async def get_project_info(project_id: str) -> str:
 @mcp.tool()
 async def check_all_projects_health() -> str:
     """
-    Check health status of all projects with enhanced metrics (Phase 7.2).
+    Check health status of all projects with enhanced metrics.
 
     Performs comprehensive health checks on all configured projects including:
     - Accessibility and response time
@@ -1295,7 +1296,7 @@ async def check_all_projects_health() -> str:
 @mcp.tool()
 async def get_project_health(project_id: str) -> str:
     """
-    Get detailed health information for a specific project (Phase 7.2).
+    Get detailed health information for a specific project.
 
     Args:
         project_id: Full project identifier (e.g., "wordpress_site1")
@@ -1322,7 +1323,7 @@ async def get_project_health(project_id: str) -> str:
 @mcp.tool()
 async def get_system_metrics() -> str:
     """
-    Get overall MCP server metrics and statistics (Phase 7.2).
+    Get overall MCP server metrics and statistics.
 
     Returns system-wide metrics including:
     - Uptime
@@ -1348,7 +1349,7 @@ async def get_system_metrics() -> str:
 @mcp.tool()
 async def get_system_uptime() -> str:
     """
-    Get MCP server uptime information (Phase 7.2).
+    Get MCP server uptime information.
 
     Returns:
         JSON string with uptime in various formats (seconds, minutes, hours, days)
@@ -1367,7 +1368,7 @@ async def get_system_uptime() -> str:
 @mcp.tool()
 async def get_project_metrics(project_id: str, hours: int = 1) -> str:
     """
-    Get historical metrics for a specific project (Phase 7.2).
+    Get historical metrics for a specific project.
 
     Args:
         project_id: Full project identifier (e.g., "wordpress_site1")
@@ -1397,7 +1398,7 @@ async def get_project_metrics(project_id: str, hours: int = 1) -> str:
 @mcp.tool()
 async def export_health_metrics(output_path: str = "logs/metrics_export.json") -> str:
     """
-    Export all health metrics to a JSON file (Phase 7.2).
+    Export all health metrics to a JSON file.
 
     Args:
         output_path: Path to output file (default: logs/metrics_export.json)
@@ -1452,7 +1453,7 @@ async def _reset_rate_limit_impl(client_id: str = None) -> str:
 @mcp.tool()
 async def get_rate_limit_stats(client_id: str = None) -> str:
     """
-    Get rate limiting statistics (Phase 7.3).
+    Get rate limiting statistics.
 
     Args:
         client_id: Optional client identifier to get specific client stats.
@@ -1467,7 +1468,7 @@ async def get_rate_limit_stats(client_id: str = None) -> str:
 @mcp.tool()
 async def reset_rate_limit(client_id: str = None) -> str:
     """
-    Reset rate limit state for a client or all clients (Phase 7.3).
+    Reset rate limit state for a client or all clients.
 
     CAUTION: This is an administrative tool. Use with care.
 
@@ -1596,25 +1597,18 @@ def register_project_tools():
     This function is called at startup to register all tools
     from all discovered projects.
 
-    Option B Architecture (Phase 3 Complete):
-    - Uses ToolRegistry for centralized tool management
-    - Uses ToolGenerator for WordPress plugin (refactored in Phase 3)
-    - Type-safe with Pydantic models in ToolRegistry
-    - Tool specifications from plugin.get_tool_specifications()
-
     Note: FastMCP requires using the @mcp.tool() decorator or mcp.tool(function)
     for tool registration.
     """
     logger.info("=" * 60)
-    logger.info("TOOL REGISTRATION - Option B Architecture (Phase 3)")
+    logger.info("TOOL REGISTRATION")
     logger.info("=" * 60)
 
-    # Phase 3: Use ToolGenerator for refactored plugins
     logger.info("Generating tools with ToolGenerator...")
 
     from plugins.wordpress.plugin import WordPressPlugin
 
-    # Generate tools for WordPress (refactored in Phase 3)
+    # Generate tools for WordPress
     logger.info("Generating WordPress tools from plugin specifications...")
     try:
         wordpress_tools = tool_generator.generate_tools(WordPressPlugin, "wordpress")
@@ -1810,7 +1804,7 @@ def register_project_tools():
 
     logger.info("=" * 60)
 
-    # System tools count (Phase 7.2 + 7.3 + API Keys):
+    # System tools count (health + rate limit + API keys):
     # - 10 system/health/rate limit tools
     # - 6 API key management tools
     system_tools_count = 16
@@ -1819,7 +1813,7 @@ def register_project_tools():
     logger.info(
         f"Total tools available: {total_tools} ({tool_registry.get_count()} plugin + {system_tools_count} system)"
     )
-    logger.info("🎯 Option B Architecture: Tool count stays constant regardless of site count!")
+    logger.info("Tool count stays constant regardless of site count")
 
     return total_tools
 
@@ -3100,7 +3094,7 @@ async def health_check(request: Request) -> JSONResponse:
             "status": "healthy",
             "uptime": uptime_seconds,
             "projects": len(project_manager.projects),
-            "sites": site_manager.get_count(),  # Option B
+            "sites": site_manager.get_count(),
             "tools": _total_tool_count,  # Total tools (plugin + system)
             "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         }
