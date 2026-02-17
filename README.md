@@ -8,6 +8,8 @@ Connect your sites, stores, repos, and databases — manage them all through Cla
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776ab.svg)](https://www.python.org/)
+[![PyPI](https://img.shields.io/pypi/v/mcphub-server.svg)](https://pypi.org/project/mcphub-server/)
+[![Docker](https://img.shields.io/docker/v/airano/mcphub?label=docker)](https://hub.docker.com/r/airano/mcphub)
 [![Tests: 289 passing](https://img.shields.io/badge/tests-289%20passing-brightgreen.svg)]()
 [![Tools: 589](https://img.shields.io/badge/tools-589-orange.svg)]()
 [![CI](https://github.com/airano-ir/mcphub/actions/workflows/ci.yml/badge.svg)](https://github.com/airano-ir/mcphub/actions/workflows/ci.yml)
@@ -74,7 +76,13 @@ cp env.example .env
 docker compose up -d
 ```
 
-### Option 2: Python
+### Option 2: PyPI
+
+```bash
+pip install mcphub-server
+```
+
+### Option 3: From Source
 
 ```bash
 git clone https://github.com/airano-ir/mcphub.git

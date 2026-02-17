@@ -52,7 +52,13 @@ cp env.example .env
 docker compose up -d
 ```
 
-### Option 2: Python (pip)
+### Option 2: PyPI
+
+```bash
+pip install mcphub-server
+```
+
+### Option 3: From Source
 
 ```bash
 git clone https://github.com/airano-ir/mcphub.git
@@ -63,7 +69,7 @@ cp env.example .env
 python server.py --transport sse --port 8000
 ```
 
-### Option 3: Automated Setup Scripts
+### Option 4: Automated Setup Scripts
 
 #### Linux/Mac
 
