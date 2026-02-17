@@ -13,6 +13,9 @@ from .schemas import OAuthClient
 
 logger = logging.getLogger(__name__)
 
+# Default data directory: /app/data in Docker, ./data elsewhere
+_DEFAULT_DATA_DIR = "/app/data" if Path("/app").exists() else "./data"
+
 
 class ClientRegistry:
     """
@@ -21,7 +24,8 @@ class ClientRegistry:
     Storage: data/oauth_clients.json
     """
 
-    def __init__(self, data_dir: str = "/app/data"):
+    def __init__(self, data_dir: str | None = None):
+        data_dir = data_dir or _DEFAULT_DATA_DIR
         self.data_dir = Path(data_dir)
         self.data_dir.mkdir(parents=True, exist_ok=True)
 

@@ -13,6 +13,9 @@ from .schemas import AccessToken, AuthorizationCode, RefreshToken
 
 logger = logging.getLogger(__name__)
 
+# Default data directory: /app/data in Docker, ./data elsewhere
+_DEFAULT_DATA_DIR = "/app/data" if Path("/app").exists() else "./data"
+
 
 class BaseStorage:
     """Base storage interface"""
@@ -55,8 +58,8 @@ class JSONStorage(BaseStorage):
         data/oauth_refresh_tokens.json  - Refresh tokens
     """
 
-    def __init__(self, data_dir: str = "/app/data"):
-        self.data_dir = Path(data_dir)
+    def __init__(self, data_dir: str | None = None):
+        self.data_dir = Path(data_dir or _DEFAULT_DATA_DIR)
         self.data_dir.mkdir(parents=True, exist_ok=True)
 
         self.codes_file = self.data_dir / "oauth_codes.json"
@@ -213,8 +216,7 @@ def get_storage() -> BaseStorage:
     storage_type = os.getenv("OAUTH_STORAGE_TYPE", "json")
 
     if storage_type == "json":
-        default_path = "/app/data" if Path("/app").exists() else "./data"
-        storage_path = os.getenv("OAUTH_STORAGE_PATH", default_path)
+        storage_path = os.getenv("OAUTH_STORAGE_PATH", _DEFAULT_DATA_DIR)
         return JSONStorage(storage_path)
 
     # Future: Redis support
