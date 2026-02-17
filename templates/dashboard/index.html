@@ -1,0 +1,264 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}{{ t.dashboard }}{% endblock %}
+{% block page_title %}{{ t.overview }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <!-- Projects Card -->
+        <div class="card-hover bg-gray-800 rounded-xl p-6 border border-gray-700">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-400">{{ t.total_projects }}</p>
+                    <p class="text-3xl font-bold text-white mt-1">{{ stats.projects_count }}</p>
+                </div>
+                <div class="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                    </svg>
+                </div>
+            </div>
+            <a href="/dashboard/projects{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="mt-4 text-sm text-blue-400 hover:text-blue-300 flex items-center">
+                {{ t.view_all }}
+                <svg class="w-4 h-4 {% if lang == 'fa' %}mr-1 rotate-180{% else %}ml-1{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+            </a>
+        </div>
+
+        <!-- API Keys Card -->
+        <div class="card-hover bg-gray-800 rounded-xl p-6 border border-gray-700">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-400">{{ t.active_api_keys }}</p>
+                    <p class="text-3xl font-bold text-white mt-1">{{ stats.api_keys_count }}</p>
+                </div>
+                <div class="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                    </svg>
+                </div>
+            </div>
+            <a href="/dashboard/api-keys{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="mt-4 text-sm text-green-400 hover:text-green-300 flex items-center">
+                {{ t.view_all }}
+                <svg class="w-4 h-4 {% if lang == 'fa' %}mr-1 rotate-180{% else %}ml-1{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+            </a>
+        </div>
+
+        <!-- Tools Card -->
+        <div class="card-hover bg-gray-800 rounded-xl p-6 border border-gray-700">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-400">{{ t.total_tools }}</p>
+                    <p class="text-3xl font-bold text-white mt-1">{{ stats.tools_count }}</p>
+                </div>
+                <div class="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                </div>
+            </div>
+            <p class="mt-4 text-sm text-gray-400">
+                {% if lang == 'fa' %}ابزارهای موجود{% else %}Available tools{% endif %}
+            </p>
+        </div>
+
+        <!-- Uptime Card -->
+        <div class="card-hover bg-gray-800 rounded-xl p-6 border border-gray-700">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-400">{{ t.system_uptime }}</p>
+                    <p class="text-3xl font-bold text-white mt-1">{{ "%.1f"|format(stats.uptime_days) }}d</p>
+                </div>
+                <div class="w-12 h-12 bg-orange-500/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+            </div>
+            <a href="/dashboard/health{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="mt-4 text-sm text-orange-400 hover:text-orange-300 flex items-center">
+                {{ t.view_all }}
+                <svg class="w-4 h-4 {% if lang == 'fa' %}mr-1 rotate-180{% else %}ml-1{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Recent Activity -->
+        <div class="lg:col-span-2 bg-gray-800 rounded-xl border border-gray-700">
+            <div class="p-6 border-b border-gray-700">
+                <h2 class="text-lg font-semibold text-white">{{ t.recent_activity }}</h2>
+            </div>
+            <div class="divide-y divide-gray-700">
+                {% if recent_activity %}
+                    {% for activity in recent_activity %}
+                    <div class="p-4 hover:bg-gray-700/50 transition-colors">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <!-- Icon based on type -->
+                                {% if activity.type == 'tool_call' %}
+                                <div class="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center {% if lang == 'fa' %}ml-3{% else %}mr-3{% endif %}">
+                                    <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0"/>
+                                    </svg>
+                                </div>
+                                {% elif activity.type == 'auth' %}
+                                <div class="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center {% if lang == 'fa' %}ml-3{% else %}mr-3{% endif %}">
+                                    <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                                    </svg>
+                                </div>
+                                {% elif activity.level == 'ERROR' %}
+                                <div class="w-8 h-8 bg-red-500/20 rounded-lg flex items-center justify-center {% if lang == 'fa' %}ml-3{% else %}mr-3{% endif %}">
+                                    <svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                                    </svg>
+                                </div>
+                                {% else %}
+                                <div class="w-8 h-8 bg-gray-500/20 rounded-lg flex items-center justify-center {% if lang == 'fa' %}ml-3{% else %}mr-3{% endif %}">
+                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                </div>
+                                {% endif %}
+
+                                <div>
+                                    <p class="text-sm font-medium text-white">{{ activity.message }}</p>
+                                    <p class="text-xs text-gray-400">{{ activity.project }}</p>
+                                </div>
+                            </div>
+                            <span class="text-xs text-gray-500">{{ activity.timestamp[:19] }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="p-8 text-center text-gray-400">
+                        <svg class="w-12 h-12 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                        </svg>
+                        <p>{{ t.no_activity }}</p>
+                    </div>
+                {% endif %}
+            </div>
+            {% if recent_activity %}
+            <div class="p-4 border-t border-gray-700">
+                <a href="/dashboard/audit-logs{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="text-sm text-primary-400 hover:text-primary-300">
+                    {{ t.view_all }} →
+                </a>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Right Column -->
+        <div class="space-y-6">
+            <!-- Projects by Type -->
+            <div class="bg-gray-800 rounded-xl border border-gray-700">
+                <div class="p-6 border-b border-gray-700">
+                    <h2 class="text-lg font-semibold text-white">{{ t.projects_by_type }}</h2>
+                </div>
+                <div class="p-6 space-y-4">
+                    {% set plugin_colors = {
+                        'wordpress': 'bg-blue-500',
+                        'woocommerce': 'bg-purple-500',
+                        'wordpress_advanced': 'bg-indigo-500',
+                        'gitea': 'bg-green-500',
+                        'n8n': 'bg-orange-500',
+                        'supabase': 'bg-emerald-500',
+                        'openpanel': 'bg-cyan-500',
+                        'appwrite': 'bg-pink-500',
+                        'directus': 'bg-violet-500',
+                    } %}
+
+                    {% set plugin_icons = {
+                        'wordpress': 'W',
+                        'woocommerce': 'WC',
+                        'wordpress_advanced': 'WA',
+                        'gitea': 'G',
+                        'n8n': 'n8n',
+                        'supabase': 'SB',
+                        'openpanel': 'OP',
+                        'appwrite': 'AW',
+                        'directus': 'DI',
+                    } %}
+
+                    {% if projects_by_type %}
+                        {% for plugin_type, count in projects_by_type.items() %}
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <div class="w-8 h-8 {{ plugin_colors.get(plugin_type, 'bg-gray-500') }} rounded-lg flex items-center justify-center {% if lang == 'fa' %}ml-3{% else %}mr-3{% endif %}">
+                                    <span class="text-xs font-bold text-white">{{ plugin_icons.get(plugin_type, plugin_type[:2]|upper) }}</span>
+                                </div>
+                                <span class="text-sm text-gray-300">{{ plugin_type|plugin_name }}</span>
+                            </div>
+                            <span class="text-sm font-medium text-white">{{ count }}</span>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-center text-gray-400 text-sm">
+                            {% if lang == 'fa' %}پروژه‌ای یافت نشد{% else %}No projects found{% endif %}
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Health Status -->
+            <div class="bg-gray-800 rounded-xl border border-gray-700">
+                <div class="p-6 border-b border-gray-700">
+                    <h2 class="text-lg font-semibold text-white">{{ t.health_status }}</h2>
+                </div>
+                <div class="p-6 space-y-4">
+                    {% for component, status in health_summary.components.items() %}
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-300 capitalize">{{ component }}</span>
+                        <div class="flex items-center">
+                            {% if status == 'healthy' %}
+                            <span class="w-2 h-2 bg-green-500 rounded-full status-pulse {% if lang == 'fa' %}ml-2{% else %}mr-2{% endif %}"></span>
+                            <span class="text-sm text-green-400">{{ t.healthy }}</span>
+                            {% elif status == 'warning' %}
+                            <span class="w-2 h-2 bg-yellow-500 rounded-full status-pulse {% if lang == 'fa' %}ml-2{% else %}mr-2{% endif %}"></span>
+                            <span class="text-sm text-yellow-400">{{ t.warning }}</span>
+                            {% else %}
+                            <span class="w-2 h-2 bg-red-500 rounded-full status-pulse {% if lang == 'fa' %}ml-2{% else %}mr-2{% endif %}"></span>
+                            <span class="text-sm text-red-400">{{ t.error }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                    <div class="pt-4 border-t border-gray-700">
+                        <p class="text-xs text-gray-500">
+                            {% if lang == 'fa' %}آخرین بررسی:{% else %}Last check:{% endif %}
+                            {{ health_summary.last_check[:19] }}
+                        </p>
+                    </div>
+                </div>
+                <div class="p-4 border-t border-gray-700">
+                    <a href="/dashboard/health{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="text-sm text-primary-400 hover:text-primary-300">
+                        {{ t.view_all }} →
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Auto-refresh dashboard every 30 seconds
+    htmx.config.defaultSwapStyle = 'outerHTML';
+
+    // Refresh stats periodically
+    setInterval(function() {
+        htmx.ajax('GET', '/api/dashboard/stats', {target: '#stats-container', swap: 'none'});
+    }, 30000);
+</script>
+{% endblock %}

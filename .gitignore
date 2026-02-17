@@ -1,0 +1,161 @@
+# ====================================
+# Python
+# ====================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# ====================================
+# Testing
+# ====================================
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+
+# ====================================
+# Type checking and linting
+# ====================================
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.ruff_cache/
+.pytype/
+
+# ====================================
+# IDE and Editors
+# ====================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# Claude Code local settings
+.claude/
+
+# ====================================
+# Logs and Runtime
+# ====================================
+*.log
+server_output*.log
+*.pid
+
+# Keep logs directory structure but ignore contents
+logs/*
+!logs/.gitkeep
+
+# ====================================
+# OS Files
+# ====================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# ====================================
+# Environment and Configuration
+# ====================================
+.env
+.env.*
+!.env.example
+.kilocode
+.mcp.json
+
+# ====================================
+# Docker
+# ====================================
+docker-compose.override.yml
+*.pid
+
+# ====================================
+# Backup files
+# ====================================
+*.backup
+*.bak
+*.old
+*.orig
+*~
+
+# ====================================
+# MCP Test files
+# ====================================
+MCP_TEST_REPORT.md
+mcp_test_*.txt
+test_mcp_connection.py
+mcp_test_results.json
+
+# ====================================
+# Documentation builds
+# ====================================
+docs/_build/
+site/
+
+# ====================================
+# Temporary files
+# ====================================
+*.tmp
+*.temp
+.cache/
+
+# ====================================
+# Security and sensitive data
+# ====================================
+secrets/
+data/
+*.pem
+*.key
+*.crt
+*.cert
+*.p12
+*.pfx
+
+# ====================================
+# Database files
+# ====================================
+*.sqlite
+*.sqlite3
+*.db
+
+# ====================================
+# Node.js (if added in future)
+# ====================================
+node_modules/
+
+# ====================================
+# Temporary directories
+# ====================================
+temp/
+pytest-cache-files-*/
+
+# ====================================
+# Project specific
+# ====================================
+# Add project-specific ignores here

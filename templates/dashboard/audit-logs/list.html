@@ -1,0 +1,311 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}{{ t.audit_logs }}{% endblock %}
+{% block page_title %}{{ t.audit_logs }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Filters -->
+    <div class="bg-gray-800 rounded-xl border border-gray-700 p-4">
+        <form method="GET" class="flex flex-wrap items-center gap-4">
+            {% if lang and lang != 'en' %}<input type="hidden" name="lang" value="{{ lang }}">{% endif %}
+
+            <!-- Project Filter -->
+            <div class="flex items-center gap-2">
+                <label class="text-sm text-gray-400">{% if lang == 'fa' %}پروژه:{% else %}Project:{% endif %}</label>
+                <select
+                    name="project"
+                    class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    onchange="this.form.submit()"
+                >
+                    <option value="">{% if lang == 'fa' %}همه پروژه‌ها{% else %}All Projects{% endif %}</option>
+                    {% for project in available_projects %}
+                    <option value="{{ project.full_id }}" {% if selected_project == project.full_id %}selected{% endif %}>
+                        {{ project.alias or project.site_id }} ({{ project.plugin_type }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Event Type Filter -->
+            <div class="flex items-center gap-2">
+                <label class="text-sm text-gray-400">{{ t.filter }}:</label>
+                <select
+                    name="event_type"
+                    class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    onchange="this.form.submit()"
+                >
+                    <option value="">{% if lang == 'fa' %}همه رویدادها{% else %}All Events{% endif %}</option>
+                    <option value="tool_call" {% if selected_event_type == 'tool_call' %}selected{% endif %}>{% if lang == 'fa' %}فراخوانی ابزار{% else %}Tool Call{% endif %}</option>
+                    <option value="authentication" {% if selected_event_type == 'authentication' %}selected{% endif %}>{% if lang == 'fa' %}احراز هویت{% else %}Authentication{% endif %}</option>
+                    <option value="system" {% if selected_event_type == 'system' %}selected{% endif %}>{% if lang == 'fa' %}سیستم{% else %}System{% endif %}</option>
+                    <option value="error" {% if selected_event_type == 'error' %}selected{% endif %}>{% if lang == 'fa' %}خطا{% else %}Error{% endif %}</option>
+                </select>
+            </div>
+
+            <!-- Level Filter -->
+            <div class="flex items-center gap-2">
+                <label class="text-sm text-gray-400">{% if lang == 'fa' %}سطح:{% else %}Level:{% endif %}</label>
+                <select
+                    name="level"
+                    class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    onchange="this.form.submit()"
+                >
+                    <option value="">{% if lang == 'fa' %}همه{% else %}All{% endif %}</option>
+                    <option value="INFO" {% if selected_level == 'INFO' %}selected{% endif %}>INFO</option>
+                    <option value="WARNING" {% if selected_level == 'WARNING' %}selected{% endif %}>WARNING</option>
+                    <option value="ERROR" {% if selected_level == 'ERROR' %}selected{% endif %}>ERROR</option>
+                </select>
+            </div>
+
+            <!-- Date Filter -->
+            <div class="flex items-center gap-2">
+                <label class="text-sm text-gray-400">{% if lang == 'fa' %}تاریخ:{% else %}Date:{% endif %}</label>
+                <input
+                    type="date"
+                    name="date"
+                    value="{{ selected_date }}"
+                    class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    onchange="this.form.submit()"
+                >
+            </div>
+
+            <!-- Search -->
+            <div class="flex-1 min-w-[200px]">
+                <input
+                    type="text"
+                    name="search"
+                    value="{{ search_query }}"
+                    placeholder="{% if lang == 'fa' %}جستجو...{% else %}Search...{% endif %}"
+                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white text-sm placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                >
+            </div>
+
+            <button type="submit" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 rounded-lg text-white text-sm transition-colors">
+                {{ t.search }}
+            </button>
+
+            {% if search_query or selected_event_type or selected_level or selected_date or selected_project %}
+            <a href="/dashboard/audit-logs{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white text-sm transition-colors">
+                {{ t['clear'] }}
+            </a>
+            {% endif %}
+        </form>
+    </div>
+
+    <!-- Stats Summary -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-gray-800 rounded-xl border border-gray-700 p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-400">{% if lang == 'fa' %}کل رویدادها{% else %}Total Events{% endif %}</p>
+                    <p class="text-2xl font-bold text-white">{{ stats.total }}</p>
+                </div>
+                <div class="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+        <div class="bg-gray-800 rounded-xl border border-gray-700 p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-400">{% if lang == 'fa' %}فراخوانی ابزار{% else %}Tool Calls{% endif %}</p>
+                    <p class="text-2xl font-bold text-white">{{ stats.tool_calls }}</p>
+                </div>
+                <div class="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+        <div class="bg-gray-800 rounded-xl border border-gray-700 p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-400">{% if lang == 'fa' %}احراز هویت{% else %}Auth Events{% endif %}</p>
+                    <p class="text-2xl font-bold text-white">{{ stats.auth_events }}</p>
+                </div>
+                <div class="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+        <div class="bg-gray-800 rounded-xl border border-gray-700 p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-400">{% if lang == 'fa' %}خطاها{% else %}Errors{% endif %}</p>
+                    <p class="text-2xl font-bold text-white">{{ stats.errors }}</p>
+                </div>
+                <div class="w-10 h-10 bg-red-500/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logs Table -->
+    <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-700/50">
+                    <tr>
+                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-300">
+                            {% if lang == 'fa' %}زمان{% else %}Timestamp{% endif %}
+                        </th>
+                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-300">
+                            {% if lang == 'fa' %}نوع{% else %}Type{% endif %}
+                        </th>
+                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-300">
+                            {% if lang == 'fa' %}سطح{% else %}Level{% endif %}
+                        </th>
+                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-300">
+                            {% if lang == 'fa' %}رویداد{% else %}Event{% endif %}
+                        </th>
+                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-300">
+                            {% if lang == 'fa' %}جزئیات{% else %}Details{% endif %}
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-700">
+                    {% if logs %}
+                        {% for log in logs %}
+                        <tr class="hover:bg-gray-700/30 transition-colors">
+                            <!-- Timestamp -->
+                            <td class="px-6 py-4">
+                                <span class="text-sm text-gray-300 font-mono">{{ log.timestamp[:19] }}</span>
+                            </td>
+
+                            <!-- Event Type -->
+                            <td class="px-6 py-4">
+                                {% set type_colors = {
+                                    'tool_call': 'bg-purple-500/20 text-purple-400',
+                                    'authentication': 'bg-green-500/20 text-green-400',
+                                    'system': 'bg-blue-500/20 text-blue-400',
+                                    'error': 'bg-red-500/20 text-red-400'
+                                } %}
+                                <span class="px-2 py-1 {{ type_colors.get(log.event_type, 'bg-gray-500/20 text-gray-400') }} text-xs rounded-lg font-medium">
+                                    {{ log.event_type }}
+                                </span>
+                            </td>
+
+                            <!-- Level -->
+                            <td class="px-6 py-4">
+                                {% if log.level == 'ERROR' %}
+                                <span class="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded-lg font-medium">ERROR</span>
+                                {% elif log.level == 'WARNING' %}
+                                <span class="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded-lg font-medium">WARNING</span>
+                                {% else %}
+                                <span class="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-lg font-medium">INFO</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Event/Message -->
+                            <td class="px-6 py-4">
+                                <span class="text-sm text-white">{{ log.event or log.message or log.tool_name or '-' }}</span>
+                                {% if log.project_id %}
+                                <span class="text-xs text-gray-500 block">{{ log.project_id }}</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Details -->
+                            <td class="px-6 py-4">
+                                {% if log.details or log.metadata %}
+                                <button
+                                    onclick="toggleDetails({{ loop.index }})"
+                                    class="text-sm text-primary-400 hover:text-primary-300"
+                                >
+                                    {% if lang == 'fa' %}مشاهده{% else %}View{% endif %}
+                                </button>
+                                <div id="details-{{ loop.index }}" class="hidden mt-2 p-2 bg-gray-900 rounded text-xs text-gray-400 font-mono max-w-md overflow-auto">
+                                    <pre>{{ (log.details or log.metadata or {})|tojson(indent=2) }}</pre>
+                                </div>
+                                {% else %}
+                                <span class="text-sm text-gray-500">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="5" class="px-6 py-12 text-center">
+                                <svg class="w-12 h-12 mx-auto mb-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                                </svg>
+                                <p class="text-gray-400">
+                                    {% if lang == 'fa' %}لاگی یافت نشد{% else %}No logs found{% endif %}
+                                </p>
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if total_pages > 1 %}
+        <div class="px-6 py-4 border-t border-gray-700 flex items-center justify-between">
+            <p class="text-sm text-gray-400">
+                {% if lang == 'fa' %}
+                نمایش {{ ((page_number - 1) * per_page) + 1 }} تا {{ [page_number * per_page, total_count]|min }} از {{ total_count }} لاگ
+                {% else %}
+                Showing {{ ((page_number - 1) * per_page) + 1 }} to {{ [page_number * per_page, total_count]|min }} of {{ total_count }} logs
+                {% endif %}
+            </p>
+
+            <div class="flex items-center gap-2">
+                {% if page_number > 1 %}
+                <a href="?page={{ page_number - 1 }}{% if selected_project %}&project={{ selected_project }}{% endif %}{% if selected_event_type %}&event_type={{ selected_event_type }}{% endif %}{% if selected_level %}&level={{ selected_level }}{% endif %}{% if selected_date %}&date={{ selected_date }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if lang and lang != 'en' %}&lang={{ lang }}{% endif %}"
+                   class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm text-white transition-colors">
+                    {% if lang == 'fa' %}قبلی{% else %}Previous{% endif %}
+                </a>
+                {% endif %}
+
+                {% for page_num in range(1, total_pages + 1) %}
+                    {% if page_num == page_number %}
+                    <span class="px-3 py-1.5 bg-primary-600 rounded-lg text-sm text-white">{{ page_num }}</span>
+                    {% elif page_num == 1 or page_num == total_pages or (page_num >= page_number - 2 and page_num <= page_number + 2) %}
+                    <a href="?page={{ page_num }}{% if selected_project %}&project={{ selected_project }}{% endif %}{% if selected_event_type %}&event_type={{ selected_event_type }}{% endif %}{% if selected_level %}&level={{ selected_level }}{% endif %}{% if selected_date %}&date={{ selected_date }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if lang and lang != 'en' %}&lang={{ lang }}{% endif %}"
+                       class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm text-white transition-colors">
+                        {{ page_num }}
+                    </a>
+                    {% elif page_num == page_number - 3 or page_num == page_number + 3 %}
+                    <span class="text-gray-500">...</span>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page_number < total_pages %}
+                <a href="?page={{ page_number + 1 }}{% if selected_project %}&project={{ selected_project }}{% endif %}{% if selected_event_type %}&event_type={{ selected_event_type }}{% endif %}{% if selected_level %}&level={{ selected_level }}{% endif %}{% if selected_date %}&date={{ selected_date }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if lang and lang != 'en' %}&lang={{ lang }}{% endif %}"
+                   class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm text-white transition-colors">
+                    {% if lang == 'fa' %}بعدی{% else %}Next{% endif %}
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    if (window.auditLogsPageInitialized) return;
+    window.auditLogsPageInitialized = true;
+
+    function toggleDetails(index) {
+        var detailsDiv = document.getElementById('details-' + index);
+        if (detailsDiv) {
+            detailsDiv.classList.toggle('hidden');
+        }
+    }
+
+    window.toggleDetails = toggleDetails;
+})();
+</script>
+{% endblock %}

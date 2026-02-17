@@ -1,0 +1,110 @@
+# ===================================
+# Coolify Projects MCP Server
+# Docker Compose Configuration
+# ===================================
+# 
+# Build Pack: Docker Compose
+# ⚠️  CRITICAL RULES FOR COOLIFY:
+#   1. NO host port mappings: Use "8000" NOT "8000:8000"
+#   2. Listen on 0.0.0.0 (NOT localhost)
+#   3. Health checks for ALL services
+#   4. Use environment variables for ALL configs
+# ===================================
+
+version: '3.8'
+
+services:
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mcphub
+    restart: unless-stopped
+    
+    # ⚠️ CRITICAL: Only container port (NO host port mapping)
+    # Coolify will handle routing via domain
+    ports:
+      - "8000"
+    
+    # Environment variables
+    environment:
+      # Master API key
+      - MASTER_API_KEY=${MASTER_API_KEY}
+
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - PYTHONUNBUFFERED=1
+
+      # === OAuth 2.1 Configuration (Phase B) ===
+      # Required for OAuth authentication
+      - OAUTH_JWT_SECRET_KEY=${OAUTH_JWT_SECRET_KEY}
+      - OAUTH_JWT_ALGORITHM=${OAUTH_JWT_ALGORITHM:-HS256}
+      - OAUTH_ACCESS_TOKEN_TTL=${OAUTH_ACCESS_TOKEN_TTL:-3600}
+      - OAUTH_REFRESH_TOKEN_TTL=${OAUTH_REFRESH_TOKEN_TTL:-604800}
+      - OAUTH_STORAGE_TYPE=${OAUTH_STORAGE_TYPE:-json}
+      - OAUTH_STORAGE_PATH=${OAUTH_STORAGE_PATH:-/app/data}
+
+      # OAuth Authorization Security
+      # IMPORTANT: API Key is always required for authorization (OAuth manual mode)
+      # Use 'required' (recommended) to enforce API Key authentication
+      - OAUTH_AUTH_MODE=${OAUTH_AUTH_MODE:-required}
+      # OAUTH_TRUSTED_DOMAINS is deprecated - API Key always required for security
+      - OAUTH_BASE_URL=${OAUTH_BASE_URL}
+
+      # === WordPress Projects ===
+      # Configure WordPress sites in Coolify environment variables
+      # Format: WORDPRESS_{SITE_ID}_{CONFIG_KEY}
+      #
+      # Required variables for each site:
+      #   WORDPRESS_SITE1_URL=https://your-site.com
+      #   WORDPRESS_SITE1_USERNAME=admin
+      #   WORDPRESS_SITE1_APP_PASSWORD=xxxx xxxx xxxx xxxx
+      #
+      # Optional (for WP-CLI tools):
+      #   WORDPRESS_SITE1_CONTAINER=wordpress_container_name
+      #   WORDPRESS_SITE1_ALIAS=myblog
+      #
+      # ⚠️ DO NOT add example values here - configure in Coolify!
+      # The server will auto-discover all WORDPRESS_* variables at startup.
+      
+      # === Future Plugins ===
+      # Gitea, Supabase, and other plugins will auto-discover
+      # their environment variables when implemented.
+      # No need to pre-define them here.
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Docker socket access for WP-CLI tools (Phase 5+)
+    # Required for: wp_cache_flush, wp_cache_type, wp_transient_*, etc.
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - mcp-data:/app/data          # Persistent storage for API keys
+      - mcp-logs:/app/logs          # Persistent logs (audit, health)
+
+    # Grant access to Docker socket by adding user to docker group
+    # The GID varies by host (988, 999, 133 are common)
+    # Coolify typically uses 988
+    group_add:
+      - "988"  # Docker group GID (adjust if needed)
+
+    # Network - Coolify will handle this
+    # networks:
+    #   - coolify
+
+# Named volumes for persistent data
+volumes:
+  mcp-data:
+    driver: local
+  mcp-logs:
+    driver: local
+
+# Networks managed by Coolify
+# networks:
+#   coolify:
+#     external: true

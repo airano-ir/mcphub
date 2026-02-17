@@ -1,0 +1,116 @@
+<!-- Projects Table Rows -->
+{% if projects_health %}
+    {% for project_id, project in projects_health.items() %}
+    <tr class="hover:bg-gray-700/30 transition-colors">
+        <td class="px-6 py-4">
+            <span class="text-white font-medium">{{ project_id }}</span>
+        </td>
+        <td class="px-6 py-4">
+            {% if project.healthy or project.status == 'healthy' %}
+            <span class="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-lg font-medium">{{ t.healthy }}</span>
+            {% elif project.status == 'warning' %}
+            <span class="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded-lg font-medium">{% if lang == 'fa' %}هشدار{% else %}Warning{% endif %}</span>
+            {% elif project.status == 'unhealthy' %}
+            <span class="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded-lg font-medium">{% if lang == 'fa' %}ناسالم{% else %}Unhealthy{% endif %}</span>
+            {% else %}
+            <span class="px-2 py-1 bg-gray-500/20 text-gray-400 text-xs rounded-lg font-medium">{% if lang == 'fa' %}نامشخص{% else %}Unknown{% endif %}</span>
+            {% endif %}
+        </td>
+        <td class="px-6 py-4">
+            <span class="text-gray-300">{{ project.response_time_ms|round(2) }} ms</span>
+        </td>
+        <td class="px-6 py-4">
+            <span class="{% if project.error_rate_percent > 10 %}text-red-400{% elif project.error_rate_percent > 5 %}text-yellow-400{% else %}text-green-400{% endif %}">
+                {{ project.error_rate_percent|round(2) }}%
+            </span>
+        </td>
+        <td class="px-6 py-4">
+            <span class="text-sm text-gray-400">{{ project.last_check[:19] if project.last_check else '-' }}</span>
+        </td>
+    </tr>
+    {% endfor %}
+{% else %}
+    <tr>
+        <td colspan="5" class="px-6 py-12 text-center">
+            <p class="text-gray-400">
+                {% if lang == 'fa' %}هیچ پروژه‌ای برای بررسی یافت نشد{% else %}No projects found for health check{% endif %}
+            </p>
+        </td>
+    </tr>
+{% endif %}
+
+<!-- JavaScript to update status elements (more reliable than OOB swaps) -->
+<script>
+(function() {
+    // Data from server
+    var systemStatus = '{{ system_status }}';
+    var projectsHealthy = {{ projects_summary.healthy }};
+    var projectsTotal = {{ projects_summary.total }};
+    var healthyText = '{{ t.healthy }}';
+    var errorText = '{{ t.error }}';
+    var lang = '{{ lang }}';
+
+    // Update status badge
+    var badge = document.getElementById('system-status-badge');
+    if (badge) {
+        badge.className = 'text-2xl font-bold ';
+        if (systemStatus === 'healthy') {
+            badge.className += 'text-green-400';
+            badge.textContent = healthyText;
+        } else if (systemStatus === 'degraded') {
+            badge.className += 'text-yellow-400';
+            badge.textContent = lang === 'fa' ? 'کاهش یافته' : 'Degraded';
+        } else {
+            badge.className += 'text-red-400';
+            badge.textContent = errorText;
+        }
+    }
+
+    // Update status icon
+    var icon = document.getElementById('system-status-icon');
+    if (icon) {
+        icon.className = 'w-12 h-12 rounded-lg flex items-center justify-center ';
+        var iconColor, iconBg;
+        if (systemStatus === 'healthy') {
+            iconBg = 'bg-green-500/20';
+            iconColor = 'text-green-400';
+            icon.innerHTML = '<svg class="w-6 h-6 ' + iconColor + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
+        } else if (systemStatus === 'degraded') {
+            iconBg = 'bg-yellow-500/20';
+            iconColor = 'text-yellow-400';
+            icon.innerHTML = '<svg class="w-6 h-6 ' + iconColor + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>';
+        } else {
+            iconBg = 'bg-red-500/20';
+            iconColor = 'text-red-400';
+            icon.innerHTML = '<svg class="w-6 h-6 ' + iconColor + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>';
+        }
+        icon.className += iconBg;
+    }
+
+    // Update projects summary
+    var summary = document.getElementById('projects-summary');
+    if (summary) {
+        summary.textContent = projectsHealthy + '/' + projectsTotal + ' ' + healthyText;
+    }
+
+    // Update alerts container
+    var alertsContainer = document.getElementById('alerts-container');
+    if (alertsContainer) {
+        {% if alerts and alerts|length > 0 %}
+        alertsContainer.className = 'bg-red-900/30 border border-red-700 rounded-xl p-4 mb-6';
+        alertsContainer.innerHTML = '<h3 class="text-lg font-semibold text-red-400 mb-3">' +
+            '<svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
+            '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>' +
+            '</svg>' +
+            (lang === 'fa' ? 'هشدارهای فعال' : 'Active Alerts') + ' ({{ alerts|length }})' +
+            '</h3>' +
+            '<ul class="space-y-2">' +
+            {% for alert in alerts %}'<li class="text-sm text-red-300 font-mono">{{ alert }}</li>' +{% endfor %}
+            '</ul>';
+        {% else %}
+        alertsContainer.className = '';
+        alertsContainer.innerHTML = '';
+        {% endif %}
+    }
+})();
+</script>

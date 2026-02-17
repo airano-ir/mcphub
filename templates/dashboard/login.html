@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="{{ lang|default('en') }}" {% if lang == 'fa' %}dir="rtl"{% endif %}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t.login_title }} - MCP Hub</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        .login-gradient {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .card-shadow {
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        .input-focus:focus {
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.3);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        .animate-float {
+            animation: float 6s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 min-h-screen flex items-center justify-center p-4">
+    <!-- Background decoration -->
+    <div class="absolute inset-0 overflow-hidden pointer-events-none">
+        <div class="absolute -top-40 -right-40 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl animate-float"></div>
+        <div class="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl animate-float" style="animation-delay: -3s;"></div>
+    </div>
+
+    <!-- Login Card -->
+    <div class="relative w-full max-w-md">
+        <div class="card-shadow bg-gray-800 rounded-2xl p-8">
+            <!-- Logo -->
+            <div class="text-center mb-8">
+                <div class="mx-auto w-16 h-16 login-gradient rounded-2xl flex items-center justify-center mb-4">
+                    <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </div>
+                <h1 class="text-2xl font-bold text-white">MCP Hub</h1>
+                <p class="text-gray-400 mt-2" {% if lang == 'fa' %}dir="rtl"{% endif %}>{{ t.login_subtitle }}</p>
+            </div>
+
+            <!-- Error Message -->
+            {% if error %}
+            <div class="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-lg" {% if lang == 'fa' %}dir="rtl"{% endif %}>
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 text-red-400 {% if lang == 'fa' %}ml-2{% else %}mr-2{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span class="text-red-400 text-sm">
+                        {% if error == 'rate_limit' %}
+                        {{ t.rate_limit_error }}
+                        {% else %}
+                        {{ t.login_error }}
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Login Form -->
+            <form method="POST" action="/dashboard/login" class="space-y-6">
+                <input type="hidden" name="next" value="{{ next_url }}">
+
+                <div {% if lang == 'fa' %}dir="rtl"{% endif %}>
+                    <label for="api_key" class="block text-sm font-medium text-gray-300 mb-2">
+                        {{ t.api_key_label }}
+                    </label>
+                    <input
+                        type="password"
+                        id="api_key"
+                        name="api_key"
+                        required
+                        autocomplete="off"
+                        placeholder="{{ t.api_key_placeholder }}"
+                        class="input-focus w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500 transition-colors"
+                        {% if lang == 'fa' %}dir="ltr" style="text-align: right;"{% endif %}
+                    >
+                </div>
+
+                <button
+                    type="submit"
+                    class="btn-primary w-full py-3 px-4 text-white font-semibold rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-800"
+                >
+                    {{ t.login_button }}
+                </button>
+            </form>
+
+            <!-- Security Note -->
+            <div class="mt-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg" {% if lang == 'fa' %}dir="rtl"{% endif %}>
+                <div class="flex items-start">
+                    <svg class="w-5 h-5 text-blue-400 {% if lang == 'fa' %}ml-2{% else %}mr-2{% endif %} mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <p class="text-sm text-blue-300">
+                        {% if lang == 'fa' %}
+                        برای دسترسی به داشبورد به Master API Key یا یک API Key با scope=admin نیاز دارید.
+                        {% else %}
+                        You need a Master API Key or an API Key with scope=admin to access the dashboard.
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+
+            <!-- Language Toggle -->
+            <div class="mt-6 text-center">
+                <a
+                    href="?lang={% if lang == 'fa' %}en{% else %}fa{% endif %}{% if next_url %}&next={{ next_url }}{% endif %}"
+                    class="text-sm text-gray-400 hover:text-white transition-colors"
+                >
+                    {% if lang == 'fa' %}English{% else %}فارسی{% endif %}
+                </a>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <p class="text-center text-gray-500 text-sm mt-6">
+            MCP Hub v3.0.0
+        </p>
+    </div>
+</body>
+</html>

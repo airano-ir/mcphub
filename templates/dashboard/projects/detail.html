@@ -1,0 +1,372 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}{{ project.alias or project.site_id }} - {{ t.projects }}{% endblock %}
+{% block page_title %}
+<div class="flex items-center">
+    <a href="/dashboard/projects{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="text-gray-400 hover:text-white {% if lang == 'fa' %}ml-3{% else %}mr-3{% endif %} transition-colors">
+        <svg class="w-5 h-5 {% if lang == 'fa' %}rotate-180{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+    </a>
+    <span>{{ project.plugin_type|plugin_name }}: {{ project.alias or project.site_id }}</span>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <!-- Status Card -->
+        <div class="card-hover bg-gray-800 rounded-xl p-6 border border-gray-700">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-400">{% if lang == 'fa' %}وضعیت{% else %}Status{% endif %}</p>
+                    <div class="flex items-center mt-2">
+                        {% if project.health.status == 'healthy' %}
+                        <span class="w-3 h-3 bg-green-500 rounded-full status-pulse {% if lang == 'fa' %}ml-2{% else %}mr-2{% endif %}"></span>
+                        <span class="text-xl font-bold text-green-400">{{ t.healthy }}</span>
+                        {% elif project.health.status == 'warning' %}
+                        <span class="w-3 h-3 bg-yellow-500 rounded-full {% if lang == 'fa' %}ml-2{% else %}mr-2{% endif %}"></span>
+                        <span class="text-xl font-bold text-yellow-400">{% if lang == 'fa' %}هشدار{% else %}Warning{% endif %}</span>
+                        {% elif project.health.status == 'unhealthy' %}
+                        <span class="w-3 h-3 bg-red-500 rounded-full {% if lang == 'fa' %}ml-2{% else %}mr-2{% endif %}"></span>
+                        <span class="text-xl font-bold text-red-400">{% if lang == 'fa' %}ناسالم{% else %}Unhealthy{% endif %}</span>
+                        {% else %}
+                        <span class="w-3 h-3 bg-gray-500 rounded-full {% if lang == 'fa' %}ml-2{% else %}mr-2{% endif %}"></span>
+                        <span class="text-xl font-bold text-gray-400">{% if lang == 'fa' %}نامشخص{% else %}Unknown{% endif %}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="w-12 h-12 {% if project.health.status == 'healthy' %}bg-green-500/20{% elif project.health.status == 'warning' %}bg-yellow-500/20{% elif project.health.status == 'unhealthy' %}bg-red-500/20{% else %}bg-gray-500/20{% endif %} rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 {% if project.health.status == 'healthy' %}text-green-400{% elif project.health.status == 'warning' %}text-yellow-400{% elif project.health.status == 'unhealthy' %}text-red-400{% else %}text-gray-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        {% if project.health.status == 'healthy' %}
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        {% elif project.health.status == 'unknown' %}
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        {% else %}
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        {% endif %}
+                    </svg>
+                </div>
+            </div>
+            {% if project.health.error_rate and project.health.error_rate > 0 %}
+            <p class="mt-2 text-sm text-gray-400">{% if lang == 'fa' %}نرخ خطا:{% else %}Error rate:{% endif %} {{ project.health.error_rate|round(1) }}%</p>
+            {% elif project.health.last_check %}
+            <p class="mt-2 text-sm text-gray-400">{% if lang == 'fa' %}آخرین بررسی:{% else %}Last check:{% endif %} {{ project.health.last_check[:19] }}</p>
+            {% endif %}
+        </div>
+
+        <!-- Tools Card -->
+        <div class="card-hover bg-gray-800 rounded-xl p-6 border border-gray-700">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-400">{% if lang == 'fa' %}ابزارها{% else %}Tools{% endif %}</p>
+                    <p class="text-3xl font-bold text-white mt-1">{{ project.tools_count }}</p>
+                </div>
+                <div class="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0"/>
+                    </svg>
+                </div>
+            </div>
+            <p class="mt-2 text-sm text-gray-400">{% if lang == 'fa' %}ابزار موجود{% else %}available{% endif %}</p>
+        </div>
+
+        <!-- API Keys Card -->
+        <div class="card-hover bg-gray-800 rounded-xl p-6 border border-gray-700">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-400">{% if lang == 'fa' %}کلیدهای API{% else %}API Keys{% endif %}</p>
+                    <p class="text-3xl font-bold text-white mt-1">{{ project.api_keys_count }}</p>
+                </div>
+                <div class="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                    </svg>
+                </div>
+            </div>
+            <a href="/dashboard/api-keys?project={{ project.full_id }}{% if lang and lang != 'en' %}&lang={{ lang }}{% endif %}" class="mt-2 text-sm text-green-400 hover:text-green-300">
+                {{ t.view_all }} →
+            </a>
+        </div>
+
+        <!-- Requests Card -->
+        <div class="card-hover bg-gray-800 rounded-xl p-6 border border-gray-700">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-400">{% if lang == 'fa' %}درخواست‌ها{% else %}Requests{% endif %}</p>
+                    <p class="text-3xl font-bold text-white mt-1">{{ project.requests_24h }}</p>
+                </div>
+                <div class="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                    </svg>
+                </div>
+            </div>
+            <p class="mt-2 text-sm text-gray-400">{% if lang == 'fa' %}در 24 ساعت{% else %}/24h{% endif %}</p>
+        </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Configuration -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Config Section -->
+            <div class="bg-gray-800 rounded-xl border border-gray-700">
+                <div class="p-6 border-b border-gray-700">
+                    <h2 class="text-lg font-semibold text-white">{% if lang == 'fa' %}تنظیمات{% else %}Configuration{% endif %}</h2>
+                </div>
+                <div class="p-6">
+                    <dl class="space-y-4">
+                        <div class="flex justify-between py-2 border-b border-gray-700">
+                            <dt class="text-gray-400">{% if lang == 'fa' %}شناسه کامل{% else %}Full ID{% endif %}</dt>
+                            <dd class="text-white font-mono">{{ project.full_id }}</dd>
+                        </div>
+                        <div class="flex justify-between py-2 border-b border-gray-700">
+                            <dt class="text-gray-400">{% if lang == 'fa' %}نوع پلاگین{% else %}Plugin Type{% endif %}</dt>
+                            <dd class="text-white">{{ project.plugin_type|plugin_name }}</dd>
+                        </div>
+                        <div class="flex justify-between py-2 border-b border-gray-700">
+                            <dt class="text-gray-400">{% if lang == 'fa' %}شناسه سایت{% else %}Site ID{% endif %}</dt>
+                            <dd class="text-white font-mono">{{ project.site_id }}</dd>
+                        </div>
+                        {% if project.alias %}
+                        <div class="flex justify-between py-2 border-b border-gray-700">
+                            <dt class="text-gray-400">{% if lang == 'fa' %}نام مستعار{% else %}Alias{% endif %}</dt>
+                            <dd class="text-primary-400 font-medium">{{ project.alias }}</dd>
+                        </div>
+                        {% endif %}
+                        {% if project.url %}
+                        <div class="flex justify-between py-2 border-b border-gray-700">
+                            <dt class="text-gray-400">URL</dt>
+                            <dd>
+                                <a href="{{ project.url }}" target="_blank" class="text-blue-400 hover:text-blue-300">
+                                    {{ project.url }}
+                                    <svg class="w-4 h-4 inline {% if lang == 'fa' %}mr-1{% else %}ml-1{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                                    </svg>
+                                </a>
+                            </dd>
+                        </div>
+                        {% endif %}
+                        <div class="flex justify-between py-2">
+                            <dt class="text-gray-400">{% if lang == 'fa' %}اندپوینت MCP{% else %}MCP Endpoint{% endif %}</dt>
+                            <dd class="text-white font-mono text-sm">/project/{{ project.alias or project.full_id }}/mcp</dd>
+                        </div>
+                    </dl>
+                </div>
+            </div>
+
+            <!-- Available Tools -->
+            <div class="bg-gray-800 rounded-xl border border-gray-700">
+                <div class="p-6 border-b border-gray-700 flex items-center justify-between">
+                    <h2 class="text-lg font-semibold text-white">{% if lang == 'fa' %}ابزارهای موجود{% else %}Available Tools{% endif %}</h2>
+                    <span class="px-2 py-1 bg-gray-700 rounded-lg text-sm text-gray-300">{{ project.tools|length }} {% if lang == 'fa' %}ابزار{% else %}tools{% endif %}</span>
+                </div>
+                <div class="max-h-96 overflow-y-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-700/50 sticky top-0">
+                            <tr>
+                                <th class="px-4 py-2 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-xs font-medium text-gray-400 uppercase">
+                                    {% if lang == 'fa' %}نام{% else %}Name{% endif %}
+                                </th>
+                                <th class="px-4 py-2 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-xs font-medium text-gray-400 uppercase">
+                                    {% if lang == 'fa' %}توضیحات{% else %}Description{% endif %}
+                                </th>
+                                <th class="px-4 py-2 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-xs font-medium text-gray-400 uppercase">
+                                    {% if lang == 'fa' %}دسترسی{% else %}Scope{% endif %}
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-700">
+                            {% for tool in project.tools[:50] %}
+                            <tr class="hover:bg-gray-700/30">
+                                <td class="px-4 py-2">
+                                    <span class="text-sm text-white font-mono">{{ tool.name }}</span>
+                                </td>
+                                <td class="px-4 py-2">
+                                    <span class="text-sm text-gray-400 truncate block max-w-xs" title="{{ tool.description }}">
+                                        {{ tool.description[:60] }}{% if tool.description|length > 60 %}...{% endif %}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-2">
+                                    {% set scope_colors = {'read': 'bg-blue-500/20 text-blue-400', 'write': 'bg-orange-500/20 text-orange-400', 'admin': 'bg-red-500/20 text-red-400'} %}
+                                    <span class="px-2 py-0.5 rounded text-xs {{ scope_colors.get(tool.scope, 'bg-gray-500/20 text-gray-400') }}">
+                                        {{ tool.scope }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            {% if project.tools|length > 50 %}
+                            <tr>
+                                <td colspan="3" class="px-4 py-3 text-center text-gray-400 text-sm">
+                                    {% if lang == 'fa' %}و {{ project.tools|length - 50 }} ابزار دیگر...{% else %}and {{ project.tools|length - 50 }} more tools...{% endif %}
+                                </td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column -->
+        <div class="space-y-6">
+            <!-- Quick Actions -->
+            <div class="bg-gray-800 rounded-xl border border-gray-700">
+                <div class="p-6 border-b border-gray-700">
+                    <h2 class="text-lg font-semibold text-white">{% if lang == 'fa' %}عملیات سریع{% else %}Quick Actions{% endif %}</h2>
+                </div>
+                <!-- Health Check Result Display -->
+                <div id="health-check-result" class="hidden p-4 rounded-lg mb-2"></div>
+
+                <div class="p-4 space-y-2">
+                    <button
+                        id="health-check-btn"
+                        hx-post="/api/dashboard/projects/{{ project.full_id }}/health-check"
+                        hx-swap="none"
+                        hx-on::before-request="showHealthCheckLoading()"
+                        hx-on::after-request="handleHealthCheckResponse(event)"
+                        class="w-full flex items-center justify-between px-4 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg text-white transition-colors"
+                    >
+                        <span id="health-check-text">{% if lang == 'fa' %}بررسی سلامت{% else %}Check Health{% endif %}</span>
+                        <svg id="health-check-icon" class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                        </svg>
+                        <svg id="health-check-spinner" class="hidden w-5 h-5 text-blue-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </button>
+
+                    <a
+                        href="/dashboard/api-keys?project={{ project.full_id }}{% if lang and lang != 'en' %}&lang={{ lang }}{% endif %}"
+                        class="w-full flex items-center justify-between px-4 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg text-white transition-colors"
+                    >
+                        <span>{% if lang == 'fa' %}مدیریت کلیدها{% else %}Manage API Keys{% endif %}</span>
+                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                        </svg>
+                    </a>
+
+                    <a
+                        href="/dashboard/audit-logs?project={{ project.full_id }}{% if lang and lang != 'en' %}&lang={{ lang }}{% endif %}"
+                        class="w-full flex items-center justify-between px-4 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg text-white transition-colors"
+                    >
+                        <span>{% if lang == 'fa' %}مشاهده لاگ‌ها{% else %}View Logs{% endif %}</span>
+                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="bg-gray-800 rounded-xl border border-gray-700">
+                <div class="p-6 border-b border-gray-700">
+                    <h2 class="text-lg font-semibold text-white">{{ t.recent_activity }}</h2>
+                </div>
+                <div class="divide-y divide-gray-700">
+                    {% if project.recent_activity %}
+                        {% for activity in project.recent_activity[:5] %}
+                        <div class="p-4 hover:bg-gray-700/30">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center">
+                                    {% if activity.level == 'ERROR' %}
+                                    <span class="w-2 h-2 bg-red-500 rounded-full {% if lang == 'fa' %}ml-2{% else %}mr-2{% endif %}"></span>
+                                    {% else %}
+                                    <span class="w-2 h-2 bg-green-500 rounded-full {% if lang == 'fa' %}ml-2{% else %}mr-2{% endif %}"></span>
+                                    {% endif %}
+                                    <span class="text-sm text-white">{{ activity.message }}</span>
+                                </div>
+                                <span class="text-xs text-gray-500">{{ activity.timestamp[:16] }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="p-6 text-center text-gray-400 text-sm">
+                            {{ t.no_activity }}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    if (window.projectDetailPageInitialized) return;
+    window.projectDetailPageInitialized = true;
+
+    var lang = '{{ lang }}';
+
+    function showHealthCheckLoading() {
+        var icon = document.getElementById('health-check-icon');
+        var spinner = document.getElementById('health-check-spinner');
+        var text = document.getElementById('health-check-text');
+        var btn = document.getElementById('health-check-btn');
+
+        if (icon) icon.classList.add('hidden');
+        if (spinner) spinner.classList.remove('hidden');
+        if (text) text.textContent = lang === 'fa' ? 'در حال بررسی...' : 'Checking...';
+        if (btn) btn.disabled = true;
+    }
+
+    function handleHealthCheckResponse(event) {
+        var icon = document.getElementById('health-check-icon');
+        var spinner = document.getElementById('health-check-spinner');
+        var text = document.getElementById('health-check-text');
+        var btn = document.getElementById('health-check-btn');
+        var resultDiv = document.getElementById('health-check-result');
+
+        // Reset button state
+        if (icon) icon.classList.remove('hidden');
+        if (spinner) spinner.classList.add('hidden');
+        if (text) text.textContent = lang === 'fa' ? 'بررسی سلامت' : 'Check Health';
+        if (btn) btn.disabled = false;
+
+        // Show result
+        if (resultDiv && event.detail && event.detail.xhr) {
+            var response;
+            try {
+                response = JSON.parse(event.detail.xhr.responseText);
+            } catch (e) {
+                response = { status: 'error', message: 'Invalid response' };
+            }
+
+            resultDiv.classList.remove('hidden', 'bg-green-500/20', 'bg-red-500/20', 'bg-yellow-500/20');
+
+            if (response.status === 'healthy') {
+                resultDiv.classList.add('bg-green-500/20');
+                resultDiv.innerHTML = '<p class="text-green-400 font-medium">' +
+                    (lang === 'fa' ? '✓ سالم' : '✓ Healthy') +
+                    '</p><p class="text-sm text-gray-400">' +
+                    (lang === 'fa' ? 'زمان پاسخ: ' : 'Response time: ') +
+                    (response.response_time_ms || 0).toFixed(2) + ' ms</p>';
+            } else if (response.status === 'unhealthy') {
+                resultDiv.classList.add('bg-red-500/20');
+                resultDiv.innerHTML = '<p class="text-red-400 font-medium">' +
+                    (lang === 'fa' ? '✗ ناسالم' : '✗ Unhealthy') +
+                    '</p><p class="text-sm text-gray-400">' + (response.message || '') + '</p>';
+            } else {
+                resultDiv.classList.add('bg-yellow-500/20');
+                resultDiv.innerHTML = '<p class="text-yellow-400 font-medium">' +
+                    (lang === 'fa' ? '⚠ خطا' : '⚠ Error') +
+                    '</p><p class="text-sm text-gray-400">' + (response.message || 'Unknown error') + '</p>';
+            }
+
+            // Auto-hide after 5 seconds
+            setTimeout(function() {
+                resultDiv.classList.add('hidden');
+            }, 5000);
+        }
+    }
+
+    window.showHealthCheckLoading = showHealthCheckLoading;
+    window.handleHealthCheckResponse = handleHealthCheckResponse;
+})();
+</script>
+{% endblock %}

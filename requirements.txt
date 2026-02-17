@@ -1,0 +1,23 @@
+# FastMCP - MCP server framework (pin to 2.x, avoid 3.0 breaking changes)
+fastmcp>=2.14.0,<3.0.0
+
+# HTTP client for API requests
+aiohttp>=3.9.0
+httpx>=0.25.0
+
+# JSON schema validation (used by FastMCP)
+pydantic>=2.5.0
+
+# Docker SDK (optional, for future direct container access)
+docker>=7.0.0
+
+# Additional utilities
+python-dotenv>=1.0.0
+
+# OAuth 2.1 Infrastructure
+authlib>=1.5.0          # OAuth 2.1 server/client implementation
+PyJWT>=2.8.0            # JWT encoding/decoding
+cryptography>=46.0.0    # For RSA/ECDSA JWT signing
+
+# Template engine for OAuth Authorization Page (Phase E)
+jinja2>=3.1.2           # HTML template rendering

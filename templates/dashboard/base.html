@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="{{ lang|default('en') }}" {% if lang == 'fa' %}dir="rtl"{% endif %}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ t.dashboard }}{% endblock %} - MCP Hub</title>
+
+    <!-- Vazirmatn Font for Persian -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- HTMX for dynamic updates -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+
+    <!-- Alpine.js for simple interactions -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- Custom Tailwind Config -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'vazirmatn': ['Vazirmatn', 'system-ui', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            50: '#f5f3ff',
+                            100: '#ede9fe',
+                            200: '#ddd6fe',
+                            300: '#c4b5fd',
+                            400: '#a78bfa',
+                            500: '#8b5cf6',
+                            600: '#7c3aed',
+                            700: '#6d28d9',
+                            800: '#5b21b6',
+                            900: '#4c1d95',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        [x-cloak] { display: none !important; }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+
+        /* Sidebar transition */
+        .sidebar-transition {
+            transition: width 0.3s ease-in-out;
+        }
+
+        /* Card hover effect */
+        .card-hover {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Status indicator pulse */
+        .status-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* RTL adjustments */
+        [dir="rtl"] .sidebar-icon {
+            margin-left: 0.75rem;
+            margin-right: 0;
+        }
+        [dir="ltr"] .sidebar-icon {
+            margin-right: 0.75rem;
+            margin-left: 0;
+        }
+
+        /* Vazirmatn font for Persian */
+        [dir="rtl"],
+        [dir="rtl"] * {
+            font-family: 'Vazirmatn', system-ui, sans-serif !important;
+        }
+    </style>
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen" x-data="{ sidebarOpen: true, darkMode: true }">
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <aside
+            class="sidebar-transition bg-gray-800 border-gray-700 flex flex-col"
+            :class="sidebarOpen ? 'w-64' : 'w-20'"
+            {% if lang == 'fa' %}style="border-left: 1px solid;"{% else %}style="border-right: 1px solid;"{% endif %}
+        >
+            <!-- Logo -->
+            <div class="flex items-center justify-between h-16 px-4 border-b border-gray-700">
+                <div class="flex items-center" x-show="sidebarOpen">
+                    <div class="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                    </div>
+                    <span class="{% if lang == 'fa' %}mr-3{% else %}ml-3{% endif %} font-bold text-lg">MCP Hub</span>
+                </div>
+                <button
+                    @click="sidebarOpen = !sidebarOpen"
+                    class="p-2 rounded-lg hover:bg-gray-700 transition-colors"
+                >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
+                {% set nav_items = [
+                    ('dashboard', t.dashboard, 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6', '/dashboard'),
+                    ('projects', t.projects, 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z', '/dashboard/projects'),
+                    ('api_keys', t.api_keys, 'M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z', '/dashboard/api-keys'),
+                    ('oauth_clients', t.oauth_clients, 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z', '/dashboard/oauth-clients'),
+                    ('audit_logs', t.audit_logs, 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01', '/dashboard/audit-logs'),
+                    ('health', t.health, 'M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z', '/dashboard/health'),
+                    ('settings', t.settings, 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z', '/dashboard/settings'),
+                ] %}
+
+                {% for item_id, label, icon_path, url in nav_items %}
+                <a
+                    href="{{ url }}{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}"
+                    class="flex items-center px-3 py-2 rounded-lg transition-colors {% if current_page == item_id %}bg-primary-600 text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %}"
+                >
+                    <svg class="w-5 h-5 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ icon_path }}"/>
+                    </svg>
+                    <span x-show="sidebarOpen" class="truncate">{{ label }}</span>
+                </a>
+                {% endfor %}
+            </nav>
+
+            <!-- User Section -->
+            <div class="p-4 border-t border-gray-700">
+                <a
+                    href="/dashboard/logout"
+                    class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-colors"
+                >
+                    <svg class="w-5 h-5 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                    </svg>
+                    <span x-show="sidebarOpen">{{ t.logout }}</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-y-auto bg-gray-900">
+            <!-- Top Header -->
+            <header class="sticky top-0 z-10 bg-gray-800/95 backdrop-blur border-b border-gray-700">
+                <div class="flex items-center justify-between h-16 px-6">
+                    <h1 class="text-xl font-semibold">{% block page_title %}{{ t.dashboard }}{% endblock %}</h1>
+
+                    <div class="flex items-center space-x-4 {% if lang == 'fa' %}space-x-reverse{% endif %}">
+                        <!-- Language Toggle -->
+                        <a
+                            href="?lang={% if lang == 'fa' %}en{% else %}fa{% endif %}"
+                            class="px-3 py-1 text-sm bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+                        >
+                            {% if lang == 'fa' %}EN{% else %}FA{% endif %}
+                        </a>
+
+                        <!-- Refresh Button -->
+                        <button
+                            hx-get="{{ request.url.path }}{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}"
+                            hx-target="body"
+                            hx-swap="outerHTML"
+                            class="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
+                            title="{{ t.refresh }}"
+                        >
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                            </svg>
+                        </button>
+
+                        <!-- User Info -->
+                        {% if session %}
+                        <div class="flex items-center text-sm text-gray-400">
+                            <span class="w-2 h-2 bg-green-500 rounded-full {% if lang == 'fa' %}ml-2{% else %}mr-2{% endif %}"></span>
+                            {{ session.user_type }}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </header>
+
+            <!-- Page Content -->
+            <div class="p-6">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

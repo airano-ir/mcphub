@@ -1,0 +1,210 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}{{ t.settings }}{% endblock %}
+{% block page_title %}{{ t.settings }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Language Settings -->
+    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
+        <h3 class="text-lg font-semibold text-white mb-4">
+            {% if lang == 'fa' %}تنظیمات زبان{% else %}Language Settings{% endif %}
+        </h3>
+        <div class="space-y-4">
+            <div class="flex items-center gap-4">
+                <a href="/dashboard/settings?lang=en"
+                   class="px-4 py-2 rounded-lg transition-colors {% if lang != 'fa' %}bg-primary-600 text-white{% else %}bg-gray-700 text-gray-300 hover:bg-gray-600{% endif %}">
+                    English
+                </a>
+                <a href="/dashboard/settings?lang=fa"
+                   class="px-4 py-2 rounded-lg transition-colors {% if lang == 'fa' %}bg-primary-600 text-white{% else %}bg-gray-700 text-gray-300 hover:bg-gray-600{% endif %}">
+                    فارسی
+                </a>
+            </div>
+            <p class="text-sm text-gray-400">
+                {% if lang == 'fa' %}
+                زبان فعلی: فارسی
+                {% else %}
+                Current language: English
+                {% endif %}
+            </p>
+        </div>
+    </div>
+
+    <!-- System Configuration -->
+    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
+        <h3 class="text-lg font-semibold text-white mb-4">
+            {% if lang == 'fa' %}پیکربندی سیستم{% else %}System Configuration{% endif %}
+        </h3>
+        <div class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <p class="text-sm text-gray-400">{% if lang == 'fa' %}حالت سرور{% else %}Server Mode{% endif %}</p>
+                    <p class="text-white font-mono">{{ config.server_mode }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-400">{% if lang == 'fa' %}پورت{% else %}Port{% endif %}</p>
+                    <p class="text-white font-mono">{{ config.port }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-400">{% if lang == 'fa' %}سطح لاگ{% else %}Log Level{% endif %}</p>
+                    <p class="text-white font-mono">{{ config.log_level }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-400">{% if lang == 'fa' %}حالت احراز هویت OAuth{% else %}OAuth Auth Mode{% endif %}</p>
+                    <p class="text-white font-mono">{{ config.oauth_auth_mode }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-400">{% if lang == 'fa' %}حد نرخ روزانه{% else %}Daily Rate Limit{% endif %}</p>
+                    <p class="text-white font-mono">{{ config.rate_limit_per_day }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-400">{% if lang == 'fa' %}حد نرخ هر دقیقه{% else %}Per Minute Rate Limit{% endif %}</p>
+                    <p class="text-white font-mono">{{ config.rate_limit_per_minute }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Security Settings -->
+    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
+        <h3 class="text-lg font-semibold text-white mb-4">
+            {% if lang == 'fa' %}تنظیمات امنیتی{% else %}Security Settings{% endif %}
+        </h3>
+        <div class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <p class="text-sm text-gray-400">{% if lang == 'fa' %}احراز هویت API فعال{% else %}API Auth Enabled{% endif %}</p>
+                    <p class="text-white font-mono">{{ 'Yes' if config.api_auth_enabled else 'No' }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-400">{% if lang == 'fa' %}کوکی امن داشبورد{% else %}Dashboard Secure Cookie{% endif %}</p>
+                    <p class="text-white font-mono">{{ 'Yes' if config.dashboard_secure_cookie else 'No' }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-400">{% if lang == 'fa' %}دامنه‌های مجاز OAuth{% else %}OAuth Trusted Domains{% endif %}</p>
+                    <p class="text-white font-mono text-sm">{{ config.oauth_trusted_domains or 'localhost' }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-400">{% if lang == 'fa' %}مدت انقضا سشن داشبورد{% else %}Dashboard Session Expiry{% endif %}</p>
+                    <p class="text-white font-mono">{{ config.dashboard_session_expiry }} {% if lang == 'fa' %}ساعت{% else %}hours{% endif %}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Registered Plugins -->
+    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-white">
+                {% if lang == 'fa' %}پلاگین‌های ثبت شده{% else %}Registered Plugins{% endif %}
+            </h3>
+            <span class="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-lg">
+                {% if lang == 'fa' %}قابلیت آینده{% else %}Coming Soon{% endif %}
+            </span>
+        </div>
+        <div class="space-y-2">
+            {% if plugins %}
+                {% for plugin in plugins %}
+                <div class="flex items-center justify-between py-2 border-b border-gray-700 last:border-0">
+                    <div>
+                        <p class="text-white font-medium">{{ plugin.name }}</p>
+                        <p class="text-sm text-gray-400">{{ plugin.description }}</p>
+                    </div>
+                    <span class="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-lg">
+                        {{ t.active }}
+                    </span>
+                </div>
+                {% endfor %}
+            {% else %}
+            <div class="bg-gray-700/30 rounded-lg p-4">
+                <p class="text-gray-400 mb-2">
+                    {% if lang == 'fa' %}هیچ پلاگینی ثبت نشده{% else %}No plugins registered{% endif %}
+                </p>
+                <p class="text-sm text-gray-500">
+                    {% if lang == 'fa' %}
+                    سیستم پلاگین در فاز‌های آینده اضافه خواهد شد. این امکان به شما اجازه می‌دهد قابلیت‌های سفارشی به MCP Hub اضافه کنید.
+                    {% else %}
+                    The plugin system will be added in future phases. This will allow you to extend MCP Hub with custom functionality.
+                    {% endif %}
+                </p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- About Section -->
+    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
+        <h3 class="text-lg font-semibold text-white mb-4">
+            {% if lang == 'fa' %}درباره{% else %}About{% endif %}
+        </h3>
+        <div class="space-y-4">
+            <div class="flex items-center gap-4">
+                <div class="w-16 h-16 bg-primary-500/20 rounded-xl flex items-center justify-center">
+                    <svg class="w-8 h-8 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h4 class="text-xl font-bold text-white">MCP Hub</h4>
+                    <p class="text-gray-400">{% if lang == 'fa' %}هاب پروتکل کانتکست مدل{% else %}Model Context Protocol Hub{% endif %}</p>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                <div>
+                    <p class="text-sm text-gray-400">{% if lang == 'fa' %}نسخه{% else %}Version{% endif %}</p>
+                    <p class="text-white font-mono">{{ about.version }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-400">{% if lang == 'fa' %}نسخه MCP{% else %}MCP Version{% endif %}</p>
+                    <p class="text-white font-mono">{{ about.mcp_version }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-400">{% if lang == 'fa' %}نسخه Python{% else %}Python Version{% endif %}</p>
+                    <p class="text-white font-mono">{{ about.python_version }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-400">{% if lang == 'fa' %}تعداد ابزار{% else %}Tools Count{% endif %}</p>
+                    <p class="text-white font-mono">{{ about.tools_count }}</p>
+                </div>
+            </div>
+            <div class="mt-4 pt-4 border-t border-gray-700">
+                <p class="text-sm text-gray-400">
+                    {% if lang == 'fa' %}
+                    MCP Hub یک سرور MCP چند منظوره است که امکان اتصال به سرویس‌های مختلف از جمله WordPress، Gitea، n8n و دیگر سرویس‌ها را فراهم می‌کند.
+                    {% else %}
+                    MCP Hub is a multi-purpose MCP server that enables connection to various services including WordPress, Gitea, n8n, and other services.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Session Information -->
+    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
+        <h3 class="text-lg font-semibold text-white mb-4">
+            {% if lang == 'fa' %}اطلاعات سشن{% else %}Session Information{% endif %}
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+                <p class="text-sm text-gray-400">{% if lang == 'fa' %}نوع کاربر{% else %}User Type{% endif %}</p>
+                <p class="text-white font-mono">{{ session.user_type }}</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-400">{% if lang == 'fa' %}ایجاد شده در{% else %}Created At{% endif %}</p>
+                <p class="text-white font-mono text-sm">{{ session.created_at[:19] if session.created_at else '-' }}</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-400">{% if lang == 'fa' %}انقضا در{% else %}Expires At{% endif %}</p>
+                <p class="text-white font-mono text-sm">{{ session.expires_at[:19] if session.expires_at else '-' }}</p>
+            </div>
+        </div>
+        <div class="mt-4 pt-4 border-t border-gray-700">
+            <a href="/dashboard/logout"
+               class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-white text-sm transition-colors inline-block">
+                {{ t.logout }}
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
