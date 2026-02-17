@@ -1,5 +1,5 @@
 # ===================================
-# Coolify Projects MCP Server - Dockerfile
+# MCP Hub — Dockerfile
 # ===================================
 # Multi-stage build for optimized image size
 # Production-ready with security best practices

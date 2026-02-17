@@ -1,16 +1,15 @@
 # ===================================
 # MCP Hub — Docker Compose Configuration
 # ===================================
-# 
-# Build Pack: Docker Compose
-# ⚠️  CRITICAL RULES FOR COOLIFY:
-#   1. NO host port mappings: Use "8000" NOT "8000:8000"
-#   2. Listen on 0.0.0.0 (NOT localhost)
-#   3. Health checks for ALL services
-#   4. Use environment variables for ALL configs
+#
+# After starting:
+#   docker compose up -d
+#   curl http://localhost:8000/health    # verify server is running
+#   open http://localhost:8000/dashboard  # web dashboard
+#
+# For Coolify deployments:
+#   Change ports to "8000" (no host mapping) — Coolify handles routing.
 # ===================================
-
-version: '3.8'
 
 services:
   mcp-server:
@@ -19,11 +18,9 @@ services:
       dockerfile: Dockerfile
     container_name: mcphub
     restart: unless-stopped
-    
-    # ⚠️ CRITICAL: Only container port (NO host port mapping)
-    # Coolify will handle routing via domain
+
     ports:
-      - "8000"
+      - "8000:8000"
     
     # Environment variables
     environment:

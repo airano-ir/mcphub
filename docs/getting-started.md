@@ -48,14 +48,18 @@ For each WordPress site you want to manage:
 git clone https://github.com/airano-ir/mcphub.git
 cd mcphub
 cp env.example .env
-# Edit .env with your site credentials
+# Edit .env — set MASTER_API_KEY and add your site credentials (see Configuration below)
 docker compose up -d
 ```
 
-### Option 2: PyPI
+After starting, see [Verify Installation](#verify-installation) below.
+
+### Option 2: Docker Hub (No Clone)
 
 ```bash
-pip install mcphub-server
+# 1. Create a .env file (see Configuration section below)
+# 2. Run:
+docker run -d --name mcphub -p 8000:8000 --env-file .env airano/mcphub:latest
 ```
 
 ### Option 3: From Source
@@ -190,21 +194,47 @@ python server.py --transport sse --port 8000
 python server.py
 ```
 
-### Verify Server is Running
+### Verify Installation
 
-Check logs for:
+After starting (via Docker or locally), wait ~30 seconds for the server to initialize, then:
 
-```
-INFO: MCP Hub initialized
-INFO: Registered 589 tools
-INFO: Server ready
-```
-
-Or test the health endpoint:
+**1. Check health:**
 
 ```bash
 curl http://localhost:8000/health
+# Expected: {"status": "ok", "tools_loaded": 589, ...}
 ```
+
+**2. Open the web dashboard:**
+
+Open **http://localhost:8000/dashboard** in your browser. Log in with your `MASTER_API_KEY`.
+
+The dashboard lets you:
+- View all connected sites and their health status
+- Create and manage per-project API keys
+- View audit logs
+- Monitor rate limits
+
+**3. Check container status (Docker only):**
+
+```bash
+docker compose ps
+# Look for Status: "Up (healthy)"
+# Note: Health check starts after 40 seconds — "starting" is normal initially
+
+# View logs if something is wrong:
+docker compose logs -f mcphub
+```
+
+**4. Troubleshooting:**
+
+| Problem | Solution |
+|---------|----------|
+| Container exits immediately | Check logs: `docker compose logs mcphub` |
+| Port 8000 already in use | Change port in docker-compose.yaml: `"8001:8000"` |
+| Health check shows "unhealthy" | Wait 60 seconds, then check logs for startup errors |
+| Dashboard login fails | Make sure you're using the `MASTER_API_KEY` value from your `.env` |
+| Sites not showing up | Restart after adding new env vars: `docker compose restart` |
 
 ---
 
@@ -334,34 +364,40 @@ Use specific endpoints to limit tool access:
 docker compose up -d
 ```
 
+After starting, verify the installation:
+
+```bash
+curl http://localhost:8000/health          # server health
+open http://localhost:8000/dashboard        # web dashboard
+```
+
+See [Verify Installation](#verify-installation) for detailed steps.
+
 ### Docker Commands
 
 ```bash
 # View logs
-docker compose logs -f
+docker compose logs -f mcphub
 
-# Check status
+# Check status (look for "healthy")
 docker compose ps
 
-# Restart
+# Restart (needed after .env changes)
 docker compose restart
 
 # Stop
 docker compose down
 
-# Rebuild
+# Rebuild (after code changes)
 docker compose up --build -d
 ```
 
-### Health Check
+### Adding Sites After Startup
 
-```bash
-# Check container health
-docker compose ps
-
-# Test API endpoint
-curl http://localhost:8000/health
-```
+1. Edit your `.env` file to add new site credentials
+2. Restart the container: `docker compose restart`
+3. Verify: `curl http://localhost:8000/health` — check that tools are loaded
+4. The dashboard at http://localhost:8000/dashboard will show the new sites
 
 ---
 

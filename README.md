@@ -72,14 +72,15 @@ MCP Hub is the first MCP server that lets you manage WordPress, WooCommerce, and
 git clone https://github.com/airano-ir/mcphub.git
 cd mcphub
 cp env.example .env
-# Edit .env with your site credentials
+# Edit .env — set MASTER_API_KEY and add your site credentials
 docker compose up -d
 ```
 
-### Option 2: PyPI
+### Option 2: Docker Hub (No Clone)
 
 ```bash
-pip install mcphub-server
+# Create a .env file with your credentials (see "Configure Your Sites" below)
+docker run -d --name mcphub -p 8000:8000 --env-file .env airano/mcphub:latest
 ```
 
 ### Option 3: From Source
@@ -92,6 +93,19 @@ cp env.example .env
 # Edit .env with your site credentials
 python server.py --transport sse --port 8000
 ```
+
+### Verify It Works
+
+After starting the server, wait ~30 seconds then:
+
+```bash
+# Check server health
+curl http://localhost:8000/health
+```
+
+Open the **web dashboard** in your browser: **http://localhost:8000/dashboard**
+
+You should see the login page. Use your `MASTER_API_KEY` to log in.
 
 ### Configure Your Sites
 

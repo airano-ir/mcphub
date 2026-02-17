@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Coolify Projects MCP Server
+MCP Hub Server
 
-Universal MCP server for managing Coolify projects through plugins.
-Supports WordPress, Supabase, Gitea, and custom project types.
+Universal MCP server for managing self-hosted services through plugins.
+Supports WordPress, WooCommerce, Gitea, n8n, Supabase, OpenPanel, Appwrite, and Directus.
 
 Usage:
     # With stdio transport (Claude Desktop)
@@ -228,7 +228,7 @@ if OAUTH_AUTH_MODE == "trusted_domains":
     logger.info(f"OAuth Trusted Domains: {', '.join(OAUTH_TRUSTED_DOMAINS)}")
 
 # Initialize MCP server
-mcp = FastMCP("Coolify Projects Manager")
+mcp = FastMCP("MCP Hub")
 
 # Initialize Jinja2 templates (Phase E - OAuth Authorization Page)
 templates = Jinja2Templates(directory="templates")
@@ -261,7 +261,7 @@ tool_registry = get_tool_registry()
 tool_generator = ToolGenerator(site_manager)
 
 logger.info("=" * 60)
-logger.info("Coolify Projects MCP Server - Option B Clean Architecture")
+logger.info("MCP Hub Server - Initialized")
 logger.info("=" * 60)
 _mk = auth_manager.get_master_key()
 logger.info(f"Master API Key: {_mk[:8]}***{_mk[-4:]}")
@@ -471,10 +471,11 @@ def extract_plugin_type_from_tool(tool_name: str) -> str | None:
     Returns:
         Plugin type string or None for system tools
     """
-    # Remove MCP namespace prefix if present
+    # Remove MCP namespace prefix if present (e.g., "mcp__mcp-hub__wordpress_...")
     clean_name = tool_name
-    if tool_name.startswith("mcp__coolify-projects__"):
-        clean_name = tool_name.replace("mcp__coolify-projects__", "")
+    if tool_name.startswith("mcp__") and "__" in tool_name[5:]:
+        # Strip "mcp__{server-name}__" prefix
+        clean_name = tool_name.split("__", 2)[-1]
 
     # Check for plugin types (order matters - check more specific first)
     # wordpress_advanced must be checked before wordpress
@@ -683,15 +684,15 @@ class UserAuthMiddleware(Middleware):
             else:
                 # All plugin tools that have a 'site' parameter are unified tools
                 # They defer project access check to execution time
+                # Clean any MCP namespace prefix before checking
+                check_name = tool_name
+                if tool_name.startswith("mcp__") and "__" in tool_name[5:]:
+                    check_name = tool_name.split("__", 2)[-1]
                 is_unified_tool = (
-                    tool_name.startswith("wordpress_")
-                    or tool_name.startswith("wordpress_advanced_")
-                    or tool_name.startswith("woocommerce_")
-                    or tool_name.startswith("gitea_")
-                    or tool_name.startswith("mcp__coolify-projects__wordpress_")
-                    or tool_name.startswith("mcp__coolify-projects__wordpress_advanced_")
-                    or tool_name.startswith("mcp__coolify-projects__woocommerce_")
-                    or tool_name.startswith("mcp__coolify-projects__gitea_")
+                    check_name.startswith("wordpress_")
+                    or check_name.startswith("wordpress_advanced_")
+                    or check_name.startswith("woocommerce_")
+                    or check_name.startswith("gitea_")
                 )
 
             logger.debug(
@@ -992,9 +993,11 @@ class RateLimitMiddleware(Middleware):
                 tool_name = params.name if hasattr(params, "name") else "unknown"
 
                 # Determine plugin type from tool name
-                if tool_name.startswith("wordpress_") or tool_name.startswith(
-                    "mcp__coolify-projects__wordpress_"
-                ):
+                # Clean any MCP namespace prefix
+                tn = tool_name
+                if tool_name.startswith("mcp__") and "__" in tool_name[5:]:
+                    tn = tool_name.split("__", 2)[-1]
+                if tn.startswith("wordpress_"):
                     plugin_type = "wordpress"
                 elif tool_name.startswith("woocommerce_"):
                     plugin_type = "woocommerce"
@@ -1539,6 +1542,12 @@ def create_dynamic_tool(name: str, description: str, handler, input_schema: dict
                         param_name, inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=py_type
                     )
                 )
+
+    # Sort params: required (no default) first, then optional (with default).
+    # Python/inspect.Signature requires non-default args before default args.
+    required_first = [p for p in params if p.default is inspect.Parameter.empty]
+    optional_after = [p for p in params if p.default is not inspect.Parameter.empty]
+    params = required_first + optional_after
 
     # Create signature
     sig = inspect.Signature(params)
@@ -4313,7 +4322,7 @@ def main():
     import uvicorn
 
     # Parse command line arguments for transport configuration
-    parser = argparse.ArgumentParser(description="Coolify Projects MCP Server")
+    parser = argparse.ArgumentParser(description="MCP Hub Server")
     parser.add_argument(
         "--transport",
         type=str,
