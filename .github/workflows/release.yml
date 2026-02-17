@@ -25,6 +25,9 @@ jobs:
         run: pip install -e ".[dev]"
 
       - name: Run tests
+        env:
+          OAUTH_STORAGE_PATH: ${{ runner.temp }}/oauth-test-data
+          MASTER_API_KEY: test-master-key-for-ci
         run: pytest tests/ -v --tb=short
 
       - name: Check formatting
