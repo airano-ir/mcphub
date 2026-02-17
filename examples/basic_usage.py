@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+
 # Example 1: List Posts
 async def list_posts_example():
     """List published posts from a WordPress site."""
@@ -38,6 +39,7 @@ async def list_posts_example():
 
     except Exception as e:
         print(f"Error: {e}")
+
 
 # Example 2: Create a Post
 async def create_post_example():
@@ -77,6 +79,7 @@ async def create_post_example():
     except Exception as e:
         print(f"Error: {e}")
         return None
+
 
 # Example 3: Update a Post
 async def update_post_example(post_id):
@@ -118,6 +121,7 @@ async def update_post_example(post_id):
     except Exception as e:
         print(f"Error: {e}")
 
+
 # Example 4: List Categories
 async def list_categories_example():
     """List WordPress categories."""
@@ -140,6 +144,7 @@ async def list_categories_example():
 
     except Exception as e:
         print(f"Error: {e}")
+
 
 # Example 5: Upload Media
 async def upload_media_example():
@@ -178,6 +183,7 @@ async def upload_media_example():
         print(f"Error: {e}")
         return None
 
+
 # Example 6: Get Site Health
 async def site_health_example():
     """Check WordPress site health."""
@@ -199,6 +205,7 @@ async def site_health_example():
 
     except Exception as e:
         print(f"Error: {e}")
+
 
 # Example 7: Get System Metrics
 async def system_metrics_example():
@@ -223,6 +230,7 @@ async def system_metrics_example():
 
     except Exception as e:
         print(f"Error: {e}")
+
 
 # Example 8: Delete Post
 async def delete_post_example(post_id):
@@ -257,6 +265,7 @@ async def delete_post_example(post_id):
     except Exception as e:
         print(f"Error: {e}")
 
+
 # Main execution
 async def main():
     """Run all examples in sequence."""
@@ -288,6 +297,7 @@ async def main():
     print("\n" + "=" * 60)
     print("Examples completed successfully!")
     print("=" * 60 + "\n")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

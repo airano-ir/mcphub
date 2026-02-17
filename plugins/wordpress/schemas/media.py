@@ -6,6 +6,7 @@ Validation schemas for WordPress media library operations.
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 
+
 class MediaBase(BaseModel):
     """Base media schema"""
 
@@ -15,6 +16,7 @@ class MediaBase(BaseModel):
     alt_text: str | None = Field(None, description="Alternative text")
     caption: str | None = Field(None, description="Media caption")
     description: str | None = Field(None, description="Media description")
+
 
 class MediaUpload(MediaBase):
     """Schema for uploading media from URL"""
@@ -33,11 +35,13 @@ class MediaUpload(MediaBase):
                 raise ValueError("Filename too long (max 255 characters)")
         return v
 
+
 class MediaUpdate(MediaBase):
     """Schema for updating media metadata"""
 
     # All fields optional for updates
     pass
+
 
 class MediaResponse(BaseModel):
     """Schema for media response data"""

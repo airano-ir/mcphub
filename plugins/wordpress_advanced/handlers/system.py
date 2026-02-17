@@ -18,6 +18,7 @@ from typing import Any
 from plugins.wordpress.client import WordPressClient
 from plugins.wordpress.wp_cli import WPCLIManager
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator"""
     return [
@@ -110,6 +111,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
             "scope": "read",
         },
     ]
+
 
 class SystemHandler:
     """Handles WordPress system operations"""

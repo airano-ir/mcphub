@@ -12,6 +12,7 @@ from typing import Any
 
 from plugins.appwrite.client import AppwriteClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator (14 tools)"""
     return [
@@ -337,9 +338,11 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # =====================
 # HANDLER FUNCTIONS
 # =====================
+
 
 async def list_functions(
     client: AppwriteClient, queries: list[str] | None = None, search: str | None = None
@@ -359,6 +362,7 @@ async def list_functions(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_function(client: AppwriteClient, function_id: str) -> str:
     """Get function by ID."""
     try:
@@ -367,6 +371,7 @@ async def get_function(client: AppwriteClient, function_id: str) -> str:
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def create_function(
     client: AppwriteClient,
@@ -410,6 +415,7 @@ async def create_function(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def update_function(
     client: AppwriteClient,
     function_id: str,
@@ -442,6 +448,7 @@ async def update_function(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def delete_function(client: AppwriteClient, function_id: str) -> str:
     """Delete function."""
     try:
@@ -452,6 +459,7 @@ async def delete_function(client: AppwriteClient, function_id: str) -> str:
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def list_deployments(
     client: AppwriteClient,
@@ -477,6 +485,7 @@ async def list_deployments(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_deployment(client: AppwriteClient, function_id: str, deployment_id: str) -> str:
     """Get deployment by ID."""
     try:
@@ -485,6 +494,7 @@ async def get_deployment(client: AppwriteClient, function_id: str, deployment_id
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def delete_deployment(client: AppwriteClient, function_id: str, deployment_id: str) -> str:
     """Delete deployment."""
@@ -497,6 +507,7 @@ async def delete_deployment(client: AppwriteClient, function_id: str, deployment
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def activate_deployment(client: AppwriteClient, function_id: str, deployment_id: str) -> str:
     """Activate deployment."""
@@ -514,6 +525,7 @@ async def activate_deployment(client: AppwriteClient, function_id: str, deployme
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def get_active_deployment(client: AppwriteClient, function_id: str) -> str:
     """Get active deployment for function."""
@@ -542,6 +554,7 @@ async def get_active_deployment(client: AppwriteClient, function_id: str) -> str
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def list_executions(
     client: AppwriteClient,
     function_id: str,
@@ -566,6 +579,7 @@ async def list_executions(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_execution(client: AppwriteClient, function_id: str, execution_id: str) -> str:
     """Get execution by ID."""
     try:
@@ -574,6 +588,7 @@ async def get_execution(client: AppwriteClient, function_id: str, execution_id: 
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def execute_function(
     client: AppwriteClient,
@@ -615,6 +630,7 @@ async def execute_function(
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def delete_execution(client: AppwriteClient, function_id: str, execution_id: str) -> str:
     """Delete execution."""

@@ -14,6 +14,7 @@ from plugins.base import BasePlugin
 from plugins.directus import handlers
 from plugins.directus.client import DirectusClient
 
+
 class DirectusPlugin(BasePlugin):
     """
     Directus Self-Hosted Plugin - Complete CMS management.

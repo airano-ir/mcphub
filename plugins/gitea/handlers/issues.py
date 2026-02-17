@@ -5,6 +5,7 @@ from typing import Any
 
 from plugins.gitea.client import GiteaClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator"""
     return [
@@ -353,6 +354,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 async def list_issues(
     client: GiteaClient,
     owner: str,
@@ -369,11 +371,13 @@ async def list_issues(
     result = {"success": True, "count": len(issues), "issues": issues}
     return json.dumps(result, indent=2)
 
+
 async def get_issue(client: GiteaClient, owner: str, repo: str, issue_number: int) -> str:
     """Get issue details"""
     issue = await client.get_issue(owner, repo, issue_number)
     result = {"success": True, "issue": issue}
     return json.dumps(result, indent=2)
+
 
 async def create_issue(
     client: GiteaClient,
@@ -405,6 +409,7 @@ async def create_issue(
     }
     return json.dumps(result, indent=2)
 
+
 async def update_issue(
     client: GiteaClient, owner: str, repo: str, issue_number: int, **kwargs
 ) -> str:
@@ -424,6 +429,7 @@ async def update_issue(
     }
     return json.dumps(result, indent=2)
 
+
 async def close_issue(client: GiteaClient, owner: str, repo: str, issue_number: int) -> str:
     """Close an issue"""
     data = {"state": "closed"}
@@ -434,6 +440,7 @@ async def close_issue(client: GiteaClient, owner: str, repo: str, issue_number: 
         "issue": issue,
     }
     return json.dumps(result, indent=2)
+
 
 async def reopen_issue(client: GiteaClient, owner: str, repo: str, issue_number: int) -> str:
     """Reopen an issue"""
@@ -446,12 +453,14 @@ async def reopen_issue(client: GiteaClient, owner: str, repo: str, issue_number:
     }
     return json.dumps(result, indent=2)
 
+
 # Comment operations
 async def list_issue_comments(client: GiteaClient, owner: str, repo: str, issue_number: int) -> str:
     """List issue comments"""
     comments = await client.list_issue_comments(owner, repo, issue_number)
     result = {"success": True, "count": len(comments), "comments": comments}
     return json.dumps(result, indent=2)
+
 
 async def create_issue_comment(
     client: GiteaClient, owner: str, repo: str, issue_number: int, body: str
@@ -466,12 +475,14 @@ async def create_issue_comment(
     }
     return json.dumps(result, indent=2)
 
+
 # Label operations
 async def list_labels(client: GiteaClient, owner: str, repo: str) -> str:
     """List repository labels"""
     labels = await client.list_labels(owner, repo)
     result = {"success": True, "count": len(labels), "labels": labels}
     return json.dumps(result, indent=2)
+
 
 async def create_label(
     client: GiteaClient,
@@ -487,6 +498,7 @@ async def create_label(
     result = {"success": True, "message": f"Label '{name}' created successfully", "label": label}
     return json.dumps(result, indent=2)
 
+
 # Milestone operations
 async def list_milestones(
     client: GiteaClient, owner: str, repo: str, state: str | None = None
@@ -495,6 +507,7 @@ async def list_milestones(
     milestones = await client.list_milestones(owner, repo, state=state)
     result = {"success": True, "count": len(milestones), "milestones": milestones}
     return json.dumps(result, indent=2)
+
 
 async def create_milestone(
     client: GiteaClient,

@@ -13,6 +13,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
+
 class SystemInfoResponse(BaseModel):
     """Comprehensive system information"""
 
@@ -32,6 +33,7 @@ class SystemInfoResponse(BaseModel):
     active_plugins: int = Field(description="Number of active plugins")
     active_theme: str = Field(description="Active theme name")
 
+
 class PHPInfoResponse(BaseModel):
     """PHP configuration details"""
 
@@ -40,6 +42,7 @@ class PHPInfoResponse(BaseModel):
     extensions: list[str] = Field(description="Loaded PHP extensions")
     ini_settings: dict[str, str] = Field(description="Important php.ini settings")
     disabled_functions: list[str] = Field(default=[], description="Disabled PHP functions")
+
 
 class DiskUsageResponse(BaseModel):
     """Disk usage statistics"""
@@ -55,6 +58,7 @@ class DiskUsageResponse(BaseModel):
     )
     breakdown: dict[str, float] = Field(default={}, description="Detailed breakdown by directory")
 
+
 class CronEvent(BaseModel):
     """WordPress cron event information"""
 
@@ -66,12 +70,14 @@ class CronEvent(BaseModel):
     )
     args: list[Any] = Field(default=[], description="Arguments passed to the hook")
 
+
 class CronListResponse(BaseModel):
     """List of all cron events"""
 
     events: list[CronEvent] = Field(description="List of cron events")
     total: int = Field(description="Total number of events")
     schedules: dict[str, dict[str, Any]] = Field(default={}, description="Available cron schedules")
+
 
 class CronRunParams(BaseModel):
     """Parameters for manually running a cron job"""
@@ -89,6 +95,7 @@ class CronRunParams(BaseModel):
                 "Hook name can only contain letters, numbers, underscores, " "hyphens, and dots"
             )
         return v
+
 
 class ErrorLogParams(BaseModel):
     """Parameters for retrieving error log"""
@@ -111,6 +118,7 @@ class ErrorLogParams(BaseModel):
             raise ValueError("level must be: error, warning, notice, or fatal")
         return v.lower() if v else v
 
+
 class ErrorLogEntry(BaseModel):
     """Single error log entry"""
 
@@ -120,6 +128,7 @@ class ErrorLogEntry(BaseModel):
     file: str | None = Field(default=None, description="File where error occurred")
     line: int | None = Field(default=None, description="Line number")
 
+
 class ErrorLogResponse(BaseModel):
     """Error log retrieval response"""
 
@@ -127,6 +136,7 @@ class ErrorLogResponse(BaseModel):
     total_lines: int = Field(description="Total lines in log file")
     filtered_lines: int = Field(description="Number of entries returned")
     log_size_mb: float = Field(description="Log file size in MB")
+
 
 class CacheStats(BaseModel):
     """Cache statistics"""

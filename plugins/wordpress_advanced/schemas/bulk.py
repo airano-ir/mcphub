@@ -11,6 +11,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
+
 class BulkUpdatePostsParams(BaseModel):
     """Parameters for bulk updating posts"""
 
@@ -55,6 +56,7 @@ class BulkUpdatePostsParams(BaseModel):
 
         return v
 
+
 class BulkDeletePostsParams(BaseModel):
     """Parameters for bulk deleting posts"""
 
@@ -70,6 +72,7 @@ class BulkDeletePostsParams(BaseModel):
         if any(id <= 0 for id in v):
             raise ValueError("All post IDs must be positive integers")
         return v
+
 
 class BulkUpdateProductsParams(BaseModel):
     """Parameters for bulk updating WooCommerce products"""
@@ -120,6 +123,7 @@ class BulkUpdateProductsParams(BaseModel):
 
         return v
 
+
 class BulkDeleteProductsParams(BaseModel):
     """Parameters for bulk deleting products"""
 
@@ -135,6 +139,7 @@ class BulkDeleteProductsParams(BaseModel):
         if any(id <= 0 for id in v):
             raise ValueError("All product IDs must be positive integers")
         return v
+
 
 class BulkAssignCategoriesParams(BaseModel):
     """Parameters for bulk assigning categories"""
@@ -164,6 +169,7 @@ class BulkAssignCategoriesParams(BaseModel):
             raise ValueError("item_type must be 'post' or 'product'")
         return v
 
+
 class BulkAssignTagsParams(BaseModel):
     """Parameters for bulk assigning tags"""
 
@@ -191,6 +197,7 @@ class BulkAssignTagsParams(BaseModel):
         if v not in ["post", "product"]:
             raise ValueError("item_type must be 'post' or 'product'")
         return v
+
 
 class BulkUpdateMediaParams(BaseModel):
     """Parameters for bulk updating media items"""
@@ -222,6 +229,7 @@ class BulkUpdateMediaParams(BaseModel):
 
         return v
 
+
 class BulkDeleteMediaParams(BaseModel):
     """Parameters for bulk deleting media items"""
 
@@ -239,6 +247,7 @@ class BulkDeleteMediaParams(BaseModel):
         if any(id <= 0 for id in v):
             raise ValueError("All media IDs must be positive integers")
         return v
+
 
 class BulkOperationResult(BaseModel):
     """Result of a bulk operation"""

@@ -18,6 +18,7 @@ from core.site_registry import get_site_registry
 
 logger = logging.getLogger(__name__)
 
+
 class UnifiedToolGenerator:
     """
     Generates unified tools from per-site tool definitions.

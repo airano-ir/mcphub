@@ -12,6 +12,7 @@ from typing import Any
 # This allows unified handlers to check project access permissions
 _api_key_context: ContextVar[dict[str, Any] | None] = ContextVar("api_key_context", default=None)
 
+
 def set_api_key_context(key_id: str, project_id: str, scope: str, is_global: bool) -> None:
     """
     Store API key information in request context.
@@ -26,6 +27,7 @@ def set_api_key_context(key_id: str, project_id: str, scope: str, is_global: boo
         {"key_id": key_id, "project_id": project_id, "scope": scope, "is_global": is_global}
     )
 
+
 def get_api_key_context() -> dict[str, Any] | None:
     """
     Retrieve API key information from request context.
@@ -34,6 +36,7 @@ def get_api_key_context() -> dict[str, Any] | None:
         Dict with key_id, project_id, scope, is_global or None
     """
     return _api_key_context.get()
+
 
 def clear_api_key_context() -> None:
     """Clear API key context (for cleanup)."""

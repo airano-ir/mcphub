@@ -20,6 +20,7 @@ import json
 import logging
 from typing import Any
 
+
 class WPCLIManager:
     """
     Manages WP-CLI command execution for WordPress containers.

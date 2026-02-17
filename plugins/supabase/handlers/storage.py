@@ -6,6 +6,7 @@ from typing import Any
 
 from plugins.supabase.client import SupabaseClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator (12 tools)"""
     return [
@@ -230,9 +231,11 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # =====================
 # Storage Operations (12 tools)
 # =====================
+
 
 async def list_buckets(client: SupabaseClient) -> str:
     """List all storage buckets"""
@@ -251,6 +254,7 @@ async def list_buckets(client: SupabaseClient) -> str:
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def get_bucket(client: SupabaseClient, bucket_id: str) -> str:
     """Get bucket details"""
     try:
@@ -259,6 +263,7 @@ async def get_bucket(client: SupabaseClient, bucket_id: str) -> str:
         return json.dumps({"success": True, "bucket": result}, indent=2, ensure_ascii=False)
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def create_bucket(
     client: SupabaseClient,
@@ -283,6 +288,7 @@ async def create_bucket(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def update_bucket(
     client: SupabaseClient,
@@ -312,6 +318,7 @@ async def update_bucket(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def delete_bucket(client: SupabaseClient, bucket_id: str) -> str:
     """Delete a bucket"""
     try:
@@ -325,6 +332,7 @@ async def delete_bucket(client: SupabaseClient, bucket_id: str) -> str:
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def empty_bucket(client: SupabaseClient, bucket_id: str) -> str:
     """Empty a bucket (delete all files)"""
     try:
@@ -337,6 +345,7 @@ async def empty_bucket(client: SupabaseClient, bucket_id: str) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def list_files(
     client: SupabaseClient, bucket: str, path: str = "", limit: int = 100, offset: int = 0
@@ -358,6 +367,7 @@ async def list_files(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def upload_file(
     client: SupabaseClient,
@@ -399,6 +409,7 @@ async def upload_file(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def download_file(client: SupabaseClient, bucket: str, path: str) -> str:
     """Download a file (returns base64)"""
     try:
@@ -426,6 +437,7 @@ async def download_file(client: SupabaseClient, bucket: str, path: str) -> str:
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def delete_files(client: SupabaseClient, bucket: str, paths: list[str]) -> str:
     """Delete files from bucket"""
     try:
@@ -443,6 +455,7 @@ async def delete_files(client: SupabaseClient, bucket: str, paths: list[str]) ->
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def move_file(client: SupabaseClient, bucket: str, from_path: str, to_path: str) -> str:
     """Move/rename a file"""
@@ -463,6 +476,7 @@ async def move_file(client: SupabaseClient, bucket: str, from_path: str, to_path
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def get_public_url(client: SupabaseClient, bucket: str, path: str) -> str:
     """Get public URL for a file"""

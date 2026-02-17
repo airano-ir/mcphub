@@ -5,6 +5,7 @@ from typing import Any
 
 from plugins.gitea.client import GiteaClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator"""
     return [
@@ -190,11 +191,13 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 async def get_user(client: GiteaClient, username: str) -> str:
     """Get user information"""
     user = await client.get_user(username)
     result = {"success": True, "user": user}
     return json.dumps(result, indent=2)
+
 
 async def list_user_repos(
     client: GiteaClient, username: str, page: int = 1, limit: int = 30
@@ -204,11 +207,13 @@ async def list_user_repos(
     result = {"success": True, "count": len(repos), "repositories": repos}
     return json.dumps(result, indent=2)
 
+
 async def search_users(client: GiteaClient, q: str | None = None, uid: int | None = None) -> str:
     """Search users"""
     users = await client.search_users(query=q, uid=uid)
     result = {"success": True, "count": len(users), "users": users}
     return json.dumps(result, indent=2)
+
 
 # Organization operations
 async def list_organizations(client: GiteaClient, page: int = 1, limit: int = 30) -> str:
@@ -217,11 +222,13 @@ async def list_organizations(client: GiteaClient, page: int = 1, limit: int = 30
     result = {"success": True, "count": len(orgs), "organizations": orgs}
     return json.dumps(result, indent=2)
 
+
 async def get_organization(client: GiteaClient, org: str) -> str:
     """Get organization information"""
     organization = await client.get_organization(org)
     result = {"success": True, "organization": organization}
     return json.dumps(result, indent=2)
+
 
 async def list_org_repos(client: GiteaClient, org: str, page: int = 1, limit: int = 30) -> str:
     """List organization repositories"""
@@ -229,12 +236,14 @@ async def list_org_repos(client: GiteaClient, org: str, page: int = 1, limit: in
     result = {"success": True, "count": len(repos), "repositories": repos}
     return json.dumps(result, indent=2)
 
+
 # Team operations
 async def list_org_teams(client: GiteaClient, org: str, page: int = 1, limit: int = 30) -> str:
     """List organization teams"""
     teams = await client.list_org_teams(org, page=page, limit=limit)
     result = {"success": True, "count": len(teams), "teams": teams}
     return json.dumps(result, indent=2)
+
 
 async def list_team_members(
     client: GiteaClient, team_id: int, page: int = 1, limit: int = 30

@@ -10,6 +10,7 @@ import secrets
 
 logger = logging.getLogger(__name__)
 
+
 class AuthManager:
     """
     Manage authentication for MCP server.
@@ -115,8 +116,10 @@ class AuthManager:
         """Check if a project has its own API key."""
         return project_id in self.project_keys
 
+
 # Global authentication manager instance
 _auth_manager: AuthManager | None = None
+
 
 def get_auth_manager() -> AuthManager:
     """Get the global authentication manager instance."""

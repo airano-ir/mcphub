@@ -13,6 +13,7 @@ from typing import Any
 
 from plugins.appwrite.client import AppwriteClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator (18 tools)"""
     return [
@@ -425,9 +426,11 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # =====================
 # HANDLER FUNCTIONS
 # =====================
+
 
 async def list_databases(
     client: AppwriteClient, queries: list[str] | None = None, search: str | None = None
@@ -447,6 +450,7 @@ async def list_databases(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_database(client: AppwriteClient, database_id: str) -> str:
     """Get database by ID."""
     try:
@@ -455,6 +459,7 @@ async def get_database(client: AppwriteClient, database_id: str) -> str:
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def create_database(
     client: AppwriteClient, database_id: str, name: str, enabled: bool = True
@@ -475,6 +480,7 @@ async def create_database(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def update_database(
     client: AppwriteClient, database_id: str, name: str, enabled: bool | None = None
 ) -> str:
@@ -490,6 +496,7 @@ async def update_database(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def delete_database(client: AppwriteClient, database_id: str) -> str:
     """Delete database."""
     try:
@@ -500,6 +507,7 @@ async def delete_database(client: AppwriteClient, database_id: str) -> str:
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def list_collections(
     client: AppwriteClient,
@@ -525,6 +533,7 @@ async def list_collections(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_collection(client: AppwriteClient, database_id: str, collection_id: str) -> str:
     """Get collection details."""
     try:
@@ -533,6 +542,7 @@ async def get_collection(client: AppwriteClient, database_id: str, collection_id
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def create_collection(
     client: AppwriteClient,
@@ -566,6 +576,7 @@ async def create_collection(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def update_collection(
     client: AppwriteClient,
     database_id: str,
@@ -594,6 +605,7 @@ async def update_collection(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def delete_collection(client: AppwriteClient, database_id: str, collection_id: str) -> str:
     """Delete collection."""
     try:
@@ -605,6 +617,7 @@ async def delete_collection(client: AppwriteClient, database_id: str, collection
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def list_attributes(
     client: AppwriteClient, database_id: str, collection_id: str, queries: list[str] | None = None
@@ -627,6 +640,7 @@ async def list_attributes(
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def create_string_attribute(
     client: AppwriteClient,
@@ -664,6 +678,7 @@ async def create_string_attribute(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def create_integer_attribute(
     client: AppwriteClient,
     database_id: str,
@@ -700,6 +715,7 @@ async def create_integer_attribute(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def create_boolean_attribute(
     client: AppwriteClient,
     database_id: str,
@@ -732,6 +748,7 @@ async def create_boolean_attribute(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def delete_attribute(
     client: AppwriteClient, database_id: str, collection_id: str, key: str
 ) -> str:
@@ -744,6 +761,7 @@ async def delete_attribute(
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def list_indexes(
     client: AppwriteClient, database_id: str, collection_id: str, queries: list[str] | None = None
@@ -766,6 +784,7 @@ async def list_indexes(
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def create_index(
     client: AppwriteClient,
@@ -794,6 +813,7 @@ async def create_index(
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def delete_index(
     client: AppwriteClient, database_id: str, collection_id: str, key: str

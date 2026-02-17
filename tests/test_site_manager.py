@@ -4,7 +4,6 @@ import pytest
 
 from core.site_manager import SiteConfig, SiteManager
 
-
 # --- SiteConfig Tests ---
 
 

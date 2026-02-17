@@ -17,6 +17,7 @@ from plugins.base import BasePlugin
 from plugins.wordpress.client import WordPressClient
 from plugins.wordpress_advanced import handlers
 
+
 class WordPressAdvancedPlugin(BasePlugin):
     """
     WordPress Advanced plugin - separated for security and visibility.

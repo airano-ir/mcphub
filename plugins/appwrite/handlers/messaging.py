@@ -12,6 +12,7 @@ from typing import Any
 
 from plugins.appwrite.client import AppwriteClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator (12 tools)"""
     return [
@@ -316,9 +317,11 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # =====================
 # HANDLER FUNCTIONS
 # =====================
+
 
 async def list_topics(
     client: AppwriteClient, queries: list[str] | None = None, search: str | None = None
@@ -334,6 +337,7 @@ async def list_topics(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_topic(client: AppwriteClient, topic_id: str) -> str:
     """Get topic by ID."""
     try:
@@ -342,6 +346,7 @@ async def get_topic(client: AppwriteClient, topic_id: str) -> str:
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def create_topic(
     client: AppwriteClient, topic_id: str, name: str, subscribe: list[str] | None = None
@@ -358,6 +363,7 @@ async def create_topic(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def delete_topic(client: AppwriteClient, topic_id: str) -> str:
     """Delete topic."""
     try:
@@ -368,6 +374,7 @@ async def delete_topic(client: AppwriteClient, topic_id: str) -> str:
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def create_subscriber(
     client: AppwriteClient, topic_id: str, subscriber_id: str, target_id: str
@@ -386,6 +393,7 @@ async def create_subscriber(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def delete_subscriber(client: AppwriteClient, topic_id: str, subscriber_id: str) -> str:
     """Remove subscriber from topic."""
     try:
@@ -397,6 +405,7 @@ async def delete_subscriber(client: AppwriteClient, topic_id: str, subscriber_id
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def list_messages(
     client: AppwriteClient, queries: list[str] | None = None, search: str | None = None
@@ -416,6 +425,7 @@ async def list_messages(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_message(client: AppwriteClient, message_id: str) -> str:
     """Get message by ID."""
     try:
@@ -424,6 +434,7 @@ async def get_message(client: AppwriteClient, message_id: str) -> str:
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def send_email(
     client: AppwriteClient,
@@ -471,6 +482,7 @@ async def send_email(
             error_msg += " (Hint: Make sure you have configured an email provider in Appwrite)"
         return json.dumps({"success": False, "error": error_msg}, indent=2)
 
+
 async def send_sms(
     client: AppwriteClient,
     message_id: str,
@@ -508,6 +520,7 @@ async def send_sms(
         if "provider" in error_msg.lower():
             error_msg += " (Hint: Make sure you have configured an SMS provider in Appwrite)"
         return json.dumps({"success": False, "error": error_msg}, indent=2)
+
 
 async def send_push(
     client: AppwriteClient,
@@ -566,6 +579,7 @@ async def send_push(
                 " (Hint: Make sure you have configured a push provider (FCM/APNs) in Appwrite)"
             )
         return json.dumps({"success": False, "error": error_msg}, indent=2)
+
 
 async def delete_message(client: AppwriteClient, message_id: str) -> str:
     """Delete message."""

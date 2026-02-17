@@ -5,6 +5,7 @@ from typing import Any
 
 from plugins.n8n.client import N8nClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator"""
     return [
@@ -85,8 +86,10 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # === HANDLER FUNCTIONS ===
 # Note: list_credentials is not supported in n8n Public API (GET /credentials returns 405)
+
 
 async def get_credential(client: N8nClient, credential_id: str) -> str:
     """Get credential metadata"""
@@ -106,6 +109,7 @@ async def get_credential(client: N8nClient, credential_id: str) -> str:
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def create_credential(client: N8nClient, name: str, type: str, data: dict[str, Any]) -> str:
     """Create a new credential"""
     try:
@@ -124,6 +128,7 @@ async def create_credential(client: N8nClient, name: str, type: str, data: dict[
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def delete_credential(client: N8nClient, credential_id: str) -> str:
     """Delete a credential"""
     try:
@@ -134,6 +139,7 @@ async def delete_credential(client: N8nClient, credential_id: str) -> str:
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_credential_schema(client: N8nClient, credential_type: str) -> str:
     """Get credential type schema"""
     try:
@@ -143,6 +149,7 @@ async def get_credential_schema(client: N8nClient, credential_type: str) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def transfer_credential(
     client: N8nClient, credential_id: str, destination_project_id: str

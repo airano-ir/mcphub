@@ -11,6 +11,7 @@ from typing import Any
 
 from plugins.appwrite.client import AppwriteClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator (10 tools)"""
     return [
@@ -202,9 +203,11 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # =====================
 # HANDLER FUNCTIONS
 # =====================
+
 
 async def list_teams(
     client: AppwriteClient, queries: list[str] | None = None, search: str | None = None
@@ -220,6 +223,7 @@ async def list_teams(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_team(client: AppwriteClient, team_id: str) -> str:
     """Get team by ID."""
     try:
@@ -228,6 +232,7 @@ async def get_team(client: AppwriteClient, team_id: str) -> str:
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def create_team(
     client: AppwriteClient, team_id: str, name: str, roles: list[str] | None = None
@@ -244,6 +249,7 @@ async def create_team(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def update_team(client: AppwriteClient, team_id: str, name: str) -> str:
     """Update team name."""
     try:
@@ -257,6 +263,7 @@ async def update_team(client: AppwriteClient, team_id: str, name: str) -> str:
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def delete_team(client: AppwriteClient, team_id: str) -> str:
     """Delete team."""
     try:
@@ -267,6 +274,7 @@ async def delete_team(client: AppwriteClient, team_id: str) -> str:
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def list_team_memberships(
     client: AppwriteClient,
@@ -289,6 +297,7 @@ async def list_team_memberships(
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def create_team_membership(
     client: AppwriteClient,
@@ -325,6 +334,7 @@ async def create_team_membership(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def update_membership(
     client: AppwriteClient, team_id: str, membership_id: str, roles: list[str]
 ) -> str:
@@ -346,6 +356,7 @@ async def update_membership(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def delete_membership(client: AppwriteClient, team_id: str, membership_id: str) -> str:
     """Delete membership."""
     try:
@@ -357,6 +368,7 @@ async def delete_membership(client: AppwriteClient, team_id: str, membership_id:
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def get_team_prefs(client: AppwriteClient, team_id: str) -> str:
     """Get team preferences (placeholder - requires team prefs endpoint)."""

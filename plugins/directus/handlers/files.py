@@ -12,6 +12,7 @@ from typing import Any
 
 from plugins.directus.client import DirectusClient
 
+
 def _parse_json_param(value: Any, param_name: str = "parameter") -> Any:
     """Parse a parameter that may be a JSON string or already a native type."""
     if value is None:
@@ -26,6 +27,7 @@ def _parse_json_param(value: Any, param_name: str = "parameter") -> Any:
             except json.JSONDecodeError as e:
                 raise ValueError(f"Invalid JSON in '{param_name}': {e}")
     return value
+
 
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator (12 tools)"""
@@ -241,9 +243,11 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # =====================
 # HANDLER FUNCTIONS
 # =====================
+
 
 async def list_files(
     client: DirectusClient,
@@ -269,6 +273,7 @@ async def list_files(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_file(client: DirectusClient, id: str) -> str:
     """Get file metadata."""
     try:
@@ -278,6 +283,7 @@ async def get_file(client: DirectusClient, id: str) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def update_file(client: DirectusClient, id: str, data: dict[str, Any]) -> str:
     """Update file metadata."""
@@ -293,6 +299,7 @@ async def update_file(client: DirectusClient, id: str, data: dict[str, Any]) -> 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def delete_file(client: DirectusClient, id: str) -> str:
     """Delete a file."""
     try:
@@ -300,6 +307,7 @@ async def delete_file(client: DirectusClient, id: str) -> str:
         return json.dumps({"success": True, "message": f"File {id} deleted"}, indent=2)
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def delete_files(client: DirectusClient, ids: list[str]) -> str:
     """Delete multiple files."""
@@ -310,6 +318,7 @@ async def delete_files(client: DirectusClient, ids: list[str]) -> str:
         return json.dumps({"success": True, "message": f"Deleted {len(ids)} files"}, indent=2)
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def import_file_url(client: DirectusClient, url: str, data: dict | None = None) -> str:
     """Import file from URL."""
@@ -325,6 +334,7 @@ async def import_file_url(client: DirectusClient, url: str, data: dict | None = 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_file_url(client: DirectusClient, id: str, download: bool = False) -> str:
     """Get file URL."""
     try:
@@ -335,6 +345,7 @@ async def get_file_url(client: DirectusClient, id: str, download: bool = False) 
         return json.dumps({"success": True, "id": id, "url": url, "download": download}, indent=2)
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def list_folders(
     client: DirectusClient,
@@ -361,6 +372,7 @@ async def list_folders(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_folder(client: DirectusClient, id: str) -> str:
     """Get folder details."""
     try:
@@ -370,6 +382,7 @@ async def get_folder(client: DirectusClient, id: str) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def create_folder(client: DirectusClient, name: str, parent: str | None = None) -> str:
     """Create a folder."""
@@ -382,6 +395,7 @@ async def create_folder(client: DirectusClient, name: str, parent: str | None = 
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def update_folder(client: DirectusClient, id: str, data: dict[str, Any]) -> str:
     """Update folder."""
@@ -396,6 +410,7 @@ async def update_folder(client: DirectusClient, id: str, data: dict[str, Any]) -
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def delete_folder(client: DirectusClient, id: str) -> str:
     """Delete a folder."""

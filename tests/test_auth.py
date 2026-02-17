@@ -1,8 +1,5 @@
 """Tests for Authentication System (core/auth.py)."""
 
-import os
-import secrets
-
 import pytest
 
 from core.auth import AuthManager

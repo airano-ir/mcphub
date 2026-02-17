@@ -16,6 +16,7 @@ from .token_manager import get_token_manager
 
 logger = logging.getLogger(__name__)
 
+
 class OAuthError(Exception):
     """OAuth error with error code and description"""
 
@@ -24,6 +25,7 @@ class OAuthError(Exception):
         self.error_description = error_description
         self.status_code = status_code
         super().__init__(error_description)
+
 
 class OAuthServer:
     """
@@ -385,8 +387,10 @@ class OAuthServer:
             scope=" ".join(requested_scopes),
         )
 
+
 # Singleton
 _oauth_server: OAuthServer | None = None
+
 
 def get_oauth_server() -> OAuthServer:
     """Get singleton OAuthServer instance"""

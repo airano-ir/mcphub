@@ -11,7 +11,6 @@ import pytest
 from plugins.base import BasePlugin
 from plugins.woocommerce.plugin import WooCommercePlugin
 
-
 # --- WooCommercePlugin Initialization ---
 
 
@@ -102,7 +101,7 @@ class TestWooCommerceToolSpecs:
         """Each spec should have name, method_name, description, schema, scope."""
         specs = WooCommercePlugin.get_tool_specifications()
         for spec in specs:
-            assert "name" in spec, f"Missing 'name' in spec"
+            assert "name" in spec, "Missing 'name' in spec"
             assert "method_name" in spec, f"Missing 'method_name' in {spec.get('name')}"
             assert "description" in spec, f"Missing 'description' in {spec.get('name')}"
             assert "schema" in spec, f"Missing 'schema' in {spec.get('name')}"
@@ -113,26 +112,42 @@ class TestWooCommerceToolSpecs:
         specs = WooCommercePlugin.get_tool_specifications()
         valid_scopes = {"read", "write", "admin"}
         for spec in specs:
-            assert spec["scope"] in valid_scopes, f"Invalid scope '{spec['scope']}' in {spec['name']}"
+            assert (
+                spec["scope"] in valid_scopes
+            ), f"Invalid scope '{spec['scope']}' in {spec['name']}"
 
     def test_specs_unique_names(self):
         """All tool names should be unique."""
         specs = WooCommercePlugin.get_tool_specifications()
         names = [s["name"] for s in specs]
-        assert len(names) == len(set(names)), f"Duplicate names: {[n for n in names if names.count(n) > 1]}"
+        assert len(names) == len(
+            set(names)
+        ), f"Duplicate names: {[n for n in names if names.count(n) > 1]}"
 
     def test_product_tools_present(self):
         """Should include product management tools."""
         specs = WooCommercePlugin.get_tool_specifications()
         names = {s["name"] for s in specs}
-        expected = {"list_products", "get_product", "create_product", "update_product", "delete_product"}
+        expected = {
+            "list_products",
+            "get_product",
+            "create_product",
+            "update_product",
+            "delete_product",
+        }
         assert expected.issubset(names), f"Missing product tools: {expected - names}"
 
     def test_order_tools_present(self):
         """Should include order management tools."""
         specs = WooCommercePlugin.get_tool_specifications()
         names = {s["name"] for s in specs}
-        expected = {"list_orders", "get_order", "create_order", "update_order_status", "delete_order"}
+        expected = {
+            "list_orders",
+            "get_order",
+            "create_order",
+            "update_order_status",
+            "delete_order",
+        }
         assert expected.issubset(names), f"Missing order tools: {expected - names}"
 
     def test_customer_tools_present(self):
@@ -193,7 +208,7 @@ class TestWooCommerceHandlerDelegation:
     async def test_create_product_delegates(self, plugin):
         """create_product should delegate to products handler."""
         plugin.products.create_product = AsyncMock(return_value={"id": 99})
-        result = await plugin.create_product(name="Widget", regular_price="19.99")
+        await plugin.create_product(name="Widget", regular_price="19.99")
         plugin.products.create_product.assert_called_once_with(name="Widget", regular_price="19.99")
 
     @pytest.mark.asyncio
@@ -207,7 +222,7 @@ class TestWooCommerceHandlerDelegation:
     async def test_get_order_delegates(self, plugin):
         """get_order should delegate to orders handler."""
         plugin.orders.get_order = AsyncMock(return_value={"id": 1, "status": "completed"})
-        result = await plugin.get_order(order_id=1)
+        await plugin.get_order(order_id=1)
         plugin.orders.get_order.assert_called_once_with(order_id=1)
 
     @pytest.mark.asyncio
@@ -221,14 +236,14 @@ class TestWooCommerceHandlerDelegation:
     async def test_create_coupon_delegates(self, plugin):
         """create_coupon should delegate to coupons handler."""
         plugin.coupons.create_coupon = AsyncMock(return_value={"id": 5})
-        result = await plugin.create_coupon(code="SAVE10", discount_type="percent")
+        await plugin.create_coupon(code="SAVE10", discount_type="percent")
         plugin.coupons.create_coupon.assert_called_once_with(code="SAVE10", discount_type="percent")
 
     @pytest.mark.asyncio
     async def test_get_sales_report_delegates(self, plugin):
         """get_sales_report should delegate to reports handler."""
         plugin.reports.get_sales_report = AsyncMock(return_value={"total": 1000})
-        result = await plugin.get_sales_report(period="month")
+        await plugin.get_sales_report(period="month")
         plugin.reports.get_sales_report.assert_called_once_with(period="month")
 
 

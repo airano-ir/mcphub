@@ -5,6 +5,7 @@ from typing import Any
 
 from plugins.supabase.client import SupabaseClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator (14 tools)"""
     return [
@@ -281,9 +282,11 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # =====================
 # Auth Operations (14 tools)
 # =====================
+
 
 async def list_users(client: SupabaseClient, page: int = 1, per_page: int = 50) -> str:
     """List all users with pagination"""
@@ -307,6 +310,7 @@ async def list_users(client: SupabaseClient, page: int = 1, per_page: int = 50) 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def get_user(client: SupabaseClient, user_id: str) -> str:
     """Get user by ID"""
     try:
@@ -315,6 +319,7 @@ async def get_user(client: SupabaseClient, user_id: str) -> str:
         return json.dumps({"success": True, "user": result}, indent=2, ensure_ascii=False)
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def create_user(
     client: SupabaseClient,
@@ -343,6 +348,7 @@ async def create_user(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def update_user(
     client: SupabaseClient,
@@ -376,6 +382,7 @@ async def update_user(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def delete_user(client: SupabaseClient, user_id: str) -> str:
     """Delete a user"""
     try:
@@ -388,6 +395,7 @@ async def delete_user(client: SupabaseClient, user_id: str) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def invite_user(
     client: SupabaseClient,
@@ -409,6 +417,7 @@ async def invite_user(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def generate_link(
     client: SupabaseClient, email: str, link_type: str = "magiclink", redirect_to: str | None = None
 ) -> str:
@@ -426,6 +435,7 @@ async def generate_link(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def ban_user(client: SupabaseClient, user_id: str, duration: str = "none") -> str:
     """Ban a user"""
     try:
@@ -438,6 +448,7 @@ async def ban_user(client: SupabaseClient, user_id: str, duration: str = "none")
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def unban_user(client: SupabaseClient, user_id: str) -> str:
     """Unban a user"""
@@ -452,6 +463,7 @@ async def unban_user(client: SupabaseClient, user_id: str) -> str:
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def list_user_factors(client: SupabaseClient, user_id: str) -> str:
     """List user MFA factors"""
     try:
@@ -462,6 +474,7 @@ async def list_user_factors(client: SupabaseClient, user_id: str) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def delete_user_factor(client: SupabaseClient, user_id: str, factor_id: str) -> str:
     """Delete an MFA factor"""
@@ -476,6 +489,7 @@ async def delete_user_factor(client: SupabaseClient, user_id: str, factor_id: st
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def get_auth_config(client: SupabaseClient) -> str:
     """Get auth configuration"""
     try:
@@ -485,6 +499,7 @@ async def get_auth_config(client: SupabaseClient) -> str:
         return json.dumps({"success": True, "config": result}, indent=2, ensure_ascii=False)
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def search_users(
     client: SupabaseClient, query: str, page: int = 1, per_page: int = 50
@@ -514,6 +529,7 @@ async def search_users(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def get_user_by_email(client: SupabaseClient, email: str) -> str:
     """Find user by email"""

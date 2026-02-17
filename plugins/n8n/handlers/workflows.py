@@ -5,6 +5,7 @@ from typing import Any
 
 from plugins.n8n.client import N8nClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator"""
     return [
@@ -319,7 +320,9 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # === HANDLER FUNCTIONS ===
+
 
 async def list_workflows(
     client: N8nClient,
@@ -360,6 +363,7 @@ async def list_workflows(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_workflow(client: N8nClient, workflow_id: str) -> str:
     """Get workflow details"""
     try:
@@ -385,6 +389,7 @@ async def get_workflow(client: N8nClient, workflow_id: str) -> str:
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def create_workflow(
     client: N8nClient,
@@ -426,6 +431,7 @@ async def create_workflow(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def update_workflow(
     client: N8nClient,
     workflow_id: str,
@@ -466,6 +472,7 @@ async def update_workflow(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def delete_workflow(client: N8nClient, workflow_id: str) -> str:
     """Delete a workflow"""
     try:
@@ -477,6 +484,7 @@ async def delete_workflow(client: N8nClient, workflow_id: str) -> str:
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def activate_workflow(client: N8nClient, workflow_id: str) -> str:
     """Activate a workflow"""
@@ -498,6 +506,7 @@ async def activate_workflow(client: N8nClient, workflow_id: str) -> str:
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def deactivate_workflow(client: N8nClient, workflow_id: str) -> str:
     """Deactivate a workflow"""
     try:
@@ -518,6 +527,7 @@ async def deactivate_workflow(client: N8nClient, workflow_id: str) -> str:
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def execute_workflow(client: N8nClient, workflow_id: str) -> str:
     """Execute a workflow manually"""
     try:
@@ -537,6 +547,7 @@ async def execute_workflow(client: N8nClient, workflow_id: str) -> str:
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def execute_workflow_with_data(
     client: N8nClient, workflow_id: str, data: dict[str, Any]
@@ -560,6 +571,7 @@ async def execute_workflow_with_data(
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def duplicate_workflow(client: N8nClient, workflow_id: str, new_name: str) -> str:
     """Duplicate a workflow"""
@@ -589,6 +601,7 @@ async def duplicate_workflow(client: N8nClient, workflow_id: str, new_name: str)
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def export_workflow(client: N8nClient, workflow_id: str) -> str:
     """Export workflow as JSON"""
     try:
@@ -601,6 +614,7 @@ async def export_workflow(client: N8nClient, workflow_id: str) -> str:
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def import_workflow(
     client: N8nClient, workflow_json: dict[str, Any], name_override: str | None = None
@@ -634,6 +648,7 @@ async def import_workflow(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_workflow_tags(client: N8nClient, workflow_id: str) -> str:
     """Get tags assigned to a workflow"""
     try:
@@ -645,6 +660,7 @@ async def get_workflow_tags(client: N8nClient, workflow_id: str) -> str:
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def set_workflow_tags(
     client: N8nClient, workflow_id: str, tag_ids: list[str] | None = None

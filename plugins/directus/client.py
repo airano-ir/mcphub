@@ -40,6 +40,7 @@ from typing import Any
 
 import aiohttp
 
+
 def _ensure_list(value: Any) -> list[str]:
     """Ensure value is a list. If string, wrap in list."""
     if value is None:
@@ -49,6 +50,7 @@ def _ensure_list(value: Any) -> list[str]:
     if isinstance(value, str):
         return [value]
     return [str(value)]
+
 
 class DirectusClient:
     """

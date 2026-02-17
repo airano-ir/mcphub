@@ -14,6 +14,7 @@ from plugins.base import BasePlugin
 from plugins.supabase import handlers
 from plugins.supabase.client import SupabaseClient
 
+
 class SupabasePlugin(BasePlugin):
     """
     Supabase Self-Hosted Plugin - Complete backend management.

@@ -5,6 +5,7 @@ from typing import Any
 
 from plugins.supabase.client import SupabaseClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator (12 tools)"""
     return [
@@ -260,9 +261,11 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # =====================
 # Admin Operations (12 tools)
 # =====================
+
 
 async def enable_extension(client: SupabaseClient, name: str, schema: str = "extensions") -> str:
     """Enable a PostgreSQL extension"""
@@ -281,6 +284,7 @@ async def enable_extension(client: SupabaseClient, name: str, schema: str = "ext
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def disable_extension(client: SupabaseClient, name: str, cascade: bool = False) -> str:
     """Disable (drop) a PostgreSQL extension"""
@@ -301,6 +305,7 @@ async def disable_extension(client: SupabaseClient, name: str, cascade: bool = F
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def create_policy(
     client: SupabaseClient,
@@ -350,6 +355,7 @@ async def create_policy(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def update_policy(
     client: SupabaseClient,
     table: str,
@@ -380,6 +386,7 @@ async def update_policy(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def delete_policy(
     client: SupabaseClient, table: str, name: str, schema: str = "public"
 ) -> str:
@@ -400,6 +407,7 @@ async def delete_policy(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def enable_rls(client: SupabaseClient, table: str, schema: str = "public") -> str:
     """Enable RLS on a table"""
     try:
@@ -417,6 +425,7 @@ async def enable_rls(client: SupabaseClient, table: str, schema: str = "public")
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def disable_rls(client: SupabaseClient, table: str, schema: str = "public") -> str:
     """Disable RLS on a table"""
@@ -436,6 +445,7 @@ async def disable_rls(client: SupabaseClient, table: str, schema: str = "public"
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def create_table(
     client: SupabaseClient,
@@ -491,6 +501,7 @@ async def create_table(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def drop_table(
     client: SupabaseClient, name: str, schema: str = "public", cascade: bool = False
 ) -> str:
@@ -512,6 +523,7 @@ async def drop_table(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def add_column(
     client: SupabaseClient,
@@ -552,6 +564,7 @@ async def add_column(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def drop_column(
     client: SupabaseClient,
     table: str,
@@ -581,6 +594,7 @@ async def drop_column(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def get_database_size(client: SupabaseClient) -> str:
     """Get database and table sizes"""

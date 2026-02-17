@@ -12,6 +12,7 @@ from plugins.base import BasePlugin
 from plugins.n8n import handlers
 from plugins.n8n.client import N8nClient
 
+
 class N8nPlugin(BasePlugin):
     """
     n8n Automation Plugin - Comprehensive workflow management.

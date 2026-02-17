@@ -5,6 +5,7 @@ from typing import Any
 
 from plugins.wordpress.client import WordPressClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator"""
     return [
@@ -268,6 +269,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
             "scope": "write",
         },
     ]
+
 
 class TaxonomyHandler:
     """Handle taxonomy-related operations for WordPress"""

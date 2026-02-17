@@ -8,6 +8,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
+
 class OrderLineItem(BaseModel):
     """Schema for order line item"""
 
@@ -18,6 +19,7 @@ class OrderLineItem(BaseModel):
     variation_id: int | None = Field(None, description="Variation ID")
     subtotal: str | None = Field(None, description="Line subtotal")
     total: str | None = Field(None, description="Line total")
+
 
 class ShippingAddress(BaseModel):
     """Schema for shipping address"""
@@ -34,11 +36,13 @@ class ShippingAddress(BaseModel):
     postcode: str | None = Field(None, description="Postal code")
     country: str | None = Field(None, description="Country code (ISO 3166-1 alpha-2)")
 
+
 class BillingAddress(ShippingAddress):
     """Schema for billing address (extends shipping)"""
 
     email: EmailStr | None = Field(None, description="Email address")
     phone: str | None = Field(None, description="Phone number")
+
 
 class OrderBase(BaseModel):
     """Base order schema"""
@@ -76,6 +80,7 @@ class OrderBase(BaseModel):
                 raise ValueError(f"Status must be one of: {', '.join(allowed)}")
         return v
 
+
 class OrderCreate(OrderBase):
     """Schema for creating a new order"""
 
@@ -85,11 +90,13 @@ class OrderCreate(OrderBase):
 
     model_config = ConfigDict(extra="allow")
 
+
 class OrderUpdate(OrderBase):
     """Schema for updating an existing order"""
 
     # All fields optional for updates
     pass
+
 
 class OrderStatusUpdate(BaseModel):
     """Schema for updating order status"""
@@ -112,6 +119,7 @@ class OrderStatusUpdate(BaseModel):
             raise ValueError(f"Status must be one of: {', '.join(allowed)}")
         return v
 
+
 class OrderResponse(BaseModel):
     """Schema for order response data"""
 
@@ -126,6 +134,7 @@ class OrderResponse(BaseModel):
     shipping: dict[str, Any]
     line_items: list[dict[str, Any]]
 
+
 class CustomerBase(BaseModel):
     """Base customer schema"""
 
@@ -138,12 +147,14 @@ class CustomerBase(BaseModel):
     billing: BillingAddress | None = Field(None, description="Billing address")
     shipping: ShippingAddress | None = Field(None, description="Shipping address")
 
+
 class CustomerCreate(CustomerBase):
     """Schema for creating a new customer"""
 
     email: EmailStr = Field(..., description="Customer email (required)")
 
     model_config = ConfigDict(extra="allow")
+
 
 class CustomerUpdate(CustomerBase):
     """Schema for updating an existing customer"""

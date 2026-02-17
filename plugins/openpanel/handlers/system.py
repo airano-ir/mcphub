@@ -5,6 +5,7 @@ from typing import Any
 
 from plugins.openpanel.client import OpenPanelClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator (6 tools)"""
     return [
@@ -72,9 +73,11 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # =====================
 # System Functions (6)
 # =====================
+
 
 async def health_check(client: OpenPanelClient) -> str:
     """Check OpenPanel instance health"""
@@ -109,6 +112,7 @@ async def health_check(client: OpenPanelClient) -> str:
             ensure_ascii=False,
         )
 
+
 async def get_instance_info(client: OpenPanelClient) -> str:
     """Get OpenPanel instance information"""
     try:
@@ -125,6 +129,7 @@ async def get_instance_info(client: OpenPanelClient) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def get_usage_stats(client: OpenPanelClient, project_id: str, date_range: str = "30d") -> str:
     """Get usage statistics for a project"""
@@ -173,6 +178,7 @@ async def get_usage_stats(client: OpenPanelClient, project_id: str, date_range: 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def get_storage_stats(client: OpenPanelClient, project_id: str) -> str:
     """Get storage usage statistics"""
     try:
@@ -198,6 +204,7 @@ async def get_storage_stats(client: OpenPanelClient, project_id: str) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def test_connection(client: OpenPanelClient) -> str:
     """Test connection to OpenPanel API"""
@@ -231,6 +238,7 @@ async def test_connection(client: OpenPanelClient) -> str:
             indent=2,
             ensure_ascii=False,
         )
+
 
 async def get_rate_limit_status(client: OpenPanelClient) -> str:
     """Check current rate limit status"""

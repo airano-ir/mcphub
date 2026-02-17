@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from .common import GiteaUser
 from .issue import Label, Milestone
 
+
 class PRBranchInfo(BaseModel):
     """Pull request branch information"""
 
@@ -21,6 +22,7 @@ class PRBranchInfo(BaseModel):
     sha: str
     repo_id: int
     repository: dict | None = None
+
 
 class PullRequest(BaseModel):
     """Gitea pull request model"""
@@ -58,6 +60,7 @@ class PullRequest(BaseModel):
     allow_maintainer_edit: bool = False
     url: str
 
+
 class PRReview(BaseModel):
     """Pull request review"""
 
@@ -72,6 +75,7 @@ class PRReview(BaseModel):
     pull_request_url: str
     submitted_at: datetime
 
+
 class PRCommit(BaseModel):
     """Pull request commit"""
 
@@ -85,6 +89,7 @@ class PRCommit(BaseModel):
     author: GiteaUser | None = None
     committer: GiteaUser | None = None
     parents: list[dict] = []
+
 
 class PRFile(BaseModel):
     """Pull request file change"""
@@ -101,6 +106,7 @@ class PRFile(BaseModel):
     patch: str | None = None
     previous_filename: str | None = None
 
+
 class CreatePullRequestRequest(BaseModel):
     """Request to create a pull request"""
 
@@ -115,6 +121,7 @@ class CreatePullRequestRequest(BaseModel):
     labels: list[int] | None = Field(None, description="List of label IDs")
     milestone: int | None = Field(None, description="Milestone ID")
     due_date: datetime | None = Field(None, description="Due date")
+
 
 class UpdatePullRequestRequest(BaseModel):
     """Request to update a pull request"""
@@ -139,6 +146,7 @@ class UpdatePullRequestRequest(BaseModel):
             raise ValueError("State must be 'open' or 'closed'")
         return v
 
+
 class MergePullRequestRequest(BaseModel):
     """Request to merge a pull request"""
 
@@ -162,6 +170,7 @@ class MergePullRequestRequest(BaseModel):
             raise ValueError(f"Merge method must be one of: {', '.join(allowed)}")
         return v
 
+
 class CreateReviewRequest(BaseModel):
     """Request to create a review"""
 
@@ -179,6 +188,7 @@ class CreateReviewRequest(BaseModel):
             raise ValueError(f"Review event must be one of: {', '.join(allowed)}")
         return v
 
+
 class RequestReviewersRequest(BaseModel):
     """Request reviewers for a pull request"""
 
@@ -186,6 +196,7 @@ class RequestReviewersRequest(BaseModel):
 
     reviewers: list[str] = Field(..., min_items=1, description="List of reviewer usernames")
     team_reviewers: list[str] | None = Field(None, description="List of team slugs")
+
 
 class PRListFilters(BaseModel):
     """Filters for listing pull requests"""

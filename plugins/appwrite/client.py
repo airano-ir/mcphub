@@ -21,6 +21,7 @@ from typing import Any
 
 import aiohttp
 
+
 class AppwriteClient:
     """
     Appwrite Self-Hosted API client.

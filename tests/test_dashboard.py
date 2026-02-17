@@ -6,7 +6,6 @@ language detection, translations, and utility functions.
 
 import time
 from datetime import UTC, datetime, timedelta
-from unittest.mock import patch
 
 import jwt
 import pytest
@@ -19,7 +18,6 @@ from core.dashboard.routes import (
     get_plugin_display_name,
     get_translations,
 )
-
 
 # --- Plugin Display Names ---
 
@@ -49,8 +47,15 @@ class TestPluginDisplayNames:
     def test_all_nine_plugins_mapped(self):
         """All 9 plugin types should be in the display names map."""
         expected = {
-            "wordpress", "woocommerce", "wordpress_advanced", "gitea",
-            "n8n", "supabase", "openpanel", "appwrite", "directus",
+            "wordpress",
+            "woocommerce",
+            "wordpress_advanced",
+            "gitea",
+            "n8n",
+            "supabase",
+            "openpanel",
+            "appwrite",
+            "directus",
         }
         assert expected == set(PLUGIN_DISPLAY_NAMES.keys())
 
@@ -119,7 +124,9 @@ class TestTranslations:
         """English and Farsi should have the same translation keys."""
         en_keys = set(DASHBOARD_TRANSLATIONS["en"].keys())
         fa_keys = set(DASHBOARD_TRANSLATIONS["fa"].keys())
-        assert en_keys == fa_keys, f"Missing keys in fa: {en_keys - fa_keys}, extra in fa: {fa_keys - en_keys}"
+        assert (
+            en_keys == fa_keys
+        ), f"Missing keys in fa: {en_keys - fa_keys}, extra in fa: {fa_keys - en_keys}"
 
     def test_no_empty_translations(self):
         """No translation value should be empty."""
@@ -197,7 +204,8 @@ class TestDashboardRateLimiting:
     @pytest.fixture
     def auth(self):
         return DashboardAuth(
-            secret_key="test-secret", master_api_key="sk-master",
+            secret_key="test-secret",
+            master_api_key="sk-master",
         )
 
     def test_within_limit(self, auth):

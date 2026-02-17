@@ -8,6 +8,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+
 class User(BaseModel):
     """Gitea user model"""
 
@@ -34,6 +35,7 @@ class User(BaseModel):
     starred_repos_count: int = 0
     username: str | None = None  # Alias for login
 
+
 class Organization(BaseModel):
     """Gitea organization model"""
 
@@ -50,6 +52,7 @@ class Organization(BaseModel):
     repo_admin_change_team_access: bool = False
     username: str | None = None  # Alias for name
 
+
 class Team(BaseModel):
     """Organization team model"""
 
@@ -65,6 +68,7 @@ class Team(BaseModel):
     units: list[str] | None = None
     units_map: dict | None = None
 
+
 class TeamMember(BaseModel):
     """Team member model"""
 
@@ -72,6 +76,7 @@ class TeamMember(BaseModel):
 
     user: User
     role: str | None = None  # Role in team
+
 
 class Email(BaseModel):
     """User email model"""
@@ -82,6 +87,7 @@ class Email(BaseModel):
     verified: bool
     primary: bool
 
+
 class SearchUsersRequest(BaseModel):
     """Request to search users"""
 
@@ -89,6 +95,7 @@ class SearchUsersRequest(BaseModel):
 
     q: str | None = Field(None, description="Search query")
     uid: int | None = Field(None, description="User ID")
+
 
 class SearchOrgsRequest(BaseModel):
     """Request to search organizations"""

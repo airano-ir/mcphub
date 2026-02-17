@@ -12,6 +12,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 class SiteInfo:
     """Information about a single site."""
 
@@ -49,6 +50,7 @@ class SiteInfo:
             "full_id": self.get_full_id(),
             "config_keys": list(self.config.keys()),
         }
+
 
 class SiteRegistry:
     """
@@ -360,8 +362,10 @@ class SiteRegistry:
                 options.add(site_info.alias)
         return sorted(options)
 
+
 # Global site registry instance
 _site_registry: SiteRegistry | None = None
+
 
 def get_site_registry() -> SiteRegistry:
     """Get the global site registry instance."""

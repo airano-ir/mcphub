@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 
 from pydantic import BaseModel, Field, field_validator
 
+
 class OAuthClient(BaseModel):
     """OAuth 2.1 Client Model"""
 
@@ -44,6 +45,7 @@ class OAuthClient(BaseModel):
                 raise ValueError(f"Invalid grant type: {grant}")
         return v
 
+
 class AuthorizationCode(BaseModel):
     """Authorization Code Model"""
 
@@ -77,6 +79,7 @@ class AuthorizationCode(BaseModel):
             raise ValueError("Only S256 code_challenge_method is supported (OAuth 2.1)")
         return v
 
+
 class AccessToken(BaseModel):
     """Access Token Model"""
 
@@ -95,6 +98,7 @@ class AccessToken(BaseModel):
         if expires.tzinfo is None:
             expires = expires.replace(tzinfo=UTC)
         return now > expires
+
 
 class RefreshToken(BaseModel):
     """Refresh Token Model"""
@@ -115,6 +119,7 @@ class RefreshToken(BaseModel):
             expires = expires.replace(tzinfo=UTC)
         return now > expires
 
+
 class TokenRequest(BaseModel):
     """Token Request Model"""
 
@@ -134,6 +139,7 @@ class TokenRequest(BaseModel):
     client_id: str
     client_secret: str | None = None
     scope: str | None = None
+
 
 class TokenResponse(BaseModel):
     """Token Response Model"""

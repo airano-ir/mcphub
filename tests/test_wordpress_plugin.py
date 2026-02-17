@@ -14,7 +14,6 @@ from plugins.base import BasePlugin, PluginRegistry
 from plugins.wordpress.client import AuthenticationError, ConfigurationError, WordPressClient
 from plugins.wordpress.plugin import WordPressPlugin
 
-
 # --- WordPressClient Tests ---
 
 
@@ -87,7 +86,9 @@ class TestWordPressClientErrorParsing:
 
     def test_parse_json_error(self, client):
         """Should parse JSON error responses."""
-        error_text = json.dumps({"code": "rest_forbidden", "message": "Sorry, you are not allowed."})
+        error_text = json.dumps(
+            {"code": "rest_forbidden", "message": "Sorry, you are not allowed."}
+        )
         result = client._parse_error_response(403, error_text)
         assert result["error_code"] == "ACCESS_DENIED"
         assert result["status_code"] == 403
@@ -159,10 +160,12 @@ class TestWordPressClientRequest:
         mock_response.json = AsyncMock(return_value={"id": 1})
 
         mock_session = AsyncMock()
-        mock_session.request = MagicMock(return_value=AsyncMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock(return_value=False),
-        ))
+        mock_session.request = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response),
+                __aexit__=AsyncMock(return_value=False),
+            )
+        )
 
         with patch("aiohttp.ClientSession") as mock_cls:
             mock_cls.return_value = AsyncMock(
@@ -171,7 +174,8 @@ class TestWordPressClientRequest:
             )
 
             result = await client.request(
-                "GET", "posts",
+                "GET",
+                "posts",
                 params={"status": "publish", "search": None, "tags": "", "ids": []},
             )
             assert result == {"id": 1}
@@ -194,10 +198,12 @@ class TestWordPressClientRequest:
         )
 
         mock_session = AsyncMock()
-        mock_session.request = MagicMock(return_value=AsyncMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock(return_value=False),
-        ))
+        mock_session.request = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response),
+                __aexit__=AsyncMock(return_value=False),
+            )
+        )
 
         with patch("aiohttp.ClientSession") as mock_cls:
             mock_cls.return_value = AsyncMock(
@@ -216,10 +222,12 @@ class TestWordPressClientRequest:
         mock_response.text = AsyncMock(return_value="Internal Server Error")
 
         mock_session = AsyncMock()
-        mock_session.request = MagicMock(return_value=AsyncMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock(return_value=False),
-        ))
+        mock_session.request = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response),
+                __aexit__=AsyncMock(return_value=False),
+            )
+        )
 
         with patch("aiohttp.ClientSession") as mock_cls:
             mock_cls.return_value = AsyncMock(
@@ -236,8 +244,11 @@ class TestWordPressClientRequest:
         client.request = AsyncMock(return_value={"posts": []})
         result = await client.get("posts", params={"per_page": 10})
         client.request.assert_called_once_with(
-            "GET", "posts", params={"per_page": 10},
-            use_custom_namespace=False, use_woocommerce=False,
+            "GET",
+            "posts",
+            params={"per_page": 10},
+            use_custom_namespace=False,
+            use_woocommerce=False,
         )
         assert result == {"posts": []}
 
@@ -263,8 +274,11 @@ class TestWordPressClientRequest:
         client.request = AsyncMock(return_value={"available": True})
         await client.get("products", use_woocommerce=True)
         client.request.assert_called_once_with(
-            "GET", "products", params=None,
-            use_custom_namespace=False, use_woocommerce=True,
+            "GET",
+            "products",
+            params=None,
+            use_custom_namespace=False,
+            use_woocommerce=True,
         )
 
 
@@ -361,7 +375,7 @@ class TestWordPressToolSpecifications:
         """Each spec should have name, method_name, description, schema, scope."""
         specs = WordPressPlugin.get_tool_specifications()
         for spec in specs:
-            assert "name" in spec, f"Missing 'name' in spec"
+            assert "name" in spec, "Missing 'name' in spec"
             assert "method_name" in spec, f"Missing 'method_name' in {spec.get('name')}"
             assert "description" in spec, f"Missing 'description' in {spec.get('name')}"
             assert "schema" in spec, f"Missing 'schema' in {spec.get('name')}"
@@ -372,13 +386,17 @@ class TestWordPressToolSpecifications:
         specs = WordPressPlugin.get_tool_specifications()
         valid_scopes = {"read", "write", "admin"}
         for spec in specs:
-            assert spec["scope"] in valid_scopes, f"Invalid scope '{spec['scope']}' in {spec['name']}"
+            assert (
+                spec["scope"] in valid_scopes
+            ), f"Invalid scope '{spec['scope']}' in {spec['name']}"
 
     def test_specs_unique_names(self):
         """All tool names should be unique."""
         specs = WordPressPlugin.get_tool_specifications()
         names = [s["name"] for s in specs]
-        assert len(names) == len(set(names)), f"Duplicate tool names found: {[n for n in names if names.count(n) > 1]}"
+        assert len(names) == len(
+            set(names)
+        ), f"Duplicate tool names found: {[n for n in names if names.count(n) > 1]}"
 
     def test_core_tools_present(self):
         """Should include key WordPress tools."""
@@ -442,21 +460,21 @@ class TestWordPressHandlerDelegation:
     async def test_list_media_delegates(self, plugin):
         """list_media should delegate to media handler."""
         plugin.media.list_media = AsyncMock(return_value=[])
-        result = await plugin.list_media()
+        await plugin.list_media()
         plugin.media.list_media.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_list_categories_delegates(self, plugin):
         """list_categories should delegate to taxonomy handler."""
         plugin.taxonomy.list_categories = AsyncMock(return_value=[])
-        result = await plugin.list_categories()
+        await plugin.list_categories()
         plugin.taxonomy.list_categories.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_list_comments_delegates(self, plugin):
         """list_comments should delegate to comments handler."""
         plugin.comments.list_comments = AsyncMock(return_value=[])
-        result = await plugin.list_comments()
+        await plugin.list_comments()
         plugin.comments.list_comments.assert_called_once()
 
     @pytest.mark.asyncio

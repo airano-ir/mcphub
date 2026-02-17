@@ -18,6 +18,7 @@ from plugins.wordpress_advanced.schemas.bulk import (
     BulkOperationResult,
 )
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator"""
     return [
@@ -291,6 +292,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
             "scope": "admin",
         },
     ]
+
 
 class BulkHandler:
     """Handles WordPress bulk operations"""

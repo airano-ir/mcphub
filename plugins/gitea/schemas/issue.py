@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .common import GiteaUser
 
+
 class Label(BaseModel):
     """Issue/PR label"""
 
@@ -20,6 +21,7 @@ class Label(BaseModel):
     color: str
     description: str | None = None
     url: str | None = None
+
 
 class Milestone(BaseModel):
     """Issue/PR milestone"""
@@ -36,6 +38,7 @@ class Milestone(BaseModel):
     updated_at: datetime | None = None
     closed_at: datetime | None = None
     due_on: datetime | None = None
+
 
 class Issue(BaseModel):
     """Gitea issue model"""
@@ -66,6 +69,7 @@ class Issue(BaseModel):
     html_url: str
     url: str
 
+
 class Comment(BaseModel):
     """Issue/PR comment"""
 
@@ -82,6 +86,7 @@ class Comment(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+
 class CreateIssueRequest(BaseModel):
     """Request to create an issue"""
 
@@ -96,6 +101,7 @@ class CreateIssueRequest(BaseModel):
     labels: list[int] | None = Field(None, description="List of label IDs")
     milestone: int | None = Field(None, description="Milestone ID")
     ref: str | None = Field(None, description="Issue ref")
+
 
 class UpdateIssueRequest(BaseModel):
     """Request to update an issue"""
@@ -120,12 +126,14 @@ class UpdateIssueRequest(BaseModel):
             raise ValueError("State must be 'open' or 'closed'")
         return v
 
+
 class CreateCommentRequest(BaseModel):
     """Request to create a comment"""
 
     model_config = ConfigDict(extra="forbid")
 
     body: str = Field(..., min_length=1, description="Comment body")
+
 
 class CreateLabelRequest(BaseModel):
     """Request to create a label"""
@@ -135,6 +143,7 @@ class CreateLabelRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=50, description="Label name")
     color: str = Field(..., pattern=r"^[0-9A-Fa-f]{6}$", description="Label color (hex without #)")
     description: str | None = Field(None, max_length=200, description="Label description")
+
 
 class CreateMilestoneRequest(BaseModel):
     """Request to create a milestone"""
@@ -152,6 +161,7 @@ class CreateMilestoneRequest(BaseModel):
         if v not in ["open", "closed"]:
             raise ValueError("State must be 'open' or 'closed'")
         return v
+
 
 class IssueListFilters(BaseModel):
     """Filters for listing issues"""

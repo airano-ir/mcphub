@@ -14,6 +14,7 @@ from plugins import BasePlugin, registry
 
 logger = logging.getLogger(__name__)
 
+
 class ProjectManager:
     """
     Manage multiple project instances.
@@ -233,8 +234,10 @@ class ProjectManager:
             for full_id, plugin in self.projects.items()
         ]
 
+
 # Global project manager instance
 _project_manager: ProjectManager | None = None
+
 
 def get_project_manager() -> ProjectManager:
     """Get the global project manager instance."""

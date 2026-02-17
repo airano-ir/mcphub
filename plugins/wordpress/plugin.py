@@ -13,6 +13,7 @@ from plugins.base import BasePlugin
 from plugins.wordpress import handlers
 from plugins.wordpress.client import WordPressClient
 
+
 class WordPressPlugin(BasePlugin):
     """
     WordPress project plugin - Option B architecture.

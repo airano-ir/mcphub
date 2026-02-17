@@ -5,6 +5,7 @@ from typing import Any
 
 from plugins.openpanel.client import OpenPanelClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator (6 tools)"""
     return [
@@ -112,9 +113,11 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # =====================
 # Client Functions (6)
 # =====================
+
 
 async def list_clients(client: OpenPanelClient, project_id: str) -> str:
     """List all API clients"""
@@ -132,6 +135,7 @@ async def list_clients(client: OpenPanelClient, project_id: str) -> str:
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def get_client(client: OpenPanelClient, project_id: str, client_id: str) -> str:
     """Get API client details"""
     try:
@@ -148,6 +152,7 @@ async def get_client(client: OpenPanelClient, project_id: str, client_id: str) -
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def create_client(
     client: OpenPanelClient,
@@ -181,6 +186,7 @@ async def create_client(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def delete_client(client: OpenPanelClient, project_id: str, client_id: str) -> str:
     """Delete an API client"""
     try:
@@ -199,6 +205,7 @@ async def delete_client(client: OpenPanelClient, project_id: str, client_id: str
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def regenerate_client_secret(client: OpenPanelClient, project_id: str, client_id: str) -> str:
     """Regenerate client secret"""
     try:
@@ -216,6 +223,7 @@ async def regenerate_client_secret(client: OpenPanelClient, project_id: str, cli
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def update_client_mode(
     client: OpenPanelClient,

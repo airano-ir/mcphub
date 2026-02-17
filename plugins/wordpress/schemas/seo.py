@@ -6,6 +6,7 @@ Validation schemas for SEO plugin data (Yoast, RankMath, etc.).
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+
 class SEOData(BaseModel):
     """Schema for SEO data (read)"""
 
@@ -22,6 +23,7 @@ class SEOData(BaseModel):
     twitter_description: str | None = Field(None, description="Twitter card description")
     twitter_image: str | None = Field(None, description="Twitter card image URL")
     robots: list[str] | None = Field(None, description="Robots meta tags")
+
 
 class SEOUpdate(BaseModel):
     """Schema for SEO data updates"""
@@ -61,6 +63,7 @@ class SEOUpdate(BaseModel):
             pass
         return v
 
+
 class YoastSEO(SEOData):
     """Yoast SEO specific data"""
 
@@ -69,6 +72,7 @@ class YoastSEO(SEOData):
     yoast_wpseo_focuskw: str | None = Field(None, description="Yoast focus keyword")
     yoast_wpseo_metadesc: str | None = Field(None, description="Yoast meta description")
     yoast_wpseo_title: str | None = Field(None, description="Yoast SEO title")
+
 
 class RankMathSEO(SEOData):
     """RankMath SEO specific data"""

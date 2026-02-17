@@ -5,6 +5,7 @@ from typing import Any
 
 from plugins.openpanel.client import OpenPanelClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator (8 tools)"""
     return [
@@ -140,9 +141,11 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # =====================
 # Project Functions (8)
 # =====================
+
 
 async def list_projects(client: OpenPanelClient) -> str:
     """List all projects"""
@@ -159,6 +162,7 @@ async def list_projects(client: OpenPanelClient) -> str:
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def get_project(client: OpenPanelClient, project_id: str) -> str:
     """Get project details"""
     try:
@@ -174,6 +178,7 @@ async def get_project(client: OpenPanelClient, project_id: str) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def create_project(
     client: OpenPanelClient, name: str, domain: str | None = None, timezone: str = "UTC"
@@ -194,6 +199,7 @@ async def create_project(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def update_project(
     client: OpenPanelClient,
@@ -226,6 +232,7 @@ async def update_project(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def delete_project(client: OpenPanelClient, project_id: str, confirm: bool = False) -> str:
     """Delete a project"""
     try:
@@ -253,6 +260,7 @@ async def delete_project(client: OpenPanelClient, project_id: str, confirm: bool
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def get_project_stats(
     client: OpenPanelClient, project_id: str, date_range: str = "30d"
@@ -298,6 +306,7 @@ async def get_project_stats(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def get_project_settings(client: OpenPanelClient, project_id: str) -> str:
     """Get project settings"""
     try:
@@ -313,6 +322,7 @@ async def get_project_settings(client: OpenPanelClient, project_id: str) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def update_project_settings(
     client: OpenPanelClient, project_id: str, settings: dict[str, Any]

@@ -14,6 +14,7 @@ from plugins.appwrite import handlers
 from plugins.appwrite.client import AppwriteClient
 from plugins.base import BasePlugin
 
+
 class AppwritePlugin(BasePlugin):
     """
     Appwrite Self-Hosted Plugin - Complete backend management.

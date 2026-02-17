@@ -24,6 +24,7 @@ from .config import EndpointConfig
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class AuthContext:
     """Authentication context for a request"""
@@ -34,6 +35,7 @@ class AuthContext:
     is_master_key: bool = False
     is_oauth_token: bool = False
     client_ip: str | None = None
+
 
 class EndpointAuthMiddleware(Middleware):
     """
@@ -256,6 +258,7 @@ class EndpointAuthMiddleware(Middleware):
         duration_ms = int((time.time() - start_time) * 1000)
         logger.warning(f"Tool {tool_name} failed: {error} (duration={duration_ms}ms)")
 
+
 class EndpointRateLimitMiddleware(Middleware):
     """
     Rate limiting middleware for multi-endpoint architecture.
@@ -284,6 +287,7 @@ class EndpointRateLimitMiddleware(Middleware):
 
         # Proceed with request
         return await call_next(context)
+
 
 class EndpointAuditMiddleware(Middleware):
     """
@@ -332,6 +336,7 @@ class EndpointAuditMiddleware(Middleware):
                 },
             )
             raise
+
 
 def create_endpoint_middleware(endpoint_config: EndpointConfig) -> list:
     """

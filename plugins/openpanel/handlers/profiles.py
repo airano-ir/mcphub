@@ -5,6 +5,7 @@ from typing import Any
 
 from plugins.openpanel.client import OpenPanelClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator (8 tools)"""
     return [
@@ -183,9 +184,11 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # =====================
 # Profile Functions (8)
 # =====================
+
 
 async def list_profiles(
     client: OpenPanelClient,
@@ -209,6 +212,7 @@ async def list_profiles(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def get_profile(client: OpenPanelClient, project_id: str, profile_id: str) -> str:
     """Get profile details"""
@@ -249,6 +253,7 @@ async def get_profile(client: OpenPanelClient, project_id: str, profile_id: str)
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def search_profiles(
     client: OpenPanelClient,
     project_id: str,
@@ -277,6 +282,7 @@ async def search_profiles(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def get_profile_events(
     client: OpenPanelClient,
@@ -308,6 +314,7 @@ async def get_profile_events(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def get_profile_sessions(
     client: OpenPanelClient, project_id: str, profile_id: str, limit: int = 20
 ) -> str:
@@ -333,6 +340,7 @@ async def get_profile_sessions(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def delete_profile(
     client: OpenPanelClient, project_id: str, profile_id: str, confirm: bool = False
@@ -365,6 +373,7 @@ async def delete_profile(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def merge_profiles(
     client: OpenPanelClient, project_id: str, primary_profile_id: str, secondary_profile_id: str
 ) -> str:
@@ -384,6 +393,7 @@ async def merge_profiles(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def export_profile_data(
     client: OpenPanelClient, project_id: str, profile_id: str, format: str = "json"

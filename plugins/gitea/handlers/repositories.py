@@ -5,6 +5,7 @@ from typing import Any
 
 from plugins.gitea.client import GiteaClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator"""
     return [
@@ -483,6 +484,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 async def list_repositories(
     client: GiteaClient, owner: str | None = None, type: str = "all", page: int = 1, limit: int = 30
 ) -> str:
@@ -491,11 +493,13 @@ async def list_repositories(
     result = {"success": True, "count": len(repos), "repositories": repos}
     return json.dumps(result, indent=2)
 
+
 async def get_repository(client: GiteaClient, owner: str, repo: str) -> str:
     """Get repository details"""
     repository = await client.get_repository(owner, repo)
     result = {"success": True, "repository": repository}
     return json.dumps(result, indent=2)
+
 
 async def create_repository(
     client: GiteaClient,
@@ -528,6 +532,7 @@ async def create_repository(
     }
     return json.dumps(result, indent=2)
 
+
 async def update_repository(client: GiteaClient, owner: str, repo: str, **kwargs) -> str:
     """Update repository settings"""
     # Build update data from kwargs
@@ -541,11 +546,13 @@ async def update_repository(client: GiteaClient, owner: str, repo: str, **kwargs
     }
     return json.dumps(result, indent=2)
 
+
 async def delete_repository(client: GiteaClient, owner: str, repo: str) -> str:
     """Delete a repository"""
     await client.delete_repository(owner, repo)
     result = {"success": True, "message": f"Repository '{owner}/{repo}' deleted successfully"}
     return json.dumps(result, indent=2)
+
 
 # Branch operations
 async def list_branches(
@@ -556,11 +563,13 @@ async def list_branches(
     result = {"success": True, "count": len(branches), "branches": branches}
     return json.dumps(result, indent=2)
 
+
 async def get_branch(client: GiteaClient, owner: str, repo: str, branch: str) -> str:
     """Get branch details"""
     branch_info = await client.get_branch(owner, repo, branch)
     result = {"success": True, "branch": branch_info}
     return json.dumps(result, indent=2)
+
 
 async def create_branch(
     client: GiteaClient,
@@ -584,11 +593,13 @@ async def create_branch(
     }
     return json.dumps(result, indent=2)
 
+
 async def delete_branch(client: GiteaClient, owner: str, repo: str, branch: str) -> str:
     """Delete a branch"""
     await client.delete_branch(owner, repo, branch)
     result = {"success": True, "message": f"Branch '{branch}' deleted successfully"}
     return json.dumps(result, indent=2)
+
 
 # Tag operations
 async def list_tags(
@@ -598,6 +609,7 @@ async def list_tags(
     tags = await client.list_tags(owner, repo, page=page, limit=limit)
     result = {"success": True, "count": len(tags), "tags": tags}
     return json.dumps(result, indent=2)
+
 
 async def create_tag(
     client: GiteaClient,
@@ -613,11 +625,13 @@ async def create_tag(
     result = {"success": True, "message": f"Tag '{tag_name}' created successfully", "tag": tag}
     return json.dumps(result, indent=2)
 
+
 async def delete_tag(client: GiteaClient, owner: str, repo: str, tag: str) -> str:
     """Delete a tag"""
     await client.delete_tag(owner, repo, tag)
     result = {"success": True, "message": f"Tag '{tag}' deleted successfully"}
     return json.dumps(result, indent=2)
+
 
 # File operations
 async def get_file(
@@ -627,6 +641,7 @@ async def get_file(
     file_data = await client.get_file(owner, repo, path, ref=ref)
     result = {"success": True, "file": file_data}
     return json.dumps(result, indent=2)
+
 
 async def create_file(
     client: GiteaClient,
@@ -664,6 +679,7 @@ async def create_file(
     }
     return json.dumps(result, indent=2)
 
+
 async def update_file(
     client: GiteaClient,
     owner: str,
@@ -693,6 +709,7 @@ async def update_file(
         "file": file_result,
     }
     return json.dumps(result, indent=2)
+
 
 async def delete_file(
     client: GiteaClient,

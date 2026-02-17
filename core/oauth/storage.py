@@ -13,6 +13,7 @@ from .schemas import AccessToken, AuthorizationCode, RefreshToken
 
 logger = logging.getLogger(__name__)
 
+
 class BaseStorage:
     """Base storage interface"""
 
@@ -42,6 +43,7 @@ class BaseStorage:
 
     def revoke_refresh_token(self, token: str) -> bool:
         raise NotImplementedError
+
 
 class JSONStorage(BaseStorage):
     """
@@ -198,6 +200,7 @@ class JSONStorage(BaseStorage):
 
         logger.info(f"Cleaned up {len(codes) - len(cleaned_codes)} expired authorization codes")
         logger.info(f"Cleaned up {len(tokens) - len(cleaned_tokens)} expired access tokens")
+
 
 def get_storage() -> BaseStorage:
     """

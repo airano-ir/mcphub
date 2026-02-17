@@ -11,6 +11,7 @@ from typing import Any
 
 from plugins.appwrite.client import AppwriteClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator (14 tools)"""
     return [
@@ -361,9 +362,11 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # =====================
 # HANDLER FUNCTIONS
 # =====================
+
 
 async def list_buckets(
     client: AppwriteClient, queries: list[str] | None = None, search: str | None = None
@@ -379,6 +382,7 @@ async def list_buckets(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_bucket(client: AppwriteClient, bucket_id: str) -> str:
     """Get bucket by ID."""
     try:
@@ -387,6 +391,7 @@ async def get_bucket(client: AppwriteClient, bucket_id: str) -> str:
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def create_bucket(
     client: AppwriteClient,
@@ -424,6 +429,7 @@ async def create_bucket(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def update_bucket(
     client: AppwriteClient,
     bucket_id: str,
@@ -452,6 +458,7 @@ async def update_bucket(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def delete_bucket(client: AppwriteClient, bucket_id: str) -> str:
     """Delete bucket."""
     try:
@@ -462,6 +469,7 @@ async def delete_bucket(client: AppwriteClient, bucket_id: str) -> str:
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def list_files(
     client: AppwriteClient,
@@ -485,6 +493,7 @@ async def list_files(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_file(client: AppwriteClient, bucket_id: str, file_id: str) -> str:
     """Get file metadata."""
     try:
@@ -493,6 +502,7 @@ async def get_file(client: AppwriteClient, bucket_id: str, file_id: str) -> str:
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def delete_file(client: AppwriteClient, bucket_id: str, file_id: str) -> str:
     """Delete file."""
@@ -504,6 +514,7 @@ async def delete_file(client: AppwriteClient, bucket_id: str, file_id: str) -> s
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def download_file(client: AppwriteClient, bucket_id: str, file_id: str) -> str:
     """Download file content."""
@@ -523,6 +534,7 @@ async def download_file(client: AppwriteClient, bucket_id: str, file_id: str) ->
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def get_file_preview(
     client: AppwriteClient,
@@ -576,6 +588,7 @@ async def get_file_preview(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_file_view(client: AppwriteClient, bucket_id: str, file_id: str) -> str:
     """Get file for viewing."""
     try:
@@ -594,6 +607,7 @@ async def get_file_view(client: AppwriteClient, bucket_id: str, file_id: str) ->
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def get_file_url(
     client: AppwriteClient, bucket_id: str, file_id: str, url_type: str = "view"
@@ -623,6 +637,7 @@ async def get_file_url(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def bulk_delete_files(client: AppwriteClient, bucket_id: str, file_ids: list[str]) -> str:
     """Delete multiple files."""
     try:
@@ -649,6 +664,7 @@ async def bulk_delete_files(client: AppwriteClient, bucket_id: str, file_ids: li
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def get_bucket_stats(client: AppwriteClient, bucket_id: str) -> str:
     """Get bucket statistics."""

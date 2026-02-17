@@ -16,11 +16,13 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+
 # Valid scope values
 VALID_SCOPES = ["read", "write", "admin"]
 
 # Scope can be single ("read") or multiple space-separated ("read write admin")
 Scope = str
+
 
 def validate_scope(scope: str) -> bool:
     """
@@ -37,6 +39,7 @@ def validate_scope(scope: str) -> bool:
 
     scope_list = scope.split()
     return all(s in VALID_SCOPES for s in scope_list)
+
 
 def normalize_scope(scope: str) -> str:
     """
@@ -55,6 +58,7 @@ def normalize_scope(scope: str) -> str:
         if s in scope_list:
             unique_scopes.append(s)
     return " ".join(unique_scopes)
+
 
 @dataclass
 class APIKey:
@@ -104,6 +108,7 @@ class APIKey:
     def is_valid(self) -> bool:
         """Check if key is valid (not revoked, not expired)."""
         return not self.revoked and not self.is_expired()
+
 
 class APIKeyManager:
     """
@@ -487,8 +492,10 @@ class APIKeyManager:
             "valid": key.is_valid(),
         }
 
+
 # Global instance
 _api_key_manager: APIKeyManager | None = None
+
 
 def get_api_key_manager() -> APIKeyManager:
     """Get the global API Key Manager instance."""

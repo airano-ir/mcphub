@@ -5,6 +5,7 @@ from typing import Any
 
 from plugins.openpanel.client import OpenPanelClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator (8 tools)"""
     return [
@@ -189,9 +190,11 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # =====================
 # Funnel Functions (8)
 # =====================
+
 
 async def list_funnels(client: OpenPanelClient, project_id: str) -> str:
     """List all funnels for a project"""
@@ -208,6 +211,7 @@ async def list_funnels(client: OpenPanelClient, project_id: str) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def get_funnel(
     client: OpenPanelClient, project_id: str, funnel_id: str, date_range: str = "30d"
@@ -228,6 +232,7 @@ async def get_funnel(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def create_funnel(
     client: OpenPanelClient,
@@ -262,6 +267,7 @@ async def create_funnel(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def update_funnel(
     client: OpenPanelClient,
     project_id: str,
@@ -295,6 +301,7 @@ async def update_funnel(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def delete_funnel(client: OpenPanelClient, project_id: str, funnel_id: str) -> str:
     """Delete a funnel"""
     try:
@@ -311,6 +318,7 @@ async def delete_funnel(client: OpenPanelClient, project_id: str, funnel_id: str
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def get_funnel_conversion(
     client: OpenPanelClient, project_id: str, funnel_id: str, date_range: str = "30d"
@@ -331,6 +339,7 @@ async def get_funnel_conversion(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def get_funnel_breakdown(
     client: OpenPanelClient,
@@ -356,6 +365,7 @@ async def get_funnel_breakdown(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def compare_funnels(
     client: OpenPanelClient, project_id: str, funnel_ids: list[str], date_range: str = "30d"

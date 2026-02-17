@@ -12,6 +12,7 @@ from typing import Any
 
 from plugins.directus.client import DirectusClient
 
+
 def _parse_json_param(value: Any, param_name: str = "parameter") -> Any:
     """Parse a parameter that may be a JSON string or already a native type."""
     if value is None:
@@ -26,6 +27,7 @@ def _parse_json_param(value: Any, param_name: str = "parameter") -> Any:
             except json.JSONDecodeError as e:
                 raise ValueError(f"Invalid JSON in '{param_name}': {e}")
     return value
+
 
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator (10 tools)"""
@@ -211,9 +213,11 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # =====================
 # HANDLER FUNCTIONS
 # =====================
+
 
 async def list_revisions(
     client: DirectusClient,
@@ -237,6 +241,7 @@ async def list_revisions(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_revision(client: DirectusClient, id: str) -> str:
     """Get revision by ID."""
     try:
@@ -246,6 +251,7 @@ async def get_revision(client: DirectusClient, id: str) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def list_versions(
     client: DirectusClient,
@@ -269,6 +275,7 @@ async def list_versions(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_version(client: DirectusClient, id: str) -> str:
     """Get version by ID."""
     try:
@@ -278,6 +285,7 @@ async def get_version(client: DirectusClient, id: str) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def create_version(
     client: DirectusClient, name: str, collection: str, item: str, key: str
@@ -297,6 +305,7 @@ async def create_version(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def update_version(client: DirectusClient, id: str, data: dict[str, Any]) -> str:
     """Update version."""
     try:
@@ -311,6 +320,7 @@ async def update_version(client: DirectusClient, id: str, data: dict[str, Any]) 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def delete_version(client: DirectusClient, id: str) -> str:
     """Delete a version."""
     try:
@@ -318,6 +328,7 @@ async def delete_version(client: DirectusClient, id: str) -> str:
         return json.dumps({"success": True, "message": f"Version {id} deleted"}, indent=2)
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def promote_version(client: DirectusClient, id: str, mainHash: str | None = None) -> str:
     """Promote version to main."""
@@ -334,6 +345,7 @@ async def promote_version(client: DirectusClient, id: str, mainHash: str | None 
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def list_comments(
     client: DirectusClient,
@@ -356,6 +368,7 @@ async def list_comments(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def create_comment(client: DirectusClient, collection: str, item: str, comment: str) -> str:
     """Create a comment."""

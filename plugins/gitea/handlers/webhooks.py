@@ -5,6 +5,7 @@ from typing import Any
 
 from plugins.gitea.client import GiteaClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator"""
     return [
@@ -160,11 +161,13 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 async def list_webhooks(client: GiteaClient, owner: str, repo: str) -> str:
     """List repository webhooks"""
     webhooks = await client.list_webhooks(owner, repo)
     result = {"success": True, "count": len(webhooks), "webhooks": webhooks}
     return json.dumps(result, indent=2)
+
 
 async def create_webhook(
     client: GiteaClient,
@@ -193,11 +196,13 @@ async def create_webhook(
     }
     return json.dumps(result, indent=2)
 
+
 async def delete_webhook(client: GiteaClient, owner: str, repo: str, webhook_id: int) -> str:
     """Delete a webhook"""
     await client.delete_webhook(owner, repo, webhook_id)
     result = {"success": True, "message": f"Webhook {webhook_id} deleted successfully"}
     return json.dumps(result, indent=2)
+
 
 async def test_webhook(client: GiteaClient, owner: str, repo: str, webhook_id: int) -> str:
     """Test a webhook"""
@@ -208,6 +213,7 @@ async def test_webhook(client: GiteaClient, owner: str, repo: str, webhook_id: i
         "result": test_result,
     }
     return json.dumps(result, indent=2)
+
 
 async def get_webhook(client: GiteaClient, owner: str, repo: str, webhook_id: int) -> str:
     """Get webhook details"""

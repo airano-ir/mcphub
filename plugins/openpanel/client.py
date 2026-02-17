@@ -29,6 +29,7 @@ from typing import Any
 
 import aiohttp
 
+
 class OpenPanelClient:
     """
     OpenPanel Self-Hosted API client.

@@ -16,37 +16,46 @@ from plugins.appwrite.client import AppwriteClient
 # QUERY HELPERS (Appwrite 1.7.4 JSON format)
 # =====================
 
+
 def _query_limit(value: int) -> str:
     """Build limit query in JSON format."""
     return json.dumps({"method": "limit", "values": [value]})
+
 
 def _query_offset(value: int) -> str:
     """Build offset query in JSON format."""
     return json.dumps({"method": "offset", "values": [value]})
 
+
 def _query_order_asc(attribute: str) -> str:
     """Build orderAsc query in JSON format."""
     return json.dumps({"method": "orderAsc", "values": [attribute]})
+
 
 def _query_order_desc(attribute: str) -> str:
     """Build orderDesc query in JSON format."""
     return json.dumps({"method": "orderDesc", "values": [attribute]})
 
+
 def _query_cursor_after(document_id: str) -> str:
     """Build cursorAfter query in JSON format."""
     return json.dumps({"method": "cursorAfter", "values": [document_id]})
+
 
 def _query_cursor_before(document_id: str) -> str:
     """Build cursorBefore query in JSON format."""
     return json.dumps({"method": "cursorBefore", "values": [document_id]})
 
+
 def _query_search(attribute: str, value: str) -> str:
     """Build search query in JSON format."""
     return json.dumps({"method": "search", "attribute": attribute, "values": [value]})
 
+
 def _query_equal(attribute: str, values: list[Any]) -> str:
     """Build equal query in JSON format."""
     return json.dumps({"method": "equal", "attribute": attribute, "values": values})
+
 
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator (12 tools)"""
@@ -381,9 +390,11 @@ Each document must have:
         },
     ]
 
+
 # =====================
 # HANDLER FUNCTIONS
 # =====================
+
 
 async def list_documents(
     client: AppwriteClient, database_id: str, collection_id: str, queries: list[str] | None = None
@@ -407,6 +418,7 @@ async def list_documents(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_document(
     client: AppwriteClient,
     database_id: str,
@@ -426,6 +438,7 @@ async def get_document(
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def create_document(
     client: AppwriteClient,
@@ -453,6 +466,7 @@ async def create_document(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def update_document(
     client: AppwriteClient,
     database_id: str,
@@ -479,6 +493,7 @@ async def update_document(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def delete_document(
     client: AppwriteClient, database_id: str, collection_id: str, document_id: str
 ) -> str:
@@ -491,6 +506,7 @@ async def delete_document(
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def bulk_create_documents(
     client: AppwriteClient, database_id: str, collection_id: str, documents: list[dict[str, Any]]
@@ -527,6 +543,7 @@ async def bulk_create_documents(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def bulk_update_documents(
     client: AppwriteClient, database_id: str, collection_id: str, updates: list[dict[str, Any]]
 ) -> str:
@@ -562,6 +579,7 @@ async def bulk_update_documents(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def bulk_delete_documents(
     client: AppwriteClient, database_id: str, collection_id: str, document_ids: list[str]
 ) -> str:
@@ -590,6 +608,7 @@ async def bulk_delete_documents(
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def search_documents(
     client: AppwriteClient,
@@ -623,6 +642,7 @@ async def search_documents(
             error_msg += " (Hint: Make sure you have a fulltext index on the searched attribute)"
         return json.dumps({"success": False, "error": error_msg}, indent=2)
 
+
 async def count_documents(
     client: AppwriteClient, database_id: str, collection_id: str, queries: list[str] | None = None
 ) -> str:
@@ -652,6 +672,7 @@ async def count_documents(
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def get_documents_by_ids(
     client: AppwriteClient, database_id: str, collection_id: str, document_ids: list[str]
@@ -683,6 +704,7 @@ async def get_documents_by_ids(
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def list_documents_paginated(
     client: AppwriteClient,

@@ -2,6 +2,7 @@
 
 from plugins.openpanel.client import OpenPanelClient
 
+
 def get_project_id(client: OpenPanelClient, project_id: str | None) -> str:
     """
     Get effective project_id, using default if not provided.

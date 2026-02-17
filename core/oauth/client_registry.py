@@ -13,6 +13,7 @@ from .schemas import OAuthClient
 
 logger = logging.getLogger(__name__)
 
+
 class ClientRegistry:
     """
     OAuth Client Registry with JSON storage.
@@ -143,8 +144,10 @@ class ClientRegistry:
             return True
         return False
 
+
 # Singleton instance
 _client_registry: ClientRegistry | None = None
+
 
 def get_client_registry() -> ClientRegistry:
     """Get singleton ClientRegistry instance"""

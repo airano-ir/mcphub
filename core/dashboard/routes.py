@@ -35,12 +35,14 @@ PLUGIN_DISPLAY_NAMES = {
     "appwrite": "Appwrite",
 }
 
+
 def get_plugin_display_name(plugin_type: str) -> str:
     """Get the proper display name for a plugin type."""
     if plugin_type in PLUGIN_DISPLAY_NAMES:
         return PLUGIN_DISPLAY_NAMES[plugin_type]
     # Default: replace underscores with spaces and title case
     return plugin_type.replace("_", " ").title()
+
 
 # Register custom Jinja filter
 templates.env.filters["plugin_name"] = get_plugin_display_name
@@ -155,6 +157,7 @@ DASHBOARD_TRANSLATIONS = {
     },
 }
 
+
 def detect_language(accept_language: str | None, query_lang: str | None = None) -> str:
     """Detect language from Accept-Language header or query parameter."""
     if query_lang and query_lang in DASHBOARD_TRANSLATIONS:
@@ -167,9 +170,11 @@ def detect_language(accept_language: str | None, query_lang: str | None = None) 
 
     return "en"
 
+
 def get_translations(lang: str) -> dict:
     """Get translations for a language."""
     return DASHBOARD_TRANSLATIONS.get(lang, DASHBOARD_TRANSLATIONS["en"])
+
 
 def get_client_ip(request: Request) -> str:
     """Get client IP from request, handling proxies."""
@@ -177,6 +182,7 @@ def get_client_ip(request: Request) -> str:
     if forwarded:
         return forwarded.split(",")[0].strip()
     return request.client.host if request.client else "unknown"
+
 
 async def get_dashboard_stats() -> dict:
     """Get dashboard statistics."""
@@ -221,6 +227,7 @@ async def get_dashboard_stats() -> dict:
 
     return stats
 
+
 async def get_projects_by_type() -> dict:
     """Get projects grouped by plugin type."""
     projects_by_type = {}
@@ -241,6 +248,7 @@ async def get_projects_by_type() -> dict:
         logger.warning(f"Error getting projects by type: {e}")
 
     return projects_by_type
+
 
 async def get_recent_activity(limit: int = 10) -> list:
     """Get recent activity from audit logs."""
@@ -269,6 +277,7 @@ async def get_recent_activity(limit: int = 10) -> list:
         logger.warning(f"Error getting recent activity: {e}")
 
     return activity
+
 
 async def get_health_summary() -> dict:
     """Get health status summary."""
@@ -302,7 +311,9 @@ async def get_health_summary() -> dict:
 
     return summary
 
+
 # Route handlers
+
 
 async def dashboard_login_page(request: Request) -> Response:
     """Render dashboard login page."""
@@ -332,6 +343,7 @@ async def dashboard_login_page(request: Request) -> Response:
             "next_url": next_url,
         },
     )
+
 
 async def dashboard_login_submit(request: Request) -> Response:
     """Handle dashboard login form submission."""
@@ -406,6 +418,7 @@ async def dashboard_login_submit(request: Request) -> Response:
     logger.info(f"Dashboard login successful: type={user_type}, ip={client_ip}")
     return response
 
+
 async def dashboard_logout(request: Request) -> Response:
     """Handle dashboard logout."""
     auth = get_dashboard_auth()
@@ -428,6 +441,7 @@ async def dashboard_logout(request: Request) -> Response:
 
     logger.info(f"Dashboard logout from {client_ip}")
     return response
+
 
 async def dashboard_home(request: Request) -> Response:
     """Render dashboard home page."""
@@ -467,6 +481,7 @@ async def dashboard_home(request: Request) -> Response:
         },
     )
 
+
 async def dashboard_api_stats(request: Request) -> Response:
     """API endpoint for dashboard stats."""
     auth = get_dashboard_auth()
@@ -488,9 +503,11 @@ async def dashboard_api_stats(request: Request) -> Response:
         }
     )
 
+
 # ============================================================
 # Projects Routes (Phase K.2)
 # ============================================================
+
 
 def get_cached_health_status(project_id: str) -> dict:
     """
@@ -536,6 +553,7 @@ def get_cached_health_status(project_id: str) -> dict:
     except Exception as e:
         logger.warning(f"Error getting cached health for {project_id}: {e}")
         return {"status": "unknown", "last_check": None, "error_rate": 0}
+
 
 async def get_all_projects(
     plugin_type: str | None = None,
@@ -614,6 +632,7 @@ async def get_all_projects(
         "per_page": per_page,
         "available_plugin_types": sorted(available_plugin_types),
     }
+
 
 async def get_project_detail(project_id: str) -> dict | None:
     """Get detailed information about a specific project."""
@@ -728,6 +747,7 @@ async def get_project_detail(project_id: str) -> dict | None:
         logger.warning(f"Error getting project detail: {e}")
         return None
 
+
 async def dashboard_projects_list(request: Request) -> Response:
     """Render projects list page."""
     auth = get_dashboard_auth()
@@ -779,6 +799,7 @@ async def dashboard_projects_list(request: Request) -> Response:
         },
     )
 
+
 async def dashboard_project_detail(request: Request) -> Response:
     """Render project detail page."""
     auth = get_dashboard_auth()
@@ -829,6 +850,7 @@ async def dashboard_project_detail(request: Request) -> Response:
         },
     )
 
+
 async def dashboard_api_projects(request: Request) -> Response:
     """API endpoint for projects list."""
     auth = get_dashboard_auth()
@@ -851,6 +873,7 @@ async def dashboard_api_projects(request: Request) -> Response:
 
     return JSONResponse(projects_data)
 
+
 async def dashboard_api_project_detail(request: Request) -> Response:
     """API endpoint for project detail."""
     auth = get_dashboard_auth()
@@ -867,6 +890,7 @@ async def dashboard_api_project_detail(request: Request) -> Response:
         return JSONResponse({"error": "Project not found"}, status_code=404)
 
     return JSONResponse(project)
+
 
 async def dashboard_project_health_check(request: Request) -> Response:
     """API endpoint to check health of a specific project."""
@@ -942,9 +966,11 @@ async def dashboard_project_health_check(request: Request) -> Response:
             {"status": "error", "project_id": project_id, "message": str(e)}, status_code=500
         )
 
+
 # =============================================================================
 # K.3: API Keys Management
 # =============================================================================
+
 
 async def get_all_api_keys(
     project_id: str | None = None,
@@ -999,6 +1025,7 @@ async def get_all_api_keys(
         "current_page": page,
         "per_page": per_page,
     }
+
 
 async def dashboard_api_keys_list(request: Request) -> Response:
     """Render API keys list page."""
@@ -1057,6 +1084,7 @@ async def dashboard_api_keys_list(request: Request) -> Response:
         },
     )
 
+
 async def dashboard_api_keys_create(request: Request) -> Response:
     """API endpoint to create a new API key."""
     auth = get_dashboard_auth()
@@ -1111,6 +1139,7 @@ async def dashboard_api_keys_create(request: Request) -> Response:
         logger.error(f"Error creating API key: {e}")
         return JSONResponse({"error": "Failed to create key"}, status_code=500)
 
+
 async def dashboard_api_keys_revoke(request: Request) -> Response:
     """API endpoint to revoke an API key."""
     auth = get_dashboard_auth()
@@ -1143,6 +1172,7 @@ async def dashboard_api_keys_revoke(request: Request) -> Response:
     except Exception as e:
         logger.error(f"Error revoking API key: {e}")
         return JSONResponse({"error": "Failed to revoke key"}, status_code=500)
+
 
 async def dashboard_api_keys_delete(request: Request) -> Response:
     """API endpoint to delete an API key."""
@@ -1177,9 +1207,11 @@ async def dashboard_api_keys_delete(request: Request) -> Response:
         logger.error(f"Error deleting API key: {e}")
         return JSONResponse({"error": "Failed to delete key"}, status_code=500)
 
+
 # =============================================================================
 # K.4: OAuth Clients Management
 # =============================================================================
+
 
 async def get_oauth_clients_data() -> dict:
     """Get OAuth clients data."""
@@ -1213,6 +1245,7 @@ async def get_oauth_clients_data() -> dict:
             "total_count": 0,
         }
 
+
 async def dashboard_oauth_clients_list(request: Request) -> Response:
     """Render OAuth clients list page."""
     auth = get_dashboard_auth()
@@ -1245,6 +1278,7 @@ async def dashboard_oauth_clients_list(request: Request) -> Response:
             "current_page": "oauth_clients",
         },
     )
+
 
 async def dashboard_oauth_clients_create(request: Request) -> Response:
     """API endpoint to create OAuth client."""
@@ -1295,6 +1329,7 @@ async def dashboard_oauth_clients_create(request: Request) -> Response:
         logger.error(f"Error creating OAuth client: {e}")
         return JSONResponse({"error": "Failed to create client"}, status_code=500)
 
+
 async def dashboard_oauth_clients_delete(request: Request) -> Response:
     """API endpoint to delete OAuth client."""
     auth = get_dashboard_auth()
@@ -1329,9 +1364,11 @@ async def dashboard_oauth_clients_delete(request: Request) -> Response:
         logger.error(f"Error deleting OAuth client: {e}")
         return JSONResponse({"error": "Failed to delete client"}, status_code=500)
 
+
 # =============================================================================
 # K.4: Audit Logs Management
 # =============================================================================
+
 
 async def get_audit_logs_data(
     event_type: str | None = None,
@@ -1450,6 +1487,7 @@ async def get_audit_logs_data(
         "per_page": per_page,
     }
 
+
 async def dashboard_audit_logs_list(request: Request) -> Response:
     """Render audit logs list page."""
     auth = get_dashboard_auth()
@@ -1514,6 +1552,7 @@ async def dashboard_audit_logs_list(request: Request) -> Response:
         },
     )
 
+
 async def dashboard_api_audit_logs(request: Request) -> Response:
     """API endpoint for audit logs list."""
     auth = get_dashboard_auth()
@@ -1545,9 +1584,11 @@ async def dashboard_api_audit_logs(request: Request) -> Response:
         logger.error(f"Error getting audit logs: {e}")
         return JSONResponse({"error": "Failed to get logs"}, status_code=500)
 
+
 # =============================================================================
 # K.5: Health Monitoring
 # =============================================================================
+
 
 def get_basic_health_data() -> dict:
     """Get basic health data (fast, no project checks)."""
@@ -1618,6 +1659,7 @@ def get_basic_health_data() -> dict:
             },
         }
 
+
 def get_cached_projects_health() -> dict:
     """
     Get cached health status for all projects without live checks.
@@ -1678,6 +1720,7 @@ def get_cached_projects_health() -> dict:
         },
         "alerts": [],  # No alerts from cached data
     }
+
 
 async def get_health_data(live_check: bool = True) -> dict:
     """
@@ -1777,6 +1820,7 @@ async def get_health_data(live_check: bool = True) -> dict:
         logger.error(f"Error getting health data: {e}")
         return default_result
 
+
 async def dashboard_health_page(request: Request) -> Response:
     """
     Render health monitoring page.
@@ -1831,6 +1875,7 @@ async def dashboard_health_page(request: Request) -> Response:
         logger.error(traceback.format_exc())
         return HTMLResponse(f"<h1>Error loading health page</h1><pre>{e}</pre>", status_code=500)
 
+
 async def dashboard_health_projects_partial(request: Request) -> Response:
     """HTMX endpoint for projects health data (HTML partial)."""
     logger.debug("Health projects partial endpoint called")
@@ -1882,6 +1927,7 @@ async def dashboard_health_projects_partial(request: Request) -> Response:
             status_code=500,
         )
 
+
 async def dashboard_api_health(request: Request) -> Response:
     """API endpoint for health data."""
     auth = get_dashboard_auth()
@@ -1898,9 +1944,11 @@ async def dashboard_api_health(request: Request) -> Response:
         logger.error(f"Error getting health data: {e}")
         return JSONResponse({"error": "Failed to get health data"}, status_code=500)
 
+
 # =============================================================================
 # K.5: Settings Page
 # =============================================================================
+
 
 def get_system_config() -> dict:
     """Get system configuration for display."""
@@ -1918,6 +1966,7 @@ def get_system_config() -> dict:
         "oauth_trusted_domains": os.environ.get("OAUTH_TRUSTED_DOMAINS", "localhost"),
         "dashboard_session_expiry": os.environ.get("DASHBOARD_SESSION_EXPIRY_HOURS", "24"),
     }
+
 
 def get_registered_plugins() -> list:
     """Get list of registered plugins."""
@@ -1941,6 +1990,7 @@ def get_registered_plugins() -> list:
 
     return plugins
 
+
 def get_about_info() -> dict:
     """Get about information."""
     import sys
@@ -1960,6 +2010,7 @@ def get_about_info() -> dict:
         "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
         "tools_count": tools_count,
     }
+
 
 async def dashboard_settings_page(request: Request) -> Response:
     """Render settings page."""
@@ -2003,6 +2054,7 @@ async def dashboard_settings_page(request: Request) -> Response:
             "current_page": "settings",
         },
     )
+
 
 def register_dashboard_routes(mcp):
     """

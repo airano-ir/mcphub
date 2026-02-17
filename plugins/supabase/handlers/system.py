@@ -5,6 +5,7 @@ from typing import Any
 
 from plugins.supabase.client import SupabaseClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator (6 tools)"""
     return [
@@ -62,6 +63,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 async def health_check(client: SupabaseClient) -> str:
     """Check health of all Supabase services"""
     try:
@@ -83,6 +85,7 @@ async def health_check(client: SupabaseClient) -> str:
             indent=2,
             ensure_ascii=False,
         )
+
 
 async def get_service_status(client: SupabaseClient, service: str) -> str:
     """Get status of a specific service"""
@@ -142,6 +145,7 @@ async def get_service_status(client: SupabaseClient, service: str) -> str:
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def get_database_stats(client: SupabaseClient) -> str:
     """Get database statistics"""
     try:
@@ -199,6 +203,7 @@ async def get_database_stats(client: SupabaseClient) -> str:
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def get_storage_stats(client: SupabaseClient) -> str:
     """Get storage statistics"""
     try:
@@ -242,6 +247,7 @@ async def get_storage_stats(client: SupabaseClient) -> str:
         return json.dumps({"success": True, "storage_stats": stats}, indent=2, ensure_ascii=False)
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def get_auth_stats(client: SupabaseClient) -> str:
     """Get authentication statistics"""
@@ -293,6 +299,7 @@ async def get_auth_stats(client: SupabaseClient) -> str:
         return json.dumps({"success": True, "auth_stats": stats}, indent=2, ensure_ascii=False)
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def get_instance_info(client: SupabaseClient) -> str:
     """Get Supabase instance information"""

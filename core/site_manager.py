@@ -24,6 +24,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validat
 
 logger = logging.getLogger(__name__)
 
+
 class SiteConfig(BaseModel):
     """
     Type-safe site configuration.
@@ -103,6 +104,7 @@ class SiteConfig(BaseModel):
             >>> plugin = WordPressPlugin(config_dict)
         """
         return self.model_dump()
+
 
 class SiteManager:
     """
@@ -519,8 +521,10 @@ class SiteManager:
         counts_str = ", ".join(f"{k}: {v}" for k, v in counts.items())
         return f"SiteManager(total={self.get_count()}, {counts_str})"
 
+
 # Singleton instance
 _site_manager: SiteManager | None = None
+
 
 def get_site_manager() -> SiteManager:
     """

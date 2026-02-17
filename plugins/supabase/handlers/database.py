@@ -5,6 +5,7 @@ from typing import Any
 
 from plugins.supabase.client import SupabaseClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator (18 tools)"""
     return [
@@ -439,9 +440,11 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # =====================
 # PostgREST Operations (6)
 # =====================
+
 
 async def query_table(
     client: SupabaseClient,
@@ -478,6 +481,7 @@ async def query_table(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def insert_rows(
     client: SupabaseClient,
     table: str,
@@ -508,6 +512,7 @@ async def insert_rows(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def update_rows(
     client: SupabaseClient,
@@ -545,6 +550,7 @@ async def update_rows(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def delete_rows(
     client: SupabaseClient, table: str, filters: list[dict], use_service_role: bool = False
 ) -> str:
@@ -577,6 +583,7 @@ async def delete_rows(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def execute_rpc(
     client: SupabaseClient,
     function_name: str,
@@ -596,6 +603,7 @@ async def execute_rpc(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def count_rows(
     client: SupabaseClient,
@@ -622,9 +630,11 @@ async def count_rows(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 # =====================
 # Admin Operations via postgres-meta (12)
 # =====================
+
 
 async def list_tables(
     client: SupabaseClient, schema: str = "public", limit: int = 50, offset: int = 0
@@ -660,6 +670,7 @@ async def list_tables(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def get_table_schema(client: SupabaseClient, table: str, schema: str = "public") -> str:
     """Get table schema/columns"""
     try:
@@ -678,6 +689,7 @@ async def get_table_schema(client: SupabaseClient, table: str, schema: str = "pu
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def list_schemas(client: SupabaseClient) -> str:
     """List all database schemas"""
     try:
@@ -695,6 +707,7 @@ async def list_schemas(client: SupabaseClient) -> str:
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def list_extensions(client: SupabaseClient) -> str:
     """List installed extensions"""
     try:
@@ -711,6 +724,7 @@ async def list_extensions(client: SupabaseClient) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def list_policies(client: SupabaseClient, table: str | None = None) -> str:
     """List RLS policies"""
@@ -730,6 +744,7 @@ async def list_policies(client: SupabaseClient, table: str | None = None) -> str
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def list_roles(client: SupabaseClient) -> str:
     """List database roles"""
     try:
@@ -746,6 +761,7 @@ async def list_roles(client: SupabaseClient) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def list_triggers(client: SupabaseClient, table: str | None = None) -> str:
     """List database triggers"""
@@ -764,6 +780,7 @@ async def list_triggers(client: SupabaseClient, table: str | None = None) -> str
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def list_functions(
     client: SupabaseClient, schema: str = "public", limit: int = 50, offset: int = 0
@@ -794,6 +811,7 @@ async def list_functions(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def execute_sql(client: SupabaseClient, query: str) -> str:
     """Execute raw SQL query"""
     try:
@@ -810,6 +828,7 @@ async def execute_sql(client: SupabaseClient, query: str) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def get_table_indexes(client: SupabaseClient, table: str, schema: str = "public") -> str:
     """Get indexes for a table"""
@@ -842,6 +861,7 @@ async def get_table_indexes(client: SupabaseClient, table: str, schema: str = "p
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def get_table_constraints(client: SupabaseClient, table: str, schema: str = "public") -> str:
     """Get constraints for a table"""
@@ -876,6 +896,7 @@ async def get_table_constraints(client: SupabaseClient, table: str, schema: str 
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def get_table_relationships(
     client: SupabaseClient, table: str, schema: str = "public"

@@ -15,6 +15,7 @@ from typing import Any
 
 from plugins.directus.client import DirectusClient
 
+
 def _parse_json_param(value: Any, param_name: str = "parameter") -> Any:
     """Parse a parameter that may be a JSON string or already a native type."""
     if value is None:
@@ -29,6 +30,7 @@ def _parse_json_param(value: Any, param_name: str = "parameter") -> Any:
             except json.JSONDecodeError as e:
                 raise ValueError(f"Invalid JSON in '{param_name}': {e}")
     return value
+
 
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator (12 tools)"""
@@ -267,9 +269,11 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # =====================
 # HANDLER FUNCTIONS
 # =====================
+
 
 async def list_roles(
     client: DirectusClient,
@@ -291,6 +295,7 @@ async def list_roles(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_role(client: DirectusClient, id: str) -> str:
     """Get role by ID."""
     try:
@@ -300,6 +305,7 @@ async def get_role(client: DirectusClient, id: str) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def create_role(
     client: DirectusClient,
@@ -326,6 +332,7 @@ async def create_role(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def update_role(client: DirectusClient, id: str, data: dict[str, Any]) -> str:
     """Update role."""
     try:
@@ -340,6 +347,7 @@ async def update_role(client: DirectusClient, id: str, data: dict[str, Any]) -> 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def delete_role(client: DirectusClient, id: str) -> str:
     """Delete a role."""
     try:
@@ -347,6 +355,7 @@ async def delete_role(client: DirectusClient, id: str) -> str:
         return json.dumps({"success": True, "message": f"Role {id} deleted"}, indent=2)
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def list_permissions(
     client: DirectusClient, filter: dict | None = None, limit: int = 100
@@ -365,6 +374,7 @@ async def list_permissions(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_permission(client: DirectusClient, id: str) -> str:
     """Get permission by ID."""
     try:
@@ -374,6 +384,7 @@ async def get_permission(client: DirectusClient, id: str) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def create_permission(
     client: DirectusClient,
@@ -416,6 +427,7 @@ async def create_permission(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def update_permission(client: DirectusClient, id: str, data: dict[str, Any]) -> str:
     """Update permission."""
     try:
@@ -430,6 +442,7 @@ async def update_permission(client: DirectusClient, id: str, data: dict[str, Any
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def delete_permission(client: DirectusClient, id: str) -> str:
     """Delete a permission."""
     try:
@@ -437,6 +450,7 @@ async def delete_permission(client: DirectusClient, id: str) -> str:
         return json.dumps({"success": True, "message": f"Permission {id} deleted"}, indent=2)
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def get_my_permissions(client: DirectusClient) -> str:
     """Get current user's permissions."""
@@ -447,6 +461,7 @@ async def get_my_permissions(client: DirectusClient) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def list_policies(
     client: DirectusClient, filter: dict | None = None, limit: int = 100

@@ -12,6 +12,7 @@ from typing import Any
 
 from plugins.directus.client import DirectusClient
 
+
 def _parse_json_param(value: Any, param_name: str = "parameter") -> Any:
     """Parse a parameter that may be a JSON string or already a native type."""
     if value is None:
@@ -26,6 +27,7 @@ def _parse_json_param(value: Any, param_name: str = "parameter") -> Any:
             except json.JSONDecodeError as e:
                 raise ValueError(f"Invalid JSON in '{param_name}': {e}")
     return value
+
 
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator (12 tools)"""
@@ -301,9 +303,11 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # =====================
 # HANDLER FUNCTIONS
 # =====================
+
 
 async def list_items(
     client: DirectusClient,
@@ -340,6 +344,7 @@ async def list_items(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_item(
     client: DirectusClient, collection: str, id: str, fields: list[str] | None = None
 ) -> str:
@@ -353,6 +358,7 @@ async def get_item(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def create_item(
     client: DirectusClient, collection: str, data: dict[str, Any], fields: list[str] | None = None
@@ -374,6 +380,7 @@ async def create_item(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def create_items(
     client: DirectusClient,
@@ -400,6 +407,7 @@ async def create_items(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def update_item(
     client: DirectusClient,
     collection: str,
@@ -420,6 +428,7 @@ async def update_item(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def update_items(
     client: DirectusClient,
@@ -450,6 +459,7 @@ async def update_items(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def delete_item(client: DirectusClient, collection: str, id: str) -> str:
     """Delete an item."""
     try:
@@ -459,6 +469,7 @@ async def delete_item(client: DirectusClient, collection: str, id: str) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def delete_items(client: DirectusClient, collection: str, keys: list[str]) -> str:
     """Delete multiple items."""
@@ -471,6 +482,7 @@ async def delete_items(client: DirectusClient, collection: str, keys: list[str])
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def search_items(
     client: DirectusClient,
@@ -494,6 +506,7 @@ async def search_items(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def aggregate_items(
     client: DirectusClient,
@@ -519,6 +532,7 @@ async def aggregate_items(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def export_items(
     client: DirectusClient,
@@ -555,6 +569,7 @@ async def export_items(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def import_items(client: DirectusClient, collection: str, data: list[dict[str, Any]]) -> str:
     """Import items into a collection."""

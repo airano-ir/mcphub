@@ -8,6 +8,7 @@ import hashlib
 import secrets
 from typing import Literal
 
+
 def generate_code_verifier(length: int = 64) -> str:
     """
     Generate PKCE code verifier.
@@ -33,6 +34,7 @@ def generate_code_verifier(length: int = 64) -> str:
     verifier = verifier.rstrip("=")[:length]
 
     return verifier
+
 
 def generate_code_challenge(code_verifier: str, method: Literal["S256"] = "S256") -> str:
     """
@@ -62,6 +64,7 @@ def generate_code_challenge(code_verifier: str, method: Literal["S256"] = "S256"
     challenge = base64.urlsafe_b64encode(digest).decode("utf-8").rstrip("=")
 
     return challenge
+
 
 def validate_code_challenge(
     code_verifier: str, code_challenge: str, method: Literal["S256"] = "S256"

@@ -24,6 +24,7 @@ from plugins.wordpress.handlers import (
     get_reports_specs,
 )
 
+
 class WooCommercePlugin(BasePlugin):
     """
     WooCommerce E-commerce Plugin.

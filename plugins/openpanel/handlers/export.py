@@ -10,6 +10,7 @@ from typing import Any
 from plugins.openpanel.client import OpenPanelClient
 from plugins.openpanel.handlers.utils import get_project_id as _get_project_id
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator (10 tools)"""
     return [
@@ -375,9 +376,11 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # =====================
 # Export Functions (10)
 # =====================
+
 
 async def export_events(
     client: OpenPanelClient,
@@ -421,6 +424,7 @@ async def export_events(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def export_events_csv(
     client: OpenPanelClient,
@@ -480,6 +484,7 @@ async def export_events_csv(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def export_chart_data(
     client: OpenPanelClient,
     events: list[dict[str, Any]],
@@ -516,6 +521,7 @@ async def export_chart_data(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def get_event_count(
     client: OpenPanelClient,
@@ -554,6 +560,7 @@ async def get_event_count(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def get_unique_users(
     client: OpenPanelClient, project_id: str | None = None, date_range: str = "30d"
@@ -604,6 +611,7 @@ async def get_unique_users(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def get_page_views(
     client: OpenPanelClient,
@@ -660,6 +668,7 @@ async def get_page_views(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def get_top_pages(
     client: OpenPanelClient, project_id: str | None = None, date_range: str = "30d", limit: int = 10
 ) -> str:
@@ -706,6 +715,7 @@ async def get_top_pages(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def get_top_referrers(
     client: OpenPanelClient, project_id: str | None = None, date_range: str = "30d", limit: int = 10
@@ -763,6 +773,7 @@ async def get_top_referrers(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def get_geo_data(
     client: OpenPanelClient,
@@ -826,6 +837,7 @@ async def get_geo_data(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def get_device_data(
     client: OpenPanelClient,

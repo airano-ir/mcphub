@@ -24,6 +24,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class RateLimitConfig:
     """Configuration for rate limits at different time intervals."""
@@ -41,6 +42,7 @@ class RateLimitConfig:
             per_hour=int(os.getenv(f"{env_prefix}RATE_LIMIT_PER_HOUR", "1000")),
             per_day=int(os.getenv(f"{env_prefix}RATE_LIMIT_PER_DAY", "10000")),
         )
+
 
 @dataclass
 class TokenBucket:
@@ -109,6 +111,7 @@ class TokenBucket:
 
         tokens_needed = tokens - self.tokens
         return tokens_needed / self.refill_rate
+
 
 @dataclass
 class ClientRateLimitState:
@@ -187,6 +190,7 @@ class ClientRateLimitState:
             "last_request": datetime.fromtimestamp(self.last_request_time, tz=UTC).isoformat(),
             "uptime_seconds": uptime,
         }
+
 
 class RateLimiter:
     """
@@ -403,8 +407,10 @@ class RateLimiter:
             f"{config.per_minute}/min, {config.per_hour}/hour, {config.per_day}/day"
         )
 
+
 # Singleton instance
 _rate_limiter: RateLimiter | None = None
+
 
 def get_rate_limiter() -> RateLimiter:
     """Get or create the global rate limiter instance."""

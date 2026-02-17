@@ -9,6 +9,7 @@ from typing import Any
 from plugins.openpanel.client import OpenPanelClient
 from plugins.openpanel.handlers.utils import get_project_id as _get_project_id
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator (8 tools)"""
     return [
@@ -244,9 +245,11 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # =====================
 # Report Functions (8)
 # =====================
+
 
 async def get_overview_report(
     client: OpenPanelClient, project_id: str | None = None, date_range: str = "30d"
@@ -310,6 +313,7 @@ async def get_overview_report(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def get_retention_report(
     client: OpenPanelClient,
     project_id: str | None = None,
@@ -343,6 +347,7 @@ async def get_retention_report(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def get_cohort_report(
     client: OpenPanelClient,
     project_id: str | None = None,
@@ -373,6 +378,7 @@ async def get_cohort_report(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def get_paths_report(
     client: OpenPanelClient,
     project_id: str | None = None,
@@ -402,6 +408,7 @@ async def get_paths_report(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def get_realtime_stats(client: OpenPanelClient, project_id: str | None = None) -> str:
     """Get real-time visitor statistics using chart.chart with 30min range"""
@@ -443,6 +450,7 @@ async def get_realtime_stats(client: OpenPanelClient, project_id: str | None = N
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def get_ab_test_results(
     client: OpenPanelClient,
     test_name: str,
@@ -468,6 +476,7 @@ async def get_ab_test_results(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def create_scheduled_report(
     client: OpenPanelClient,
@@ -498,6 +507,7 @@ async def create_scheduled_report(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def export_report_pdf(
     client: OpenPanelClient,

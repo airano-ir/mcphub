@@ -6,6 +6,7 @@ Validation schemas for WordPress posts, pages, and custom post types.
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+
 class PostBase(BaseModel):
     """Base post schema with common fields"""
 
@@ -44,6 +45,7 @@ class PostBase(BaseModel):
                 raise ValueError("Status must be 'open' or 'closed'")
         return v
 
+
 class PostCreate(PostBase):
     """Schema for creating a new post"""
 
@@ -52,11 +54,13 @@ class PostCreate(PostBase):
 
     model_config = ConfigDict(extra="allow")
 
+
 class PostUpdate(PostBase):
     """Schema for updating an existing post"""
 
     # All fields optional for updates
     pass
+
 
 class PostResponse(BaseModel):
     """Schema for post response data"""
@@ -77,12 +81,14 @@ class PostResponse(BaseModel):
     categories: list[int]
     tags: list[int]
 
+
 class PageCreate(PostCreate):
     """Schema for creating a new page"""
 
     parent: int | None = Field(None, description="Parent page ID")
     menu_order: int | None = Field(None, description="Menu order")
     template: str | None = Field(None, description="Page template")
+
 
 class PageUpdate(PostUpdate):
     """Schema for updating an existing page"""
@@ -91,10 +97,12 @@ class PageUpdate(PostUpdate):
     menu_order: int | None = Field(None, description="Menu order")
     template: str | None = Field(None, description="Page template")
 
+
 class CustomPostCreate(PostCreate):
     """Schema for creating custom post types"""
 
     post_type: str = Field(..., description="Custom post type")
+
 
 class CustomPostUpdate(PostUpdate):
     """Schema for updating custom post types"""

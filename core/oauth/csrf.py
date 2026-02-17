@@ -10,6 +10,7 @@ Part of Phase E: Custom OAuth Authorization Page
 import secrets
 import time
 
+
 class CSRFTokenManager:
     """
     Manages CSRF tokens for OAuth authorization requests.
@@ -107,8 +108,10 @@ class CSRFTokenManager:
             "token_lifetime_seconds": self._token_lifetime,
         }
 
+
 # Global CSRF token manager instance
 _csrf_manager: CSRFTokenManager | None = None
+
 
 def get_csrf_manager() -> CSRFTokenManager:
     """

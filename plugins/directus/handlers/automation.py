@@ -12,6 +12,7 @@ from typing import Any
 
 from plugins.directus.client import DirectusClient
 
+
 def _parse_json_param(value: Any, param_name: str = "parameter") -> Any:
     """Parse a parameter that may be a JSON string or already a native type."""
     if value is None:
@@ -26,6 +27,7 @@ def _parse_json_param(value: Any, param_name: str = "parameter") -> Any:
             except json.JSONDecodeError as e:
                 raise ValueError(f"Invalid JSON in '{param_name}': {e}")
     return value
+
 
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator (12 tools)"""
@@ -303,9 +305,11 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # =====================
 # HANDLER FUNCTIONS
 # =====================
+
 
 async def list_flows(
     client: DirectusClient,
@@ -327,6 +331,7 @@ async def list_flows(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_flow(client: DirectusClient, id: str) -> str:
     """Get flow by ID."""
     try:
@@ -336,6 +341,7 @@ async def get_flow(client: DirectusClient, id: str) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def create_flow(
     client: DirectusClient,
@@ -369,6 +375,7 @@ async def create_flow(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def update_flow(client: DirectusClient, id: str, data: dict[str, Any]) -> str:
     """Update flow."""
     try:
@@ -383,6 +390,7 @@ async def update_flow(client: DirectusClient, id: str, data: dict[str, Any]) -> 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def delete_flow(client: DirectusClient, id: str) -> str:
     """Delete a flow."""
     try:
@@ -390,6 +398,7 @@ async def delete_flow(client: DirectusClient, id: str) -> str:
         return json.dumps({"success": True, "message": f"Flow {id} deleted"}, indent=2)
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def trigger_flow(client: DirectusClient, id: str, data: dict | None = None) -> str:
     """Trigger a flow manually."""
@@ -409,6 +418,7 @@ async def trigger_flow(client: DirectusClient, id: str, data: dict | None = None
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def list_operations(
     client: DirectusClient, filter: dict | None = None, limit: int = 100
 ) -> str:
@@ -425,6 +435,7 @@ async def list_operations(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def create_operation(
     client: DirectusClient,
@@ -462,6 +473,7 @@ async def create_operation(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def list_webhooks(
     client: DirectusClient, filter: dict | None = None, limit: int = 100
 ) -> str:
@@ -483,6 +495,7 @@ async def list_webhooks(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def create_webhook(
     client: DirectusClient,
@@ -531,6 +544,7 @@ async def create_webhook(
             indent=2,
         )
 
+
 async def update_webhook(client: DirectusClient, id: str, data: dict[str, Any]) -> str:
     """Update webhook. DEPRECATED: Use Flows instead in Directus 10+."""
     try:
@@ -556,6 +570,7 @@ async def update_webhook(client: DirectusClient, id: str, data: dict[str, Any]) 
             },
             indent=2,
         )
+
 
 async def delete_webhook(client: DirectusClient, id: str) -> str:
     """Delete a webhook. DEPRECATED: Use Flows instead in Directus 10+."""

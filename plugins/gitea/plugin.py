@@ -11,6 +11,7 @@ from plugins.base import BasePlugin
 from plugins.gitea import handlers
 from plugins.gitea.client import GiteaClient
 
+
 class GiteaPlugin(BasePlugin):
     """
     Gitea project plugin - Clean architecture.

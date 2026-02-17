@@ -12,6 +12,7 @@ from typing import Any
 
 from plugins.appwrite.client import AppwriteClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator (12 tools)"""
     return [
@@ -220,9 +221,11 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # =====================
 # HANDLER FUNCTIONS
 # =====================
+
 
 async def list_users(
     client: AppwriteClient, queries: list[str] | None = None, search: str | None = None
@@ -238,6 +241,7 @@ async def list_users(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_user(client: AppwriteClient, user_id: str) -> str:
     """Get user by ID."""
     try:
@@ -246,6 +250,7 @@ async def get_user(client: AppwriteClient, user_id: str) -> str:
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def create_user(
     client: AppwriteClient,
@@ -269,6 +274,7 @@ async def create_user(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def update_user_name(client: AppwriteClient, user_id: str, name: str) -> str:
     """Update user name."""
     try:
@@ -282,6 +288,7 @@ async def update_user_name(client: AppwriteClient, user_id: str, name: str) -> s
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def delete_user(client: AppwriteClient, user_id: str) -> str:
     """Delete user."""
     try:
@@ -292,6 +299,7 @@ async def delete_user(client: AppwriteClient, user_id: str) -> str:
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def update_user_email(client: AppwriteClient, user_id: str, email: str) -> str:
     """Update user email."""
@@ -306,6 +314,7 @@ async def update_user_email(client: AppwriteClient, user_id: str, email: str) ->
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def update_user_phone(client: AppwriteClient, user_id: str, number: str) -> str:
     """Update user phone."""
     try:
@@ -318,6 +327,7 @@ async def update_user_phone(client: AppwriteClient, user_id: str, number: str) -
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def update_user_status(client: AppwriteClient, user_id: str, status: bool) -> str:
     """Update user status (enable/disable)."""
@@ -333,6 +343,7 @@ async def update_user_status(client: AppwriteClient, user_id: str, status: bool)
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def update_user_labels(client: AppwriteClient, user_id: str, labels: list[str]) -> str:
     """Update user labels."""
     try:
@@ -345,6 +356,7 @@ async def update_user_labels(client: AppwriteClient, user_id: str, labels: list[
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def list_user_sessions(client: AppwriteClient, user_id: str) -> str:
     """List user sessions."""
@@ -363,6 +375,7 @@ async def list_user_sessions(client: AppwriteClient, user_id: str) -> str:
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def delete_user_sessions(client: AppwriteClient, user_id: str) -> str:
     """Delete all user sessions."""
     try:
@@ -373,6 +386,7 @@ async def delete_user_sessions(client: AppwriteClient, user_id: str) -> str:
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def delete_user_session(client: AppwriteClient, user_id: str, session_id: str) -> str:
     """Delete a specific session."""

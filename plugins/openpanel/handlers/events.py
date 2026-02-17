@@ -5,6 +5,7 @@ from typing import Any
 
 from plugins.openpanel.client import OpenPanelClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator (10 tools)"""
     return [
@@ -302,9 +303,11 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # =====================
 # Event Tracking Functions (10)
 # =====================
+
 
 async def track_event(
     client: OpenPanelClient,
@@ -339,6 +342,7 @@ async def track_event(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def track_page_view(
     client: OpenPanelClient,
@@ -384,6 +388,7 @@ async def track_page_view(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def track_screen_view(
     client: OpenPanelClient,
     screen_name: str,
@@ -425,6 +430,7 @@ async def track_screen_view(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def identify_user(
     client: OpenPanelClient,
     profile_id: str,
@@ -461,6 +467,7 @@ async def identify_user(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def set_user_properties(
     client: OpenPanelClient, profile_id: str, properties: dict[str, Any]
 ) -> str:
@@ -481,6 +488,7 @@ async def set_user_properties(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def increment_property(
     client: OpenPanelClient, profile_id: str, property_name: str, value: int = 1
@@ -519,6 +527,7 @@ async def increment_property(
             ensure_ascii=False,
         )
 
+
 async def decrement_property(
     client: OpenPanelClient, profile_id: str, property_name: str, value: int = 1
 ) -> str:
@@ -556,6 +565,7 @@ async def decrement_property(
             ensure_ascii=False,
         )
 
+
 async def alias_user(client: OpenPanelClient, profile_id: str, alias: str) -> str:
     """Create an alias to link two profile IDs"""
     try:
@@ -582,6 +592,7 @@ async def alias_user(client: OpenPanelClient, profile_id: str, alias: str) -> st
             indent=2,
             ensure_ascii=False,
         )
+
 
 async def track_revenue(
     client: OpenPanelClient,
@@ -628,6 +639,7 @@ async def track_revenue(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def track_batch(
     client: OpenPanelClient,

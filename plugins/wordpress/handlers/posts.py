@@ -7,11 +7,13 @@ from typing import Any
 
 from plugins.wordpress.client import WordPressClient
 
+
 def _count_words(html_content: str) -> int:
     """Strip HTML tags and count words."""
     text = re.sub(r"<[^>]+>", " ", html_content)
     text = re.sub(r"\s+", " ", text).strip()
     return len(text.split()) if text else 0
+
 
 def _strip_html(html_content: str, max_chars: int = 500) -> str:
     """Strip HTML tags and return first max_chars characters."""
@@ -20,6 +22,7 @@ def _strip_html(html_content: str, max_chars: int = 500) -> str:
     if len(text) > max_chars:
         return text[:max_chars] + "..."
     return text
+
 
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator"""
@@ -453,6 +456,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
             "scope": "read",
         },
     ]
+
 
 class PostsHandler:
     """Handle post-related operations for WordPress"""

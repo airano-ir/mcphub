@@ -5,6 +5,7 @@ from typing import Any
 
 from plugins.n8n.client import N8nClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator"""
     return [
@@ -60,6 +61,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 async def run_security_audit(client: N8nClient, categories: list[str] | None = None) -> str:
     """Run security audit"""
     try:
@@ -84,6 +86,7 @@ async def run_security_audit(client: N8nClient, categories: list[str] | None = N
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def source_control_pull(
     client: N8nClient, variables: dict[str, str] | None = None, force: bool = False
 ) -> str:
@@ -97,6 +100,7 @@ async def source_control_pull(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def get_instance_info(client: N8nClient) -> str:
     """Get instance information"""
@@ -128,6 +132,7 @@ async def get_instance_info(client: N8nClient) -> str:
         return json.dumps({"success": True, "instance_info": info}, indent=2)
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def health_check(client: N8nClient) -> str:
     """Check instance health"""

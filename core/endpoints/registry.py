@@ -21,6 +21,7 @@ from .factory import MCPEndpointFactory
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class EndpointInfo:
     """Information about a registered endpoint"""
@@ -32,6 +33,7 @@ class EndpointInfo:
     tool_count: int
     plugin_types: list[str]
     require_master_key: bool
+
 
 class EndpointRegistry:
     """
@@ -199,8 +201,10 @@ class EndpointRegistry:
         logger.info(f"Total: {len(self._endpoints)} endpoints")
         logger.info("=" * 60)
 
+
 # Singleton instance
 _registry: EndpointRegistry | None = None
+
 
 def get_endpoint_registry() -> EndpointRegistry:
     """Get the global endpoint registry instance"""
@@ -210,6 +214,7 @@ def get_endpoint_registry() -> EndpointRegistry:
             "Endpoint registry not initialized. " "Call initialize_endpoint_registry() first."
         )
     return _registry
+
 
 def initialize_endpoint_registry(factory: MCPEndpointFactory) -> EndpointRegistry:
     """

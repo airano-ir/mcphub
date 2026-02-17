@@ -89,6 +89,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     },
 }
 
+
 def detect_language(accept_language: str | None = None, query_lang: str | None = None) -> str:
     """
     Detect user's preferred language from Accept-Language header or query parameter.
@@ -131,6 +132,7 @@ def detect_language(accept_language: str | None = None, query_lang: str | None =
     # Default: English
     return "en"
 
+
 def get_translation(lang: str, key: str, **kwargs) -> str:
     """
     Get translated string for the given language and key.
@@ -166,6 +168,7 @@ def get_translation(lang: str, key: str, **kwargs) -> str:
 
     return text
 
+
 def get_all_translations(lang: str) -> dict[str, str]:
     """
     Get all translations for a language as a dictionary.
@@ -179,6 +182,7 @@ def get_all_translations(lang: str) -> dict[str, str]:
         Dictionary of all translations for the language
     """
     return TRANSLATIONS.get(lang, TRANSLATIONS["en"])
+
 
 def get_language_name(lang: str) -> str:
     """

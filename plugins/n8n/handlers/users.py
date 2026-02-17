@@ -5,6 +5,7 @@ from typing import Any
 
 from plugins.n8n.client import N8nClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator"""
     return [
@@ -89,6 +90,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 async def list_users(
     client: N8nClient, limit: int = 100, cursor: str | None = None, include_role: bool = True
 ) -> str:
@@ -115,6 +117,7 @@ async def list_users(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_user(client: N8nClient, user_id: str, include_role: bool = True) -> str:
     try:
         user = await client.get_user(user_id, include_role)
@@ -135,6 +138,7 @@ async def get_user(client: N8nClient, user_id: str, include_role: bool = True) -
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def create_user(client: N8nClient, email: str, role: str = "global:member") -> str:
     try:
         users = [{"email": email, "role": role}]
@@ -150,12 +154,14 @@ async def create_user(client: N8nClient, email: str, role: str = "global:member"
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def delete_user(client: N8nClient, user_id: str) -> str:
     try:
         await client.delete_user(user_id)
         return json.dumps({"success": True, "message": f"User {user_id} deleted"}, indent=2)
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def change_user_role(client: N8nClient, user_id: str, new_role: str) -> str:
     try:

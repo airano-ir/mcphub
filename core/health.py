@@ -27,6 +27,7 @@ from core.project_manager import ProjectManager
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class HealthMetric:
     """Individual health metric data point."""
@@ -47,6 +48,7 @@ class HealthMetric:
             "error_message": self.error_message,
         }
 
+
 @dataclass
 class SystemMetrics:
     """System-wide metrics."""
@@ -62,6 +64,7 @@ class SystemMetrics:
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return asdict(self)
+
 
 @dataclass
 class ProjectHealthStatus:
@@ -89,6 +92,7 @@ class ProjectHealthStatus:
             "details": self.details,
         }
 
+
 @dataclass
 class AlertThreshold:
     """Alert threshold configuration."""
@@ -108,6 +112,7 @@ class AlertThreshold:
         elif self.comparison == "eq":
             return value == self.threshold
         return False
+
 
 class HealthMonitor:
     """
@@ -657,12 +662,15 @@ class HealthMonitor:
         self.request_timestamps.clear()
         logger.warning("All metrics have been reset")
 
+
 # Singleton instance
 _health_monitor: HealthMonitor | None = None
+
 
 def get_health_monitor() -> HealthMonitor | None:
     """Get the global health monitor instance."""
     return _health_monitor
+
 
 def initialize_health_monitor(
     project_manager: ProjectManager, audit_logger: AuditLogger | None = None, **kwargs

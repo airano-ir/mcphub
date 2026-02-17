@@ -12,6 +12,7 @@ from typing import Any
 
 from plugins.directus.client import DirectusClient
 
+
 def _parse_json_param(value: Any, param_name: str = "parameter") -> Any:
     """
     Parse a parameter that may be a JSON string or already a native type.
@@ -44,6 +45,7 @@ def _parse_json_param(value: Any, param_name: str = "parameter") -> Any:
                 raise ValueError(f"Invalid JSON in '{param_name}': {e}")
 
     return value
+
 
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator (14 tools)"""
@@ -294,9 +296,11 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # =====================
 # HANDLER FUNCTIONS
 # =====================
+
 
 async def list_collections(client: DirectusClient) -> str:
     """List all collections."""
@@ -311,6 +315,7 @@ async def list_collections(client: DirectusClient) -> str:
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_collection(client: DirectusClient, collection: str) -> str:
     """Get collection details."""
     try:
@@ -320,6 +325,7 @@ async def get_collection(client: DirectusClient, collection: str) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def create_collection(
     client: DirectusClient,
@@ -358,6 +364,7 @@ async def create_collection(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def update_collection(client: DirectusClient, collection: str, meta: dict) -> str:
     """Update collection meta."""
     try:
@@ -376,6 +383,7 @@ async def update_collection(client: DirectusClient, collection: str, meta: dict)
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def delete_collection(client: DirectusClient, collection: str) -> str:
     """Delete a collection."""
     try:
@@ -385,6 +393,7 @@ async def delete_collection(client: DirectusClient, collection: str) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def list_fields(client: DirectusClient, collection: str | None = None) -> str:
     """List fields."""
@@ -399,6 +408,7 @@ async def list_fields(client: DirectusClient, collection: str | None = None) -> 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_field(client: DirectusClient, collection: str, field: str) -> str:
     """Get field details."""
     try:
@@ -408,6 +418,7 @@ async def get_field(client: DirectusClient, collection: str, field: str) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def create_field(
     client: DirectusClient,
@@ -438,6 +449,7 @@ async def create_field(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def update_field(
     client: DirectusClient,
     collection: str,
@@ -462,6 +474,7 @@ async def update_field(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def delete_field(client: DirectusClient, collection: str, field: str) -> str:
     """Delete a field."""
     try:
@@ -471,6 +484,7 @@ async def delete_field(client: DirectusClient, collection: str, field: str) -> s
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def list_relations(client: DirectusClient, collection: str | None = None) -> str:
     """List relations."""
@@ -490,6 +504,7 @@ async def list_relations(client: DirectusClient, collection: str | None = None) 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_relation(client: DirectusClient, collection: str, field: str) -> str:
     """Get relation details."""
     try:
@@ -499,6 +514,7 @@ async def get_relation(client: DirectusClient, collection: str, field: str) -> s
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def create_relation(
     client: DirectusClient,
@@ -532,6 +548,7 @@ async def create_relation(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def delete_relation(client: DirectusClient, collection: str, field: str) -> str:
     """Delete a relation."""

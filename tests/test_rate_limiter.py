@@ -1,7 +1,5 @@
 """Tests for Rate Limiter (core/rate_limiter.py)."""
 
-import time
-
 import pytest
 
 from core.rate_limiter import ClientRateLimitState, RateLimitConfig, RateLimiter, TokenBucket

@@ -10,6 +10,7 @@ from typing import Any
 
 import aiohttp
 
+
 class N8nClient:
     """
     n8n REST API client for HTTP communication.

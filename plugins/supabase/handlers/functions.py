@@ -5,6 +5,7 @@ from typing import Any
 
 from plugins.supabase.client import SupabaseClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator (8 tools)"""
     return [
@@ -144,9 +145,11 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # =====================
 # Functions Operations (8 tools)
 # =====================
+
 
 async def invoke_function(
     client: SupabaseClient,
@@ -165,6 +168,7 @@ async def invoke_function(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def invoke_function_get(
     client: SupabaseClient, function_name: str, params: dict | None = None
@@ -192,6 +196,7 @@ async def invoke_function_get(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def list_edge_functions(client: SupabaseClient) -> str:
     """List deployed Edge Functions"""
@@ -223,6 +228,7 @@ async def list_edge_functions(client: SupabaseClient) -> str:
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def get_function_info(client: SupabaseClient, function_name: str) -> str:
     """Get function information"""
     try:
@@ -250,6 +256,7 @@ async def get_function_info(client: SupabaseClient, function_name: str) -> str:
         return json.dumps({"success": True, "function_info": info}, indent=2, ensure_ascii=False)
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def test_function(
     client: SupabaseClient, function_name: str, test_data: dict | None = None, method: str = "POST"
@@ -291,6 +298,7 @@ async def test_function(
             ensure_ascii=False,
         )
 
+
 async def get_function_url(client: SupabaseClient, function_name: str) -> str:
     """Get the full URL for a function"""
     try:
@@ -308,6 +316,7 @@ async def get_function_url(client: SupabaseClient, function_name: str) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def check_function_health(client: SupabaseClient, function_name: str) -> str:
     """Check if a function is healthy"""
@@ -346,6 +355,7 @@ async def check_function_health(client: SupabaseClient, function_name: str) -> s
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def invoke_function_batch(
     client: SupabaseClient, function_name: str, payloads: list[dict]

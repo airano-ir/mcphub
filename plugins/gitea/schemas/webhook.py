@@ -9,6 +9,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+
 class Webhook(BaseModel):
     """Gitea webhook model"""
 
@@ -22,6 +23,7 @@ class Webhook(BaseModel):
     updated_at: datetime
     created_at: datetime
 
+
 class WebhookConfig(BaseModel):
     """Webhook configuration"""
 
@@ -32,6 +34,7 @@ class WebhookConfig(BaseModel):
     secret: str | None = None
     http_method: str | None = "POST"
     branch_filter: str | None = None
+
 
 class CreateWebhookRequest(BaseModel):
     """Request to create a webhook"""
@@ -109,6 +112,7 @@ class CreateWebhookRequest(BaseModel):
             v["content_type"] = "json"
         return v
 
+
 class UpdateWebhookRequest(BaseModel):
     """Request to update a webhook"""
 
@@ -151,6 +155,7 @@ class UpdateWebhookRequest(BaseModel):
             if event not in allowed_events:
                 raise ValueError(f"Invalid event: {event}")
         return v
+
 
 class WebhookTestResult(BaseModel):
     """Webhook test result"""

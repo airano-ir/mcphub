@@ -5,6 +5,7 @@ from typing import Any
 
 from plugins.n8n.client import N8nClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator"""
     return [
@@ -132,6 +133,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 async def list_projects(client: N8nClient, limit: int = 100, cursor: str | None = None) -> str:
     try:
         response = await client.list_projects(limit=limit, cursor=cursor)
@@ -146,6 +148,7 @@ async def list_projects(client: N8nClient, limit: int = 100, cursor: str | None 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_project(client: N8nClient, project_id: str) -> str:
     try:
         project = await client.get_project(project_id)
@@ -155,6 +158,7 @@ async def get_project(client: N8nClient, project_id: str) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def create_project(client: N8nClient, name: str) -> str:
     try:
@@ -170,6 +174,7 @@ async def create_project(client: N8nClient, name: str) -> str:
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def update_project(client: N8nClient, project_id: str, name: str) -> str:
     try:
         project = await client.update_project(project_id, name)
@@ -184,12 +189,14 @@ async def update_project(client: N8nClient, project_id: str, name: str) -> str:
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def delete_project(client: N8nClient, project_id: str) -> str:
     try:
         await client.delete_project(project_id)
         return json.dumps({"success": True, "message": f"Project {project_id} deleted"}, indent=2)
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def add_project_users(client: N8nClient, project_id: str, users: list[dict[str, str]]) -> str:
     try:
@@ -201,6 +208,7 @@ async def add_project_users(client: N8nClient, project_id: str, users: list[dict
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def change_project_user_role(
     client: N8nClient, project_id: str, user_id: str, role: str
@@ -216,6 +224,7 @@ async def change_project_user_role(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def remove_project_user(client: N8nClient, project_id: str, user_id: str) -> str:
     try:

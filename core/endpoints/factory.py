@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class MCPEndpointFactory:
     """
     Factory for creating scoped MCP endpoints.

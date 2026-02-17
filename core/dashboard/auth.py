@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 # Singleton instance
 _dashboard_auth: Optional["DashboardAuth"] = None
 
+
 @dataclass
 class DashboardSession:
     """Dashboard session information."""
@@ -29,6 +30,7 @@ class DashboardSession:
     expires_at: datetime
     user_type: str  # "master" or "api_key"
     key_id: str | None = None  # For API key sessions
+
 
 class DashboardAuth:
     """
@@ -269,6 +271,7 @@ class DashboardAuth:
                 status_code=303,
             )
         return None
+
 
 def get_dashboard_auth() -> DashboardAuth:
     """Get or create the singleton DashboardAuth instance."""

@@ -12,15 +12,18 @@ from typing import Any
 
 import aiohttp
 
+
 class ConfigurationError(Exception):
     """Raised when site configuration is invalid or incomplete."""
 
     pass
 
+
 class AuthenticationError(Exception):
     """Raised when authentication fails (401/403)."""
 
     pass
+
 
 class WordPressClient:
     """

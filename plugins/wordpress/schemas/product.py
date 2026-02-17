@@ -8,6 +8,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+
 class ProductBase(BaseModel):
     """Base product schema"""
 
@@ -71,17 +72,20 @@ class ProductBase(BaseModel):
                 raise ValueError(f"Stock status must be one of: {', '.join(allowed)}")
         return v
 
+
 class ProductCreate(ProductBase):
     """Schema for creating a new product"""
 
     name: str = Field(..., min_length=1, description="Product name (required)")
     type: str = Field("simple", description="Product type")
 
+
 class ProductUpdate(ProductBase):
     """Schema for updating an existing product"""
 
     # All fields optional for updates
     pass
+
 
 class ProductResponse(BaseModel):
     """Schema for product response data"""
@@ -100,6 +104,7 @@ class ProductResponse(BaseModel):
     stock_status: str
     permalink: str
 
+
 class ProductCategory(BaseModel):
     """Schema for product category"""
 
@@ -111,6 +116,7 @@ class ProductCategory(BaseModel):
     description: str | None = Field(None, description="Category description")
     display: str | None = Field("default", description="Display type")
     image: dict[str, Any] | None = Field(None, description="Category image")
+
 
 class ProductVariation(BaseModel):
     """Schema for product variation"""
@@ -127,6 +133,7 @@ class ProductVariation(BaseModel):
     weight: str | None = Field(None, description="Variation weight")
     attributes: list[dict[str, Any]] | None = Field(None, description="Variation attributes")
     image: dict[str, Any] | None = Field(None, description="Variation image")
+
 
 class ProductAttribute(BaseModel):
     """Schema for product attribute"""

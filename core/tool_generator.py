@@ -14,6 +14,7 @@ from core.tool_registry import ToolDefinition
 
 logger = logging.getLogger(__name__)
 
+
 # Plugin type fallback mapping - used when a plugin has no sites configured
 # WooCommerce can fallback to WordPress sites (same URL, credentials)
 # NOTE: Using fallback is NOT recommended in production. Always configure
@@ -22,6 +23,7 @@ PLUGIN_SITE_FALLBACK = {
     "woocommerce": "wordpress",  # WooCommerce can use WordPress site configs
     # Add more fallbacks as needed
 }
+
 
 def get_site_plugin_type_with_fallback(plugin_type: str, site_manager) -> str:
     """
@@ -59,6 +61,7 @@ def get_site_plugin_type_with_fallback(plugin_type: str, site_manager) -> str:
 
     # Return original type (may have no sites)
     return plugin_type
+
 
 class ToolGenerator:
     """

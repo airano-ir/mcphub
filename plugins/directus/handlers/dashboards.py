@@ -11,6 +11,7 @@ from typing import Any
 
 from plugins.directus.client import DirectusClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator (8 tools)"""
     return [
@@ -201,9 +202,11 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # =====================
 # HANDLER FUNCTIONS
 # =====================
+
 
 async def list_dashboards(
     client: DirectusClient,
@@ -223,6 +226,7 @@ async def list_dashboards(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_dashboard(client: DirectusClient, id: str) -> str:
     """Get dashboard by ID."""
     try:
@@ -232,6 +236,7 @@ async def get_dashboard(client: DirectusClient, id: str) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def create_dashboard(
     client: DirectusClient,
@@ -255,6 +260,7 @@ async def create_dashboard(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def update_dashboard(client: DirectusClient, id: str, data: dict[str, Any]) -> str:
     """Update dashboard."""
     try:
@@ -267,6 +273,7 @@ async def update_dashboard(client: DirectusClient, id: str, data: dict[str, Any]
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def delete_dashboard(client: DirectusClient, id: str) -> str:
     """Delete a dashboard."""
     try:
@@ -274,6 +281,7 @@ async def delete_dashboard(client: DirectusClient, id: str) -> str:
         return json.dumps({"success": True, "message": f"Dashboard {id} deleted"}, indent=2)
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def list_panels(client: DirectusClient, filter: dict | None = None, limit: int = 100) -> str:
     """List panels."""
@@ -285,6 +293,7 @@ async def list_panels(client: DirectusClient, filter: dict | None = None, limit:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def create_panel(
     client: DirectusClient,
@@ -322,6 +331,7 @@ async def create_panel(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def delete_panel(client: DirectusClient, id: str) -> str:
     """Delete a panel."""

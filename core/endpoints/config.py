@@ -8,6 +8,7 @@ Each endpoint has specific plugin types, scopes, and access requirements.
 from dataclasses import dataclass, field
 from enum import Enum
 
+
 class EndpointType(Enum):
     """Types of MCP endpoints"""
 
@@ -24,6 +25,7 @@ class EndpointType(Enum):
     DIRECTUS = "directus"  # Phase J
     PROJECT = "project"  # Dynamic per-project endpoint
     CUSTOM = "custom"
+
 
 @dataclass
 class EndpointConfig:
@@ -89,6 +91,7 @@ class EndpointConfig:
         if not self.allowed_scopes:
             return True  # Empty set = all scopes
         return scope in self.allowed_scopes
+
 
 # Predefined endpoint configurations
 ENDPOINT_CONFIGS = {
@@ -305,11 +308,13 @@ ENDPOINT_CONFIGS = {
     ),
 }
 
+
 def get_endpoint_config(endpoint_type: EndpointType) -> EndpointConfig:
     """Get configuration for a specific endpoint type"""
     if endpoint_type not in ENDPOINT_CONFIGS:
         raise ValueError(f"Unknown endpoint type: {endpoint_type}")
     return ENDPOINT_CONFIGS[endpoint_type]
+
 
 def create_project_endpoint_config(
     project_id: str, plugin_type: str, site_alias: str | None = None

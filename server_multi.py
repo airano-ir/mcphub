@@ -114,6 +114,7 @@ DCR_RATE_LIMIT_PER_MINUTE = int(os.getenv("DCR_RATE_LIMIT_PER_MINUTE", "10"))
 DCR_RATE_LIMIT_PER_HOUR = int(os.getenv("DCR_RATE_LIMIT_PER_HOUR", "30"))
 _dcr_rate_limits: dict = {}
 
+
 def is_redirect_uri_allowed_for_open_dcr(redirect_uris: list) -> bool:
     """Check if all redirect_uris match the allowlist patterns."""
     for uri in redirect_uris:
@@ -125,6 +126,7 @@ def is_redirect_uri_allowed_for_open_dcr(redirect_uris: list) -> bool:
         if not uri_allowed:
             return False
     return True
+
 
 def check_dcr_rate_limit(client_ip: str) -> tuple:
     """Check if DCR request is within rate limits."""
@@ -150,6 +152,7 @@ def check_dcr_rate_limit(client_ip: str) -> tuple:
     limits["minute"] += 1
     limits["hour"] += 1
     return True, ""
+
 
 # Initialize managers
 auth_manager = get_auth_manager()
@@ -193,7 +196,9 @@ oauth_server = get_oauth_server()
 # Server start time
 server_start_time = time.time()
 
+
 # === TOOL GENERATION ===
+
 
 def generate_all_tools():
     """Generate tools from all plugins into the tool registry"""
@@ -248,7 +253,9 @@ def generate_all_tools():
     logger.info(f"Total tools in registry: {tool_registry.get_count()}")
     logger.info("=" * 60)
 
+
 # === ENDPOINT CREATION ===
+
 
 class EndpointAuthMiddleware(Middleware):
     """Authentication middleware for specific endpoint"""
@@ -379,6 +386,7 @@ class EndpointAuthMiddleware(Middleware):
             logger.error(f"Auth error in {tool_name}: {e}")
             raise ToolError(f"Authentication error: {str(e)}")
 
+
 def create_dynamic_tool(
     name: str, description: str, handler: Callable, input_schema: dict | None = None
 ) -> Callable:
@@ -440,6 +448,7 @@ async def {name}({param_str}):
 
     return dynamic_wrapper
 
+
 def get_tools_for_endpoint(config: EndpointConfig) -> list[ToolDefinition]:
     """Get tools that should be registered for a specific endpoint"""
     tools = []
@@ -472,6 +481,7 @@ def get_tools_for_endpoint(config: EndpointConfig) -> list[ToolDefinition]:
 
     return tools
 
+
 def create_mcp_endpoint(config: EndpointConfig) -> FastMCP:
     """Create a FastMCP instance for a specific endpoint"""
     mcp = FastMCP(config.name)
@@ -496,7 +506,9 @@ def create_mcp_endpoint(config: EndpointConfig) -> FastMCP:
 
     return mcp
 
+
 # === SYSTEM TOOLS (added to admin endpoint) ===
+
 
 def add_system_tools(mcp: FastMCP):
     """Add system tools to an MCP instance"""
@@ -663,7 +675,9 @@ def add_system_tools(mcp: FastMCP):
         except Exception as e:
             return {"success": False, "error": str(e)}
 
+
 # === HTTP ROUTES ===
+
 
 async def health_check(request: Request) -> JSONResponse:
     """Health check endpoint"""
@@ -677,6 +691,7 @@ async def health_check(request: Request) -> JSONResponse:
             "endpoints": list(ENDPOINT_CONFIGS.keys()),
         }
     )
+
 
 async def endpoint_info(request: Request) -> JSONResponse:
     """List all available endpoints including per-project endpoints"""
@@ -742,6 +757,7 @@ async def endpoint_info(request: Request) -> JSONResponse:
         }
     )
 
+
 # OAuth endpoints (imported from server.py patterns)
 async def oauth_metadata(request: Request) -> JSONResponse:
     """OAuth 2.0 Authorization Server Metadata (RFC 8414)"""
@@ -760,6 +776,7 @@ async def oauth_metadata(request: Request) -> JSONResponse:
         }
     )
 
+
 async def oauth_protected_resource(request: Request) -> JSONResponse:
     """OAuth 2.0 Protected Resource Metadata (RFC 9728)"""
     base_url = str(request.base_url).rstrip("/")
@@ -771,6 +788,7 @@ async def oauth_protected_resource(request: Request) -> JSONResponse:
             "bearer_methods_supported": ["header"],
         }
     )
+
 
 async def oauth_register(request: Request) -> JSONResponse:
     """
@@ -865,6 +883,7 @@ async def oauth_register(request: Request) -> JSONResponse:
         logger.error(f"DCR error: {e}")
         return JSONResponse({"error": "server_error", "error_description": str(e)}, status_code=400)
 
+
 async def oauth_authorize(request: Request):
     """OAuth Authorization Endpoint"""
     client_id = request.query_params.get("client_id")
@@ -901,6 +920,7 @@ async def oauth_authorize(request: Request):
             **translations,
         },
     )
+
 
 async def oauth_authorize_confirm(request: Request):
     """Handle OAuth authorization form submission"""
@@ -941,6 +961,7 @@ async def oauth_authorize_confirm(request: Request):
     except Exception as e:
         return HTMLResponse(f"<h1>Error: {e}</h1>", status_code=400)
 
+
 async def oauth_token(request: Request) -> JSONResponse:
     """OAuth Token Endpoint"""
     try:
@@ -976,7 +997,9 @@ async def oauth_token(request: Request) -> JSONResponse:
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
+
 # === MAIN APP CREATION ===
+
 
 def create_per_project_endpoints() -> dict[str, FastMCP]:
     """
@@ -1026,6 +1049,7 @@ def create_per_project_endpoints() -> dict[str, FastMCP]:
 
     logger.info(f"Created {len(project_endpoints)} per-project endpoints")
     return project_endpoints
+
 
 def create_app() -> Starlette:
     """Create the main Starlette application with all endpoints"""
@@ -1103,7 +1127,9 @@ def create_app() -> Starlette:
 
     return app
 
+
 # === ENTRY POINT ===
+
 
 def main():
     """Main entry point"""
@@ -1126,6 +1152,7 @@ def main():
     app = create_app()
 
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
+
 
 if __name__ == "__main__":
     main()

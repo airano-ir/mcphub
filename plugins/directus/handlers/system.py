@@ -13,6 +13,7 @@ from typing import Any
 
 from plugins.directus.client import DirectusClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator (10 tools)"""
     return [
@@ -135,9 +136,11 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # =====================
 # HANDLER FUNCTIONS
 # =====================
+
 
 async def get_settings(client: DirectusClient) -> str:
     """Get system settings."""
@@ -148,6 +151,7 @@ async def get_settings(client: DirectusClient) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def update_settings(client: DirectusClient, data: dict[str, Any]) -> str:
     """Update system settings."""
@@ -161,6 +165,7 @@ async def update_settings(client: DirectusClient, data: dict[str, Any]) -> str:
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_server_info(client: DirectusClient) -> str:
     """Get server info."""
     try:
@@ -170,6 +175,7 @@ async def get_server_info(client: DirectusClient) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def health_check(client: DirectusClient) -> str:
     """Check server health."""
@@ -182,6 +188,7 @@ async def health_check(client: DirectusClient) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def get_graphql_sdl(client: DirectusClient) -> str:
     """Get GraphQL SDL."""
@@ -196,6 +203,7 @@ async def get_graphql_sdl(client: DirectusClient) -> str:
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_openapi_spec(client: DirectusClient) -> str:
     """Get OpenAPI specification."""
     try:
@@ -203,6 +211,7 @@ async def get_openapi_spec(client: DirectusClient) -> str:
         return json.dumps({"success": True, "spec": result}, indent=2, ensure_ascii=False)
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def get_schema_snapshot(client: DirectusClient) -> str:
     """Get schema snapshot."""
@@ -214,6 +223,7 @@ async def get_schema_snapshot(client: DirectusClient) -> str:
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def schema_diff(client: DirectusClient, snapshot: dict[str, Any]) -> str:
     """Get schema diff."""
     try:
@@ -223,6 +233,7 @@ async def schema_diff(client: DirectusClient, snapshot: dict[str, Any]) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def schema_apply(client: DirectusClient, diff: dict[str, Any]) -> str:
     """Apply schema diff."""
@@ -239,6 +250,7 @@ async def schema_apply(client: DirectusClient, diff: dict[str, Any]) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def list_activity(
     client: DirectusClient,

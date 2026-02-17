@@ -17,10 +17,12 @@ from .storage import get_storage
 
 logger = logging.getLogger(__name__)
 
+
 class SecurityError(Exception):
     """Security-related error (e.g., token reuse)"""
 
     pass
+
 
 class TokenManager:
     """
@@ -302,8 +304,10 @@ class TokenManager:
         # Access tokens cannot be revoked (JWT stateless)
         # They expire naturally after TTL
 
+
 # Singleton
 _token_manager: TokenManager | None = None
+
 
 def get_token_manager() -> TokenManager:
     """Get singleton TokenManager instance"""

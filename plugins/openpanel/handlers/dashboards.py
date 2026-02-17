@@ -5,6 +5,7 @@ from typing import Any
 
 from plugins.openpanel.client import OpenPanelClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator (10 tools)"""
     return [
@@ -215,9 +216,11 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # =====================
 # Dashboard Functions (10)
 # =====================
+
 
 async def list_dashboards(client: OpenPanelClient, project_id: str) -> str:
     """List all dashboards"""
@@ -235,6 +238,7 @@ async def list_dashboards(client: OpenPanelClient, project_id: str) -> str:
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def get_dashboard(client: OpenPanelClient, project_id: str, dashboard_id: str) -> str:
     """Get dashboard details"""
     try:
@@ -251,6 +255,7 @@ async def get_dashboard(client: OpenPanelClient, project_id: str, dashboard_id: 
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def create_dashboard(
     client: OpenPanelClient, project_id: str, name: str, description: str | None = None
@@ -272,6 +277,7 @@ async def create_dashboard(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def update_dashboard(
     client: OpenPanelClient,
@@ -303,6 +309,7 @@ async def update_dashboard(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def delete_dashboard(client: OpenPanelClient, project_id: str, dashboard_id: str) -> str:
     """Delete a dashboard"""
     try:
@@ -319,6 +326,7 @@ async def delete_dashboard(client: OpenPanelClient, project_id: str, dashboard_i
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def add_chart(
     client: OpenPanelClient,
@@ -352,6 +360,7 @@ async def add_chart(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def update_chart(
     client: OpenPanelClient,
@@ -388,6 +397,7 @@ async def update_chart(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def delete_chart(
     client: OpenPanelClient, project_id: str, dashboard_id: str, chart_id: str
 ) -> str:
@@ -408,6 +418,7 @@ async def delete_chart(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
+
 async def duplicate_dashboard(
     client: OpenPanelClient, project_id: str, dashboard_id: str, new_name: str
 ) -> str:
@@ -427,6 +438,7 @@ async def duplicate_dashboard(
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
 
 async def share_dashboard(
     client: OpenPanelClient,

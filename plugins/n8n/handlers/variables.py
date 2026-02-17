@@ -5,6 +5,7 @@ from typing import Any
 
 from plugins.n8n.client import N8nClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator"""
     return [
@@ -92,6 +93,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 async def list_variables(client: N8nClient, limit: int = 100, cursor: str | None = None) -> str:
     try:
         response = await client.list_variables(limit=limit, cursor=cursor)
@@ -106,6 +108,7 @@ async def list_variables(client: N8nClient, limit: int = 100, cursor: str | None
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_variable(client: N8nClient, key: str) -> str:
     try:
         variable = await client.get_variable(key)
@@ -118,6 +121,7 @@ async def get_variable(client: N8nClient, key: str) -> str:
         )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def create_variable(client: N8nClient, key: str, value: str) -> str:
     try:
@@ -133,6 +137,7 @@ async def create_variable(client: N8nClient, key: str, value: str) -> str:
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def update_variable(client: N8nClient, key: str, value: str) -> str:
     try:
         await client.update_variable(key, value)
@@ -147,12 +152,14 @@ async def update_variable(client: N8nClient, key: str, value: str) -> str:
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def delete_variable(client: N8nClient, key: str) -> str:
     try:
         await client.delete_variable(key)
         return json.dumps({"success": True, "message": f"Variable '{key}' deleted"}, indent=2)
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def set_variables(client: N8nClient, variables: dict[str, str]) -> str:
     try:

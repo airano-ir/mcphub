@@ -6,6 +6,7 @@ from typing import Any
 
 from plugins.n8n.client import N8nClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator"""
     return [
@@ -191,7 +192,9 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # === HANDLER FUNCTIONS ===
+
 
 async def list_executions(
     client: N8nClient,
@@ -238,6 +241,7 @@ async def list_executions(
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_execution(client: N8nClient, execution_id: str, include_data: bool = True) -> str:
     """Get execution details"""
     try:
@@ -268,6 +272,7 @@ async def get_execution(client: N8nClient, execution_id: str, include_data: bool
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def delete_execution(client: N8nClient, execution_id: str) -> str:
     """Delete a single execution"""
     try:
@@ -279,6 +284,7 @@ async def delete_execution(client: N8nClient, execution_id: str) -> str:
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def delete_executions(client: N8nClient, execution_ids: list[str]) -> str:
     """Bulk delete executions"""
@@ -305,6 +311,7 @@ async def delete_executions(client: N8nClient, execution_ids: list[str]) -> str:
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def stop_execution(client: N8nClient, execution_id: str) -> str:
     """Stop a running execution"""
     try:
@@ -316,6 +323,7 @@ async def stop_execution(client: N8nClient, execution_id: str) -> str:
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def retry_execution(client: N8nClient, execution_id: str) -> str:
     """Retry a failed execution"""
@@ -360,6 +368,7 @@ async def retry_execution(client: N8nClient, execution_id: str) -> str:
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
 
+
 async def get_execution_data(client: N8nClient, execution_id: str) -> str:
     """Get full execution data"""
     try:
@@ -382,6 +391,7 @@ async def get_execution_data(client: N8nClient, execution_id: str) -> str:
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def wait_for_execution(
     client: N8nClient, execution_id: str, timeout_seconds: int = 60, poll_interval: int = 2

@@ -5,6 +5,7 @@ from typing import Any
 
 from plugins.gitea.client import GiteaClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator"""
     return [
@@ -430,6 +431,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 async def list_pull_requests(
     client: GiteaClient,
     owner: str,
@@ -454,11 +456,13 @@ async def list_pull_requests(
     result = {"success": True, "count": len(prs), "pull_requests": prs}
     return json.dumps(result, indent=2)
 
+
 async def get_pull_request(client: GiteaClient, owner: str, repo: str, pr_number: int) -> str:
     """Get pull request details"""
     pr = await client.get_pull_request(owner, repo, pr_number)
     result = {"success": True, "pull_request": pr}
     return json.dumps(result, indent=2)
+
 
 async def create_pull_request(
     client: GiteaClient,
@@ -492,6 +496,7 @@ async def create_pull_request(
     }
     return json.dumps(result, indent=2)
 
+
 async def update_pull_request(
     client: GiteaClient, owner: str, repo: str, pr_number: int, **kwargs
 ) -> str:
@@ -508,6 +513,7 @@ async def update_pull_request(
         "pull_request": pr,
     }
     return json.dumps(result, indent=2)
+
 
 async def merge_pull_request(
     client: GiteaClient,
@@ -534,6 +540,7 @@ async def merge_pull_request(
     }
     return json.dumps(result, indent=2)
 
+
 async def close_pull_request(client: GiteaClient, owner: str, repo: str, pr_number: int) -> str:
     """Close a pull request"""
     data = {"state": "closed"}
@@ -544,6 +551,7 @@ async def close_pull_request(client: GiteaClient, owner: str, repo: str, pr_numb
         "pull_request": pr,
     }
     return json.dumps(result, indent=2)
+
 
 async def reopen_pull_request(client: GiteaClient, owner: str, repo: str, pr_number: int) -> str:
     """Reopen a pull request"""
@@ -556,6 +564,7 @@ async def reopen_pull_request(client: GiteaClient, owner: str, repo: str, pr_num
     }
     return json.dumps(result, indent=2)
 
+
 # PR Details
 async def list_pr_commits(client: GiteaClient, owner: str, repo: str, pr_number: int) -> str:
     """List pull request commits"""
@@ -563,11 +572,13 @@ async def list_pr_commits(client: GiteaClient, owner: str, repo: str, pr_number:
     result = {"success": True, "count": len(commits), "commits": commits}
     return json.dumps(result, indent=2)
 
+
 async def list_pr_files(client: GiteaClient, owner: str, repo: str, pr_number: int) -> str:
     """List pull request files"""
     files = await client.list_pr_files(owner, repo, pr_number)
     result = {"success": True, "count": len(files), "files": files}
     return json.dumps(result, indent=2)
+
 
 async def get_pr_diff(client: GiteaClient, owner: str, repo: str, pr_number: int) -> str:
     """Get pull request diff"""
@@ -575,12 +586,14 @@ async def get_pr_diff(client: GiteaClient, owner: str, repo: str, pr_number: int
     result = {"success": True, "diff": diff}
     return json.dumps(result, indent=2)
 
+
 async def list_pr_comments(client: GiteaClient, owner: str, repo: str, pr_number: int) -> str:
     """List pull request comments"""
     # PR comments are same as issue comments in Gitea API
     comments = await client.list_issue_comments(owner, repo, pr_number)
     result = {"success": True, "count": len(comments), "comments": comments}
     return json.dumps(result, indent=2)
+
 
 async def create_pr_comment(
     client: GiteaClient, owner: str, repo: str, pr_number: int, body: str
@@ -595,12 +608,14 @@ async def create_pr_comment(
     }
     return json.dumps(result, indent=2)
 
+
 # PR Reviews
 async def list_pr_reviews(client: GiteaClient, owner: str, repo: str, pr_number: int) -> str:
     """List pull request reviews"""
     reviews = await client.list_pr_reviews(owner, repo, pr_number)
     result = {"success": True, "count": len(reviews), "reviews": reviews}
     return json.dumps(result, indent=2)
+
 
 async def create_pr_review(
     client: GiteaClient, owner: str, repo: str, pr_number: int, event: str, body: str | None = None
@@ -614,6 +629,7 @@ async def create_pr_review(
         "review": review,
     }
     return json.dumps(result, indent=2)
+
 
 async def request_pr_reviewers(
     client: GiteaClient, owner: str, repo: str, pr_number: int, reviewers: list[str]

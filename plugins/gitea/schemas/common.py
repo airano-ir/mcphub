@@ -9,6 +9,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+
 class Site(BaseModel):
     """Gitea site configuration"""
 
@@ -20,6 +21,7 @@ class Site(BaseModel):
     alias: str | None = Field(None, description="Site alias")
     oauth_enabled: bool = Field(default=False, description="Whether OAuth is enabled")
 
+
 class PaginationParams(BaseModel):
     """Pagination parameters for list endpoints"""
 
@@ -27,6 +29,7 @@ class PaginationParams(BaseModel):
 
     page: int = Field(default=1, ge=1, description="Page number (starts at 1)")
     limit: int = Field(default=30, ge=1, le=100, description="Number of items per page (1-100)")
+
 
 class ErrorResponse(BaseModel):
     """Standard error response"""
@@ -36,12 +39,14 @@ class ErrorResponse(BaseModel):
     code: str | None = Field(None, description="Error code")
     details: dict[str, Any] | None = Field(None, description="Additional error details")
 
+
 class SuccessResponse(BaseModel):
     """Standard success response"""
 
     success: bool = Field(default=True)
     message: str = Field(..., description="Success message")
     data: dict[str, Any] | None = Field(None, description="Response data")
+
 
 class GiteaUser(BaseModel):
     """Gitea user information"""
@@ -55,6 +60,7 @@ class GiteaUser(BaseModel):
     avatar_url: str | None = None
     is_admin: bool = False
 
+
 class GiteaPermissions(BaseModel):
     """Repository permissions"""
 
@@ -63,6 +69,7 @@ class GiteaPermissions(BaseModel):
     admin: bool = False
     push: bool = False
     pull: bool = False
+
 
 class GiteaTimestamps(BaseModel):
     """Common timestamp fields"""

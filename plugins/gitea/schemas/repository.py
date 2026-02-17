@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .common import GiteaPermissions, GiteaUser
 
+
 class Repository(BaseModel):
     """Gitea repository model"""
 
@@ -59,6 +60,7 @@ class Repository(BaseModel):
     default_merge_style: str = "merge"
     avatar_url: str | None = None
 
+
 class Branch(BaseModel):
     """Git branch model"""
 
@@ -73,6 +75,7 @@ class Branch(BaseModel):
     user_can_push: bool = False
     user_can_merge: bool = False
 
+
 class Tag(BaseModel):
     """Git tag model"""
 
@@ -84,6 +87,7 @@ class Tag(BaseModel):
     commit: dict
     zipball_url: str | None = None
     tarball_url: str | None = None
+
 
 class FileContent(BaseModel):
     """File content model"""
@@ -103,6 +107,7 @@ class FileContent(BaseModel):
     encoding: str | None = None
     target: str | None = None  # For symlinks
     submodule_git_url: str | None = None
+
 
 class CreateRepositoryRequest(BaseModel):
     """Request to create a repository"""
@@ -131,6 +136,7 @@ class CreateRepositoryRequest(BaseModel):
             )
         return v
 
+
 class UpdateRepositoryRequest(BaseModel):
     """Request to update a repository"""
 
@@ -148,6 +154,7 @@ class UpdateRepositoryRequest(BaseModel):
     allow_rebase: bool | None = Field(None, description="Allow rebase")
     allow_squash_merge: bool | None = Field(None, description="Allow squash merge")
 
+
 class CreateBranchRequest(BaseModel):
     """Request to create a branch"""
 
@@ -157,6 +164,7 @@ class CreateBranchRequest(BaseModel):
     old_branch_name: str | None = Field(None, description="Source branch (default: default branch)")
     old_ref_name: str | None = Field(None, description="Source commit SHA or ref")
 
+
 class CreateTagRequest(BaseModel):
     """Request to create a tag"""
 
@@ -165,6 +173,7 @@ class CreateTagRequest(BaseModel):
     tag_name: str = Field(..., min_length=1, description="Tag name")
     message: str | None = Field(None, description="Tag message")
     target: str | None = Field(None, description="Target commit SHA (default: latest)")
+
 
 class CreateFileRequest(BaseModel):
     """Request to create a file"""
@@ -179,6 +188,7 @@ class CreateFileRequest(BaseModel):
     committer_name: str | None = Field(None, description="Committer name")
     committer_email: str | None = Field(None, description="Committer email")
     new_branch: str | None = Field(None, description="Create new branch for this commit")
+
 
 class UpdateFileRequest(BaseModel):
     """Request to update a file"""

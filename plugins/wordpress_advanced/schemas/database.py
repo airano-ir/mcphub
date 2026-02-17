@@ -12,6 +12,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
+
 class DatabaseExportParams(BaseModel):
     """Parameters for database export"""
 
@@ -33,6 +34,7 @@ class DatabaseExportParams(BaseModel):
                     raise ValueError(f"Invalid table name: {table}")
         return v
 
+
 class DatabaseImportParams(BaseModel):
     """Parameters for database import"""
 
@@ -50,6 +52,7 @@ class DatabaseImportParams(BaseModel):
             raise ValueError("URL must start with http:// or https://")
         return v
 
+
 class DatabaseBackupParams(BaseModel):
     """Parameters for creating database backup"""
 
@@ -60,6 +63,7 @@ class DatabaseBackupParams(BaseModel):
     include_uploads: bool = Field(
         default=False, description="Also backup wp-content/uploads directory"
     )
+
 
 class DatabaseRestoreParams(BaseModel):
     """Parameters for restoring database"""
@@ -78,6 +82,7 @@ class DatabaseRestoreParams(BaseModel):
             raise ValueError("Confirmation required: set confirm=true")
         return v
 
+
 class DatabaseSearchParams(BaseModel):
     """Parameters for searching database"""
 
@@ -90,6 +95,7 @@ class DatabaseSearchParams(BaseModel):
     regex: bool = Field(default=False, description="Use regex pattern matching")
     case_sensitive: bool = Field(default=False, description="Case-sensitive search")
     max_results: int = Field(default=100, ge=1, le=1000, description="Maximum results to return")
+
 
 class DatabaseQueryParams(BaseModel):
     """Parameters for executing SQL query"""
@@ -136,12 +142,14 @@ class DatabaseQueryParams(BaseModel):
 
         return v
 
+
 class DatabaseSizeResponse(BaseModel):
     """Response model for database size information"""
 
     total_size_mb: float = Field(description="Total database size in MB")
     tables: list[dict[str, Any]] = Field(description="List of tables with size information")
     row_count: int = Field(description="Total row count across all tables")
+
 
 class DatabaseTableInfo(BaseModel):
     """Information about a database table"""
@@ -154,12 +162,14 @@ class DatabaseTableInfo(BaseModel):
     total_size_mb: float
     collation: str
 
+
 class DatabaseRepairResult(BaseModel):
     """Result of database repair operation"""
 
     table: str
     status: str  # 'OK', 'Repaired', 'Failed'
     message: str | None = None
+
 
 class DatabaseBackupInfo(BaseModel):
     """Information about a database backup"""

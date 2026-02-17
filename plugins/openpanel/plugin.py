@@ -13,6 +13,7 @@ from plugins.base import BasePlugin
 from plugins.openpanel import handlers
 from plugins.openpanel.client import OpenPanelClient
 
+
 class OpenPanelPlugin(BasePlugin):
     """
     OpenPanel Analytics Plugin - Comprehensive product analytics.

@@ -143,6 +143,7 @@ _dcr_rate_limits: dict = (
     {}
 )  # {ip: {"minute": count, "hour": count, "minute_reset": timestamp, "hour_reset": timestamp}}
 
+
 def is_redirect_uri_allowed_for_open_dcr(redirect_uris: list) -> bool:
     """
     Check if all redirect_uris match the allowlist patterns.
@@ -165,6 +166,7 @@ def is_redirect_uri_allowed_for_open_dcr(redirect_uris: list) -> bool:
         if not uri_allowed:
             return False
     return True
+
 
 def check_dcr_rate_limit(client_ip: str) -> tuple[bool, str]:
     """
@@ -214,6 +216,7 @@ def check_dcr_rate_limit(client_ip: str) -> tuple[bool, str]:
     limits["hour"] += 1
 
     return True, ""
+
 
 # Validate auth mode
 if OAUTH_AUTH_MODE not in ["required", "optional", "trusted_domains"]:
@@ -282,8 +285,10 @@ for site_info in site_manager.list_all_sites():
 
 logger.info("=" * 60)
 
+
 # === MCP INSTRUCTIONS HELPER ===
 # Phase K.2: Auto-discovery of available sites for AI assistants
+
 
 def generate_mcp_instructions(plugin_type: str = None, site_locked: str = None) -> str:
     """
@@ -421,11 +426,14 @@ Use get_endpoints() to see all available MCP endpoints.
 
 If working with a single site, use it directly without asking the user."""
 
+
 # Set instructions for admin endpoint (after sites are discovered)
 mcp.instructions = generate_mcp_instructions()
 logger.info("Admin MCP instructions configured with site discovery")
 
+
 # === AUTHENTICATION MIDDLEWARE ===
+
 
 def extract_project_from_tool(tool_name: str) -> str:
     """
@@ -443,6 +451,7 @@ def extract_project_from_tool(tool_name: str) -> str:
     # So we return "*" to indicate "any project" at this stage
     # The actual project will be validated when the tool is executed
     return "*"
+
 
 def extract_plugin_type_from_tool(tool_name: str) -> str | None:
     """
@@ -490,6 +499,7 @@ def extract_plugin_type_from_tool(tool_name: str) -> str | None:
 
     # System tools (no plugin type)
     return None
+
 
 def check_tool_visibility(tool_name: str, api_key_project_id: str) -> bool:
     """
@@ -553,6 +563,7 @@ def check_tool_visibility(tool_name: str, api_key_project_id: str) -> bool:
     # Check if plugin types match
     return tool_plugin_type == key_plugin_type
 
+
 def determine_required_scope(tool_name: str) -> str:
     """
     Determine required scope for a tool.
@@ -579,6 +590,7 @@ def determine_required_scope(tool_name: str) -> str:
 
     # Everything else is read
     return "read"
+
 
 class UserAuthMiddleware(Middleware):
     """
@@ -830,11 +842,14 @@ class UserAuthMiddleware(Middleware):
             logger.error(f"Authentication error: {e}", exc_info=True)
             raise ToolError(f"Authentication error: {str(e)}")
 
+
 # Add authentication middleware to MCP server
 mcp.add_middleware(UserAuthMiddleware())
 logger.info("Authentication middleware enabled")
 
+
 # === AUDIT LOGGING MIDDLEWARE ===
+
 
 class AuditLoggingMiddleware(Middleware):
     """
@@ -918,15 +933,18 @@ class AuditLoggingMiddleware(Middleware):
                 # Don't let logging errors break the tool call
                 logger.error(f"Failed to log audit entry: {log_error}", exc_info=True)
 
+
 # Add audit logging middleware to MCP server
 mcp.add_middleware(AuditLoggingMiddleware())
 logger.info("Audit logging middleware enabled")
+
 
 # === RATE LIMITING (Phase 7.3) ===
 
 # Initialize rate limiter
 rate_limiter = get_rate_limiter()
 logger.info("Rate limiter initialized (Phase 7.3)")
+
 
 class RateLimitMiddleware(Middleware):
     """
@@ -1011,9 +1029,11 @@ class RateLimitMiddleware(Middleware):
         # Rate limit check passed - proceed with tool execution
         return await call_next(context)
 
+
 # Add rate limiting middleware to MCP server
 mcp.add_middleware(RateLimitMiddleware())
 logger.info("Rate limiting middleware enabled (Phase 7.3)")
+
 
 # === HEALTH MONITORING (Phase 7.2) ===
 
@@ -1027,6 +1047,7 @@ health_monitor = initialize_health_monitor(
     max_metrics_per_project=1000,
 )
 logger.info("Health monitor initialized (Phase 7.2)")
+
 
 class HealthMetricsMiddleware(Middleware):
     """
@@ -1116,11 +1137,14 @@ class HealthMetricsMiddleware(Middleware):
                 # Don't let metrics tracking errors break the tool call
                 logger.error(f"Failed to record health metric: {metric_error}", exc_info=True)
 
+
 # Add health metrics middleware
 mcp.add_middleware(HealthMetricsMiddleware())
 logger.info("Health metrics middleware enabled (Phase 7.2)")
 
+
 # === ENDPOINT MIDDLEWARE HELPER ===
+
 
 def add_endpoint_middleware(endpoint_mcp, endpoint_name: str = "unknown"):
     """
@@ -1138,7 +1162,9 @@ def add_endpoint_middleware(endpoint_mcp, endpoint_name: str = "unknown"):
     endpoint_mcp.add_middleware(RateLimitMiddleware())
     logger.debug(f"Added auth/audit/rate-limit middleware to {endpoint_name} endpoint")
 
+
 # === SYSTEM TOOLS ===
+
 
 # Internal implementation functions (not decorated) for system tools
 async def _list_projects_impl() -> str:
@@ -1153,6 +1179,7 @@ async def _list_projects_impl() -> str:
         logger.error(f"Error listing projects: {e}", exc_info=True)
         return f"Error: {str(e)}"
 
+
 @mcp.tool()
 async def list_projects() -> str:
     """
@@ -1165,6 +1192,7 @@ async def list_projects() -> str:
         JSON string with list of projects
     """
     return await _list_projects_impl()
+
 
 # Phase K.2.3: Helper for site discovery in plugin endpoints
 async def _list_sites_impl(plugin_type: str) -> str:
@@ -1204,6 +1232,7 @@ async def _list_sites_impl(plugin_type: str) -> str:
             {"error": str(e), "message": f"Failed to list {plugin_type} sites"}, indent=2
         )
 
+
 @mcp.tool()
 async def get_project_info(project_id: str) -> str:
     """
@@ -1227,6 +1256,7 @@ async def get_project_info(project_id: str) -> str:
     except Exception as e:
         logger.error(f"Error getting project info: {e}", exc_info=True)
         return f"Error: {str(e)}"
+
 
 @mcp.tool()
 async def check_all_projects_health() -> str:
@@ -1252,6 +1282,7 @@ async def check_all_projects_health() -> str:
     except Exception as e:
         logger.error(f"Error checking health: {e}", exc_info=True)
         return f"Error: {str(e)}"
+
 
 @mcp.tool()
 async def get_project_health(project_id: str) -> str:
@@ -1279,6 +1310,7 @@ async def get_project_health(project_id: str) -> str:
         logger.error(f"Error getting project health: {e}", exc_info=True)
         return f"Error: {str(e)}"
 
+
 @mcp.tool()
 async def get_system_metrics() -> str:
     """
@@ -1304,6 +1336,7 @@ async def get_system_metrics() -> str:
         logger.error(f"Error getting system metrics: {e}", exc_info=True)
         return f"Error: {str(e)}"
 
+
 @mcp.tool()
 async def get_system_uptime() -> str:
     """
@@ -1321,6 +1354,7 @@ async def get_system_uptime() -> str:
     except Exception as e:
         logger.error(f"Error getting uptime: {e}", exc_info=True)
         return f"Error: {str(e)}"
+
 
 @mcp.tool()
 async def get_project_metrics(project_id: str, hours: int = 1) -> str:
@@ -1351,6 +1385,7 @@ async def get_project_metrics(project_id: str, hours: int = 1) -> str:
         logger.error(f"Error getting project metrics: {e}", exc_info=True)
         return f"Error: {str(e)}"
 
+
 @mcp.tool()
 async def export_health_metrics(output_path: str = "logs/metrics_export.json") -> str:
     """
@@ -1368,6 +1403,7 @@ async def export_health_metrics(output_path: str = "logs/metrics_export.json") -
     except Exception as e:
         logger.error(f"Error exporting metrics: {e}", exc_info=True)
         return f"Error: {str(e)}"
+
 
 # Internal implementations for rate limiting tools
 async def _get_rate_limit_stats_impl(client_id: str = None) -> str:
@@ -1387,6 +1423,7 @@ async def _get_rate_limit_stats_impl(client_id: str = None) -> str:
         logger.error(f"Error getting rate limit stats: {e}", exc_info=True)
         return f"Error: {str(e)}"
 
+
 async def _reset_rate_limit_impl(client_id: str = None) -> str:
     """Internal implementation for resetting rate limit."""
     try:
@@ -1403,6 +1440,7 @@ async def _reset_rate_limit_impl(client_id: str = None) -> str:
         logger.error(f"Error resetting rate limit: {e}", exc_info=True)
         return f"Error: {str(e)}"
 
+
 @mcp.tool()
 async def get_rate_limit_stats(client_id: str = None) -> str:
     """
@@ -1416,6 +1454,7 @@ async def get_rate_limit_stats(client_id: str = None) -> str:
         JSON string with rate limit statistics
     """
     return await _get_rate_limit_stats_impl(client_id)
+
 
 @mcp.tool()
 async def reset_rate_limit(client_id: str = None) -> str:
@@ -1433,7 +1472,9 @@ async def reset_rate_limit(client_id: str = None) -> str:
     """
     return await _reset_rate_limit_impl(client_id)
 
+
 # === DYNAMIC TOOL REGISTRATION ===
+
 
 def create_dynamic_tool(name: str, description: str, handler, input_schema: dict):
     """
@@ -1532,6 +1573,7 @@ async def {name}({param_str}):
     dynamic_wrapper.__annotations__ = annotations
 
     return dynamic_wrapper
+
 
 def register_project_tools():
     """
@@ -1767,8 +1809,10 @@ def register_project_tools():
 
     return total_tools
 
+
 # Register all project tools at startup
 _total_tool_count = register_project_tools()
+
 
 # === OAUTH 2.1 ENDPOINTS ===
 
@@ -1777,6 +1821,7 @@ from urllib.parse import urlencode
 from core.oauth import OAuthError, get_oauth_server
 
 oauth_server = get_oauth_server()
+
 
 def get_oauth_base_url(request: Request) -> str:
     """
@@ -1799,6 +1844,7 @@ def get_oauth_base_url(request: Request) -> str:
         return f"{x_forwarded_proto}://{x_forwarded_host}"
 
     return str(request.base_url).rstrip("/")
+
 
 @mcp.custom_route("/.well-known/oauth-authorization-server", methods=["GET"])
 async def oauth_metadata(request: Request) -> JSONResponse:
@@ -1850,6 +1896,7 @@ async def oauth_metadata(request: Request) -> JSONResponse:
 
     return JSONResponse(metadata)
 
+
 @mcp.custom_route("/mcp/.well-known/oauth-authorization-server", methods=["GET"])
 async def oauth_metadata_mcp_path(request: Request) -> JSONResponse:
     """
@@ -1859,6 +1906,7 @@ async def oauth_metadata_mcp_path(request: Request) -> JSONResponse:
     when the MCP server is mounted at /mcp.
     """
     return await oauth_metadata(request)
+
 
 @mcp.custom_route("/.well-known/oauth-protected-resource", methods=["GET"])
 async def oauth_protected_resource(request: Request) -> JSONResponse:
@@ -1880,6 +1928,7 @@ async def oauth_protected_resource(request: Request) -> JSONResponse:
 
     return JSONResponse(metadata)
 
+
 async def oauth_protected_resource_path(request: Request) -> JSONResponse:
     """
     OAuth 2.0 Protected Resource Metadata for path-specific requests (RFC 9728)
@@ -1900,6 +1949,7 @@ async def oauth_protected_resource_path(request: Request) -> JSONResponse:
     }
 
     return JSONResponse(metadata)
+
 
 @mcp.custom_route("/oauth/register", methods=["POST"])
 async def oauth_register(request: Request) -> JSONResponse:
@@ -2128,6 +2178,7 @@ async def oauth_register(request: Request) -> JSONResponse:
         logger.error(f"Error in dynamic client registration: {e}", exc_info=True)
         return JSONResponse({"error": "server_error", "error_description": str(e)}, status_code=500)
 
+
 @mcp.custom_route("/oauth/authorize", methods=["GET"])
 async def oauth_authorize(request: Request):
     """
@@ -2267,6 +2318,7 @@ async def oauth_authorize(request: Request):
             },
             status_code=500,
         )
+
 
 @mcp.custom_route("/oauth/authorize/confirm", methods=["POST"])
 async def oauth_authorize_confirm(request: Request):
@@ -2458,6 +2510,7 @@ async def oauth_authorize_confirm(request: Request):
                 status_code=500,
             )
 
+
 @mcp.custom_route("/oauth/token", methods=["POST"])
 async def oauth_token(request: Request) -> JSONResponse:
     """
@@ -2567,7 +2620,9 @@ async def oauth_token(request: Request) -> JSONResponse:
         logger.error(f"OAuth token error: {e}", exc_info=True)
         return JSONResponse({"error": "server_error", "error_description": str(e)}, status_code=500)
 
+
 # === OAUTH CLIENT MANAGEMENT TOOLS ===
+
 
 # Internal implementation for OAuth register
 async def _oauth_register_client_impl(
@@ -2606,6 +2661,7 @@ async def _oauth_register_client_impl(
         logger.error(f"Error registering OAuth client: {e}", exc_info=True)
         raise ToolError(f"Failed to register client: {e}")
 
+
 @mcp.tool()
 async def oauth_register_client(
     client_name: str,
@@ -2631,6 +2687,7 @@ async def oauth_register_client(
         client_name, redirect_uris, grant_types, allowed_scopes, metadata
     )
 
+
 # Internal implementations for OAuth tools
 async def _oauth_list_clients_impl() -> dict:
     """Internal implementation for listing OAuth clients."""
@@ -2655,6 +2712,7 @@ async def _oauth_list_clients_impl() -> dict:
     except Exception as e:
         logger.error(f"Error listing OAuth clients: {e}", exc_info=True)
         raise ToolError(f"Failed to list clients: {e}")
+
 
 async def _oauth_revoke_client_impl(client_id: str) -> dict:
     """Internal implementation for revoking OAuth client."""
@@ -2682,6 +2740,7 @@ async def _oauth_revoke_client_impl(client_id: str) -> dict:
         logger.error(f"Error revoking OAuth client: {e}", exc_info=True)
         raise ToolError(f"Failed to revoke client: {e}")
 
+
 async def _oauth_get_client_info_impl(client_id: str) -> dict:
     """Internal implementation for getting OAuth client info."""
     from core.oauth import get_client_registry
@@ -2707,6 +2766,7 @@ async def _oauth_get_client_info_impl(client_id: str) -> dict:
         logger.error(f"Error getting OAuth client info: {e}", exc_info=True)
         return {"success": False, "error": str(e)}
 
+
 @mcp.tool()
 async def oauth_list_clients() -> dict:
     """
@@ -2718,6 +2778,7 @@ async def oauth_list_clients() -> dict:
         Dict with list of clients
     """
     return await _oauth_list_clients_impl()
+
 
 @mcp.tool()
 async def oauth_revoke_client(client_id: str) -> dict:
@@ -2735,6 +2796,7 @@ async def oauth_revoke_client(client_id: str) -> dict:
     """
     return await _oauth_revoke_client_impl(client_id)
 
+
 @mcp.tool()
 async def oauth_get_client_info(client_id: str) -> dict:
     """
@@ -2748,7 +2810,9 @@ async def oauth_get_client_info(client_id: str) -> dict:
     """
     return await _oauth_get_client_info_impl(client_id)
 
+
 # === PHASE X.3: SYSTEM TOOLS ===
+
 
 # Internal implementations for Phase X.3 system tools
 async def _get_endpoints_impl() -> dict:
@@ -2862,6 +2926,7 @@ async def _get_endpoints_impl() -> dict:
         logger.error(f"Error listing endpoints: {e}", exc_info=True)
         return {"success": False, "error": str(e)}
 
+
 async def _get_system_info_impl() -> dict:
     """Internal implementation for getting system info."""
     try:
@@ -2900,6 +2965,7 @@ async def _get_system_info_impl() -> dict:
         logger.error(f"Error getting system info: {e}", exc_info=True)
         return {"success": False, "error": str(e)}
 
+
 async def _get_audit_log_impl(
     limit: int = 50, event_type: str = None, project_id: str = None
 ) -> dict:
@@ -2929,6 +2995,7 @@ async def _get_audit_log_impl(
     except Exception as e:
         logger.error(f"Error getting audit log: {e}", exc_info=True)
         return {"success": False, "error": str(e)}
+
 
 async def _set_rate_limit_config_impl(
     requests_per_minute: int = None, requests_per_hour: int = None, requests_per_day: int = None
@@ -2961,20 +3028,24 @@ async def _set_rate_limit_config_impl(
         logger.error(f"Error setting rate limit config: {e}", exc_info=True)
         return {"success": False, "error": str(e)}
 
+
 @mcp.tool()
 async def get_endpoints() -> dict:
     """List all available MCP endpoints (Phase X.3)."""
     return await _get_endpoints_impl()
+
 
 @mcp.tool()
 async def get_system_info() -> dict:
     """Get comprehensive system information (Phase X.3)."""
     return await _get_system_info_impl()
 
+
 @mcp.tool()
 async def get_audit_log(limit: int = 50, event_type: str = None, project_id: str = None) -> dict:
     """Get audit log entries (Phase X.3)."""
     return await _get_audit_log_impl(limit, event_type, project_id)
+
 
 @mcp.tool()
 async def set_rate_limit_config(
@@ -2985,10 +3056,12 @@ async def set_rate_limit_config(
         requests_per_minute, requests_per_hour, requests_per_day
     )
 
+
 # === HEALTH CHECK ENDPOINT ===
 
 # Track server start time for uptime calculation
 server_start_time = time.time()
+
 
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(request: Request) -> JSONResponse:
@@ -3019,7 +3092,9 @@ async def health_check(request: Request) -> JSONResponse:
         }
     )
 
+
 # === API KEYS MANAGEMENT TOOLS ===
+
 
 # Internal implementation functions (not decorated)
 async def _manage_api_keys_create_impl(
@@ -3051,6 +3126,7 @@ async def _manage_api_keys_create_impl(
         logger.error(f"Error creating API key: {e}")
         return {"success": False, "error": str(e)}
 
+
 async def _manage_api_keys_list_impl(project_id: str = None, include_revoked: bool = False) -> dict:
     """Internal implementation for listing API keys."""
     try:
@@ -3059,6 +3135,7 @@ async def _manage_api_keys_list_impl(project_id: str = None, include_revoked: bo
     except Exception as e:
         logger.error(f"Error listing API keys: {e}")
         return {"success": False, "error": str(e)}
+
 
 async def _manage_api_keys_get_info_impl(key_id: str) -> dict:
     """Internal implementation for getting API key info."""
@@ -3071,6 +3148,7 @@ async def _manage_api_keys_get_info_impl(key_id: str) -> dict:
         logger.error(f"Error getting key info: {e}")
         return {"success": False, "error": str(e)}
 
+
 async def _manage_api_keys_revoke_impl(key_id: str) -> dict:
     """Internal implementation for revoking API key."""
     try:
@@ -3082,6 +3160,7 @@ async def _manage_api_keys_revoke_impl(key_id: str) -> dict:
         logger.error(f"Error revoking API key: {e}")
         return {"success": False, "error": str(e)}
 
+
 async def _manage_api_keys_delete_impl(key_id: str) -> dict:
     """Internal implementation for deleting API key."""
     try:
@@ -3092,6 +3171,7 @@ async def _manage_api_keys_delete_impl(key_id: str) -> dict:
     except Exception as e:
         logger.error(f"Error deleting API key: {e}")
         return {"success": False, "error": str(e)}
+
 
 async def _manage_api_keys_rotate_impl(project_id: str) -> dict:
     """Internal implementation for rotating API keys."""
@@ -3107,6 +3187,7 @@ async def _manage_api_keys_rotate_impl(project_id: str) -> dict:
     except Exception as e:
         logger.error(f"Error rotating API keys: {e}")
         return {"success": False, "error": str(e)}
+
 
 @mcp.tool()
 async def manage_api_keys_create(
@@ -3136,6 +3217,7 @@ async def manage_api_keys_create(
         manage_api_keys_create(project_id="*", scope="read write admin")
     """
     return await _manage_api_keys_create_impl(project_id, scope, expires_in_days, description)
+
 
 @mcp.tool()
 async def manage_api_keys_list(project_id: str = None, include_revoked: bool = False) -> dict:
@@ -3171,6 +3253,7 @@ async def manage_api_keys_list(project_id: str = None, include_revoked: bool = F
     """
     return await _manage_api_keys_list_impl(project_id, include_revoked)
 
+
 @mcp.tool()
 async def manage_api_keys_get_info(key_id: str) -> dict:
     """
@@ -3183,6 +3266,7 @@ async def manage_api_keys_get_info(key_id: str) -> dict:
         dict: Key information (without actual key value)
     """
     return await _manage_api_keys_get_info_impl(key_id)
+
 
 @mcp.tool()
 async def manage_api_keys_revoke(key_id: str) -> dict:
@@ -3197,6 +3281,7 @@ async def manage_api_keys_revoke(key_id: str) -> dict:
     """
     return await _manage_api_keys_revoke_impl(key_id)
 
+
 @mcp.tool()
 async def manage_api_keys_delete(key_id: str) -> dict:
     """
@@ -3209,6 +3294,7 @@ async def manage_api_keys_delete(key_id: str) -> dict:
         dict: Success status
     """
     return await _manage_api_keys_delete_impl(key_id)
+
 
 @mcp.tool()
 async def manage_api_keys_rotate(project_id: str) -> dict:
@@ -3226,9 +3312,11 @@ async def manage_api_keys_rotate(project_id: str) -> dict:
     """
     return await _manage_api_keys_rotate_impl(project_id)
 
+
 # === SERVER STARTUP ===
 
 # Create separate MCP instances for each endpoint
+
 
 def create_system_mcp():
     """
@@ -3362,6 +3450,7 @@ Use get_endpoints() to see all available MCP endpoints."""
     logger.info("Created System endpoint with 17 tools")
     return system_mcp
 
+
 def create_wordpress_mcp():
     """Create WordPress-only MCP instance"""
     from fastmcp import FastMCP
@@ -3410,6 +3499,7 @@ def create_wordpress_mcp():
     logger.info(f"Created WordPress endpoint with {count} tools (including list_sites)")
     return wp_mcp
 
+
 def create_wordpress_advanced_mcp():
     """Create WordPress Advanced MCP instance"""
     from fastmcp import FastMCP
@@ -3453,6 +3543,7 @@ def create_wordpress_advanced_mcp():
     logger.info(f"Created WordPress Advanced endpoint with {count} tools (including list_sites)")
     return wp_adv_mcp
 
+
 def create_woocommerce_mcp():
     """Create WooCommerce-only MCP instance (Phase D.1)"""
     from fastmcp import FastMCP
@@ -3493,6 +3584,7 @@ def create_woocommerce_mcp():
     count += 1
     logger.info(f"Created WooCommerce endpoint with {count} tools (including list_sites)")
     return woo_mcp
+
 
 def create_gitea_mcp():
     """Create Gitea-only MCP instance"""
@@ -3535,6 +3627,7 @@ def create_gitea_mcp():
     logger.info(f"Created Gitea endpoint with {count} tools (including list_sites)")
     return gitea_mcp
 
+
 def create_openpanel_mcp():
     """Create OpenPanel-only MCP instance"""
     from fastmcp import FastMCP
@@ -3575,6 +3668,7 @@ def create_openpanel_mcp():
     count += 1
     logger.info(f"Created OpenPanel endpoint with {count} tools (including list_sites)")
     return openpanel_mcp
+
 
 def create_n8n_mcp():
     """Create n8n-only MCP instance"""
@@ -3617,6 +3711,7 @@ def create_n8n_mcp():
     logger.info(f"Created n8n endpoint with {count} tools (including list_sites)")
     return n8n_mcp
 
+
 def create_supabase_mcp():
     """Create Supabase-only MCP instance"""
     from fastmcp import FastMCP
@@ -3657,6 +3752,7 @@ def create_supabase_mcp():
     count += 1
     logger.info(f"Created Supabase endpoint with {count} tools (including list_sites)")
     return supabase_mcp
+
 
 def create_appwrite_mcp():
     """Create Appwrite-only MCP instance"""
@@ -3699,6 +3795,7 @@ def create_appwrite_mcp():
     logger.info(f"Created Appwrite endpoint with {count} tools (including list_sites)")
     return appwrite_mcp
 
+
 def create_directus_mcp():
     """Create Directus-only MCP instance"""
     from fastmcp import FastMCP
@@ -3739,6 +3836,7 @@ def create_directus_mcp():
     count += 1
     logger.info(f"Created Directus endpoint with {count} tools (including list_sites)")
     return directus_mcp
+
 
 def create_project_mcp(project_id: str, plugin_type: str, site_id: str, alias: str = None):
     """
@@ -3830,6 +3928,7 @@ def create_project_mcp(project_id: str, plugin_type: str, site_id: str, alias: s
     logger.info(f"Created Project endpoint for {project_id} with {count} tools")
     return project_mcp
 
+
 def create_per_project_endpoints():
     """
     Create MCP endpoints for each discovered site.
@@ -3872,6 +3971,7 @@ def create_per_project_endpoints():
 
     logger.info(f"Created {len(project_endpoints)} per-project endpoints")
     return project_endpoints
+
 
 def create_multi_endpoint_app(transport: str = "streamable-http"):
     """Create Starlette app with multiple MCP endpoints"""
@@ -4205,6 +4305,7 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
 
     return app
 
+
 def main():
     """Main entry point for the MCP server."""
     import argparse
@@ -4261,6 +4362,7 @@ def main():
     except Exception as e:
         logger.error(f"Server error: {e}", exc_info=True)
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

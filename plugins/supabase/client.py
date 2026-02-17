@@ -18,6 +18,7 @@ from typing import Any
 
 import aiohttp
 
+
 class SupabaseClient:
     """
     Supabase Self-Hosted API client.

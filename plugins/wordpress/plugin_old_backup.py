@@ -14,6 +14,7 @@ import aiohttp
 from plugins.base import BasePlugin
 from plugins.wordpress.wp_cli import WPCLIManager
 
+
 class WordPressPlugin(BasePlugin):
     """
     WordPress project plugin.

@@ -8,6 +8,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+
 class PaginationParams(BaseModel):
     """Pagination parameters for list endpoints"""
 
@@ -15,6 +16,7 @@ class PaginationParams(BaseModel):
     page: int = Field(default=1, ge=1, description="Page number (starts at 1)")
 
     model_config = ConfigDict(extra="forbid")
+
 
 class StatusFilter(BaseModel):
     """Status filter for posts/pages/products"""
@@ -29,6 +31,7 @@ class StatusFilter(BaseModel):
             raise ValueError(f"Status must be one of: {', '.join(allowed)}")
         return v
 
+
 class ErrorResponse(BaseModel):
     """Standard error response"""
 
@@ -36,6 +39,7 @@ class ErrorResponse(BaseModel):
     message: str = Field(..., description="Error message")
     code: str | None = Field(None, description="Error code")
     details: dict[str, Any] | None = Field(None, description="Additional error details")
+
 
 class SuccessResponse(BaseModel):
     """Standard success response"""

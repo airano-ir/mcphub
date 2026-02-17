@@ -11,6 +11,7 @@ from typing import Any
 
 from plugins.appwrite.client import AppwriteClient
 
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator (8 tools)"""
     return [
@@ -125,9 +126,11 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
     ]
 
+
 # =====================
 # HANDLER FUNCTIONS
 # =====================
+
 
 async def health_check(client: AppwriteClient) -> str:
     """Comprehensive health check of all services."""
@@ -146,6 +149,7 @@ async def health_check(client: AppwriteClient) -> str:
 
     except Exception as e:
         return json.dumps({"success": False, "healthy": False, "error": str(e)}, indent=2)
+
 
 async def health_db(client: AppwriteClient) -> str:
     """Check database health."""
@@ -168,6 +172,7 @@ async def health_db(client: AppwriteClient) -> str:
             {"success": False, "service": "database", "status": "error", "error": str(e)}, indent=2
         )
 
+
 async def health_cache(client: AppwriteClient) -> str:
     """Check cache health."""
     try:
@@ -186,6 +191,7 @@ async def health_cache(client: AppwriteClient) -> str:
         return json.dumps(
             {"success": False, "service": "cache", "status": "error", "error": str(e)}, indent=2
         )
+
 
 async def health_storage(client: AppwriteClient) -> str:
     """Check storage health."""
@@ -208,6 +214,7 @@ async def health_storage(client: AppwriteClient) -> str:
             {"success": False, "service": "storage", "status": "error", "error": str(e)}, indent=2
         )
 
+
 async def health_queue(client: AppwriteClient) -> str:
     """Check queue health."""
     try:
@@ -226,6 +233,7 @@ async def health_queue(client: AppwriteClient) -> str:
         return json.dumps(
             {"success": False, "service": "queue", "status": "error", "error": str(e)}, indent=2
         )
+
 
 async def health_time(client: AppwriteClient) -> str:
     """Check time synchronization."""
@@ -250,6 +258,7 @@ async def health_time(client: AppwriteClient) -> str:
         return json.dumps(
             {"success": False, "service": "time", "status": "error", "error": str(e)}, indent=2
         )
+
 
 async def get_avatar_initials(
     client: AppwriteClient,
@@ -277,6 +286,7 @@ async def get_avatar_initials(
 
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2)
+
 
 async def get_qr_code(client: AppwriteClient, text: str, size: int = 400, margin: int = 1) -> str:
     """Generate QR code."""

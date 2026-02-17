@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 logger = logging.getLogger(__name__)
 
+
 class ToolDefinition(BaseModel):
     """
     Type-safe tool definition.
@@ -41,6 +42,7 @@ class ToolDefinition(BaseModel):
     plugin_type: str = Field(..., description="Plugin type (wordpress, gitea, etc)")
 
     model_config = ConfigDict(arbitrary_types_allowed=True)  # Allow Callable type
+
 
 class ToolRegistry:
     """
@@ -208,8 +210,10 @@ class ToolRegistry:
         counts_str = ", ".join(f"{k}: {v}" for k, v in counts.items())
         return f"ToolRegistry(total={self.get_count()}, {counts_str})"
 
+
 # Singleton instance
 _tool_registry: ToolRegistry | None = None
+
 
 def get_tool_registry() -> ToolRegistry:
     """

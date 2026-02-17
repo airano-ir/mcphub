@@ -19,6 +19,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+
 class LogLevel(Enum):
     """Log severity levels."""
 
@@ -26,6 +27,7 @@ class LogLevel(Enum):
     WARNING = "WARNING"
     ERROR = "ERROR"
     CRITICAL = "CRITICAL"
+
 
 class EventType(Enum):
     """Types of events to log."""
@@ -35,6 +37,7 @@ class EventType(Enum):
     HEALTH_CHECK = "health_check"
     ERROR = "error"
     SYSTEM = "system"
+
 
 class AuditLogger:
     """
@@ -554,8 +557,10 @@ class AuditLogger:
             "log_file_size_mb": log_file_size_mb,
         }
 
+
 # Global audit logger instance
 _audit_logger: AuditLogger | None = None
+
 
 def get_audit_logger() -> AuditLogger:
     """Get the global audit logger instance."""

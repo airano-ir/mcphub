@@ -11,6 +11,7 @@ from typing import Any
 
 import aiohttp
 
+
 class GiteaClient:
     """
     Gitea REST API client for HTTP communication.
