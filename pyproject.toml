@@ -1,5 +1,5 @@
 [project]
-name = "mcphub"
+name = "mcphub-server"
 version = "3.0.0"
 description = "AI-native management hub for WordPress, WooCommerce, and self-hosted services via Model Context Protocol (MCP)"
 authors = [
@@ -15,7 +15,6 @@ keywords = [
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Environment :: Console",
     "Intended Audience :: Developers",
