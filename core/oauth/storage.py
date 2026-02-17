@@ -213,7 +213,8 @@ def get_storage() -> BaseStorage:
     storage_type = os.getenv("OAUTH_STORAGE_TYPE", "json")
 
     if storage_type == "json":
-        storage_path = os.getenv("OAUTH_STORAGE_PATH", "/app/data")
+        default_path = "/app/data" if Path("/app").exists() else "./data"
+        storage_path = os.getenv("OAUTH_STORAGE_PATH", default_path)
         return JSONStorage(storage_path)
 
     # Future: Redis support
