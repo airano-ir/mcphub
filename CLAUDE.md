@@ -72,7 +72,7 @@ All configured in `pyproject.toml`:
 ├── server_multi.py        # Alternative multi-endpoint server
 ├── core/                  # Layer 1: Core system modules
 ├── plugins/               # Layer 2: Plugin system (9 plugins)
-├── templates/             # Jinja2 templates (dashboard + OAuth)
+├── core/templates/        # Jinja2 templates (dashboard + OAuth)
 ├── tests/                 # Organized test suite
 ├── scripts/               # Setup & deployment scripts
 ├── wordpress-plugin/      # Companion WP plugins (PHP)
@@ -181,7 +181,7 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 - `server_multi.py` is the alternative multi-endpoint entry point; `server.py` is the primary
 - `wordpress-plugin/` contains companion WP plugins (openpanel, seo-api-bridge) — these are PHP, not Python
 - `env.example` has "FUTURE" labels for Supabase/Gitea but both are fully implemented
-- Dashboard templates live in `templates/` (not inside `core/dashboard/`)
+- Dashboard templates live in `core/templates/` (included in pip package as `package_data`)
 - `ruff` config uses top-level `select` key in pyproject.toml (not `[tool.ruff.lint]` nested format)
 - The `scripts/` directory has platform-specific setup scripts: `setup.sh` (Linux/Mac), `setup.ps1` (Windows)
 

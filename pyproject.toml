@@ -66,11 +66,15 @@ Changelog = "https://github.com/airano-ir/mcphub/releases"
 requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools]
+py-modules = ["server", "server_multi"]
+
 [tool.setuptools.packages.find]
 include = ["core*", "plugins*"]
 exclude = ["tests*", "data*", "logs*", "temp*", "scripts*", "docs*"]
 
 [tool.setuptools.package-data]
+"core" = ["templates/**/*.html"]
 "*" = ["*.html", "*.css", "*.js", "*.json"]
 
 # ====================================

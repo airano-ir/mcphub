@@ -230,8 +230,13 @@ if OAUTH_AUTH_MODE == "trusted_domains":
 # Initialize MCP server
 mcp = FastMCP("MCP Hub")
 
-# Initialize Jinja2 templates (Phase E - OAuth Authorization Page)
-templates = Jinja2Templates(directory="templates")
+# Initialize Jinja2 templates
+# Templates live in core/templates/ (included in pip package as package_data)
+_TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "core", "templates")
+if not os.path.isdir(_TEMPLATES_DIR):
+    # Fallback for pip-installed package: resolve relative to core package
+    _TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.abspath(core.__file__)), "templates")
+templates = Jinja2Templates(directory=_TEMPLATES_DIR)
 logger.info("Jinja2 template engine initialized")
 
 # Initialize managers

@@ -16,10 +16,8 @@ from .auth import get_dashboard_auth
 
 logger = logging.getLogger(__name__)
 
-# Templates directory
-TEMPLATES_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "templates"
-)
+# Templates directory (core/templates/ — one level up from core/dashboard/)
+TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 # Plugin display names mapping (for special cases like n8n)
