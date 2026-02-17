@@ -209,7 +209,7 @@ class TestBrandingTransform:
     def test_replaces_repo_urls(self):
         content = "https://gitea.airano.ir/dev/coolify-mcp-hub"
         transformed, changed = apply_branding_transform(content)
-        assert "github.com/mcphub/mcphub" in transformed
+        assert "github.com/airano-ir/mcphub" in transformed
 
     def test_replaces_email(self):
         content = "Contact: gitea@airano.ir"
@@ -224,7 +224,7 @@ class TestBrandingTransform:
         assert "line3" in transformed
 
     def test_no_changes_returns_false(self):
-        content = "clean content with no markers"
+        content = "clean content with no markers\n"
         transformed, changed = apply_branding_transform(content)
         assert changed is False
 

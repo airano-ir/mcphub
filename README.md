@@ -8,8 +8,9 @@ Connect your sites, stores, repos, and databases — manage them all through Cla
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776ab.svg)](https://www.python.org/)
-[![Tests: 164 passing](https://img.shields.io/badge/tests-164%20passing-brightgreen.svg)]()
-[![Tools: 587](https://img.shields.io/badge/tools-587-orange.svg)]()
+[![Tests: 289 passing](https://img.shields.io/badge/tests-289%20passing-brightgreen.svg)]()
+[![Tools: 589](https://img.shields.io/badge/tools-589-orange.svg)]()
+[![CI](https://github.com/airano-ir/mcphub/actions/workflows/ci.yml/badge.svg)](https://github.com/airano-ir/mcphub/actions/workflows/ci.yml)
 
 </div>
 
@@ -19,7 +20,7 @@ Connect your sites, stores, repos, and databases — manage them all through Cla
 
 WordPress powers 43% of the web. WooCommerce runs 36% of online stores. Yet **no MCP server existed** for managing them through AI — until now.
 
-MCP Hub is the first and only MCP server that lets you manage WordPress, WooCommerce, and 7 other self-hosted services through any AI assistant. Instead of clicking through dashboards, just tell your AI what to do:
+MCP Hub is the first MCP server that lets you manage WordPress, WooCommerce, and 7 other self-hosted services through any AI assistant. Instead of clicking through dashboards, just tell your AI what to do:
 
 > *"Update the SEO meta description for all WooCommerce products that don't have one"*
 >
@@ -33,7 +34,7 @@ MCP Hub is the first and only MCP server that lets you manage WordPress, WooComm
 |---------|----------|--------|---------------------|-------------|
 | Multi-site management | Yes | Yes | No | **Yes** |
 | AI agent integration | No | No | No | **Native (MCP)** |
-| Full WordPress API | Dashboard | Dashboard | Content only | **65 tools** |
+| Full WordPress API | Dashboard | Dashboard | Content only | **67 tools** |
 | WooCommerce management | No | Limited | No | **28 tools** |
 | Git/CI management | No | No | No | **56 tools (Gitea)** |
 | Automation workflows | No | No | No | **56 tools (n8n)** |
@@ -43,11 +44,11 @@ MCP Hub is the first and only MCP server that lets you manage WordPress, WooComm
 
 ---
 
-## 587 Tools Across 9 Plugins
+## 589 Tools Across 9 Plugins
 
 | Plugin | Tools | What You Can Do |
 |--------|-------|-----------------|
-| **WordPress** | 65 | Posts, pages, media, users, menus, taxonomies, SEO (Rank Math/Yoast) |
+| **WordPress** | 67 | Posts, pages, media, users, menus, taxonomies, SEO (Rank Math/Yoast) |
 | **WooCommerce** | 28 | Products, orders, customers, coupons, reports, shipping |
 | **WordPress Advanced** | 22 | Database ops, bulk operations, WP-CLI, system management |
 | **Gitea** | 56 | Repos, issues, pull requests, releases, webhooks, organizations |
@@ -57,7 +58,7 @@ MCP Hub is the first and only MCP server that lets you manage WordPress, WooComm
 | **Appwrite** | 100 | Databases, auth, storage, functions, teams, messaging |
 | **Directus** | 100 | Collections, items, users, files, flows, permissions |
 | **System** | 17 | Health monitoring, API keys, project discovery |
-| **Total** | **587** | Constant count — scales to unlimited sites |
+| **Total** | **589** | Constant count — scales to unlimited sites |
 
 ---
 
@@ -66,7 +67,7 @@ MCP Hub is the first and only MCP server that lets you manage WordPress, WooComm
 ### Option 1: Docker (Recommended)
 
 ```bash
-git clone https://github.com/mcphub/mcphub.git
+git clone https://github.com/airano-ir/mcphub.git
 cd mcphub
 cp env.example .env
 # Edit .env with your site credentials
@@ -76,7 +77,7 @@ docker compose up -d
 ### Option 2: Python
 
 ```bash
-git clone https://github.com/mcphub/mcphub.git
+git clone https://github.com/airano-ir/mcphub.git
 cd mcphub
 pip install -e .
 cp env.example .env
@@ -201,9 +202,9 @@ MCP Hub supports **Open Dynamic Client Registration** (RFC 7591). ChatGPT can au
 ## Architecture
 
 ```
-/mcp                        → Admin endpoint (all 587 tools)
+/mcp                        → Admin endpoint (all 589 tools)
 /system/mcp                 → System tools only (17 tools)
-/wordpress/mcp              → WordPress tools (65 tools)
+/wordpress/mcp              → WordPress tools (67 tools)
 /woocommerce/mcp            → WooCommerce tools (28 tools)
 /gitea/mcp                  → Gitea tools (56 tools)
 /n8n/mcp                    → n8n tools (56 tools)
@@ -224,6 +225,8 @@ MCP Hub supports **Open Dynamic Client Registration** (RFC 7591). ChatGPT can au
 - **GDPR-compliant audit logging** with automatic sensitive data filtering
 - **Web dashboard** with real-time health monitoring (8 pages, EN/FA i18n)
 
+> **Compatibility Note**: MCP Hub requires FastMCP 2.x (`>=2.14.0,<3.0.0`). FastMCP 3.0 introduced breaking changes and is not yet supported. If you install dependencies manually, ensure you don't upgrade to FastMCP 3.x.
+
 ---
 
 ## Documentation
@@ -235,7 +238,7 @@ MCP Hub supports **Open Dynamic Client Registration** (RFC 7591). ChatGPT can au
 | [API Keys Guide](docs/API_KEYS_GUIDE.md) | Per-project API key management |
 | [OAuth Guide](docs/OAUTH_GUIDE.md) | OAuth 2.1 setup for Claude/ChatGPT |
 | [Gitea Guide](docs/GITEA_GUIDE.md) | Gitea plugin configuration |
-| [Deployment Guide](DEPLOYMENT_GUIDE.md) | Docker and Coolify deployment |
+| [Deployment Guide](docs/DEPLOYMENT_GUIDE.md) | Docker and Coolify deployment |
 | [Troubleshooting](docs/troubleshooting.md) | Common issues and solutions |
 | [Plugin Development](docs/PLUGIN_DEVELOPMENT.md) | Build your own plugin |
 
@@ -247,7 +250,7 @@ MCP Hub supports **Open Dynamic Client Registration** (RFC 7591). ChatGPT can au
 # Install with dev dependencies
 pip install -e ".[dev]"
 
-# Run tests (164 tests)
+# Run tests (289 tests)
 pytest
 
 # Format and lint

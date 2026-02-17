@@ -1,4 +1,4 @@
-# 🚀 Getting Started with MCP Hub
+# Getting Started with MCP Hub
 
 ---
 
@@ -8,7 +8,7 @@
 2. [Installation](#installation)
 3. [Configuration](#configuration)
 4. [Running the Server](#running-the-server)
-5. [Testing Your Setup](#testing-your-setup)
+5. [Connect Your AI Client](#connect-your-ai-client)
 6. [Using MCP Tools](#using-mcp-tools)
 7. [Docker Deployment](#docker-deployment)
 8. [Coolify Deployment](#coolify-deployment)
@@ -17,8 +17,6 @@
 ---
 
 ## Prerequisites
-
-Before you begin, ensure you have the following installed:
 
 ### Required
 
@@ -44,16 +42,34 @@ For each WordPress site you want to manage:
 
 ## Installation
 
-### Option 1: Automated Setup (Recommended)
+### Option 1: Docker (Recommended)
+
+```bash
+git clone https://github.com/airano-ir/mcphub.git
+cd mcphub
+cp env.example .env
+# Edit .env with your site credentials
+docker compose up -d
+```
+
+### Option 2: Python (pip)
+
+```bash
+git clone https://github.com/airano-ir/mcphub.git
+cd mcphub
+pip install -e .
+cp env.example .env
+# Edit .env with your site credentials
+python server.py --transport sse --port 8000
+```
+
+### Option 3: Automated Setup Scripts
 
 #### Linux/Mac
 
 ```bash
-# Clone the repository
-git clone https://github.com/mcphub/mcphub.git
+git clone https://github.com/airano-ir/mcphub.git
 cd mcphub
-
-# Run setup script
 chmod +x scripts/setup.sh
 ./scripts/setup.sh
 ```
@@ -61,37 +77,10 @@ chmod +x scripts/setup.sh
 #### Windows (PowerShell)
 
 ```powershell
-# Clone the repository
-git clone https://github.com/mcphub/mcphub.git
+git clone https://github.com/airano-ir/mcphub.git
 cd mcphub
-
-# Run setup script
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
 .\scripts\setup.ps1
-```
-
-### Option 2: Manual Setup
-
-```bash
-# 1. Clone repository
-git clone https://github.com/mcphub/mcphub.git
-cd mcphub
-
-# 2. Create virtual environment
-python3 -m venv venv
-
-# 3. Activate virtual environment
-# Linux/Mac:
-source venv/bin/activate
-# Windows:
-.\venv\Scripts\Activate.ps1
-
-# 4. Install dependencies
-pip install --upgrade pip
-pip install -r requirements.txt
-
-# 5. Copy environment template
-cp .env.example .env
 ```
 
 ---
@@ -103,9 +92,9 @@ cp .env.example .env
 For each WordPress site:
 
 1. Log in to WordPress admin
-2. Navigate to: **Users → Your Profile**
+2. Navigate to: **Users > Your Profile**
 3. Scroll to **Application Passwords** section
-4. Enter name: `MCP Server`
+4. Enter name: `MCP Hub`
 5. Click **Add New Application Password**
 6. Copy the generated password (format: `xxxx xxxx xxxx xxxx xxxx xxxx`)
 
@@ -115,10 +104,10 @@ For each WordPress site:
 
 If using WooCommerce tools:
 
-1. Go to: **WooCommerce → Settings → Advanced → REST API**
+1. Go to: **WooCommerce > Settings > Advanced > REST API**
 2. Click **Add Key**
 3. Fill in:
-   - **Description**: `MCP Server`
+   - **Description**: `MCP Hub`
    - **User**: Select admin user
    - **Permissions**: `Read/Write`
 4. Click **Generate API Key**
@@ -126,48 +115,56 @@ If using WooCommerce tools:
 
 ### Step 3: Configure Environment Variables
 
-Edit `.env` file:
+Edit the `.env` file with your credentials:
 
 ```bash
-# Basic Configuration
-MCP_SERVER_NAME=mcphub
-MCP_SERVER_VERSION=1.0.0
+# ============================================
+# Required
+# ============================================
+MASTER_API_KEY=your-secure-key-here
 
-# Site 1 - Main WordPress Site
-WORDPRESS_SITE1_URL=https://example.com
+# ============================================
+# WordPress Site
+# ============================================
+WORDPRESS_SITE1_URL=https://myblog.com
 WORDPRESS_SITE1_USERNAME=admin
 WORDPRESS_SITE1_APP_PASSWORD=xxxx xxxx xxxx xxxx xxxx xxxx
-WORDPRESS_SITE1_WC_CONSUMER_KEY=ck_xxxxxxxxxxxxx
-WORDPRESS_SITE1_WC_CONSUMER_SECRET=cs_xxxxxxxxxxxxx
-WORDPRESS_SITE1_ALIAS=mainsite
+WORDPRESS_SITE1_ALIAS=myblog
 
-# Site 2 - E-commerce Site (Optional)
-WORDPRESS_SITE2_URL=https://shop.example.com
-WORDPRESS_SITE2_USERNAME=admin
-WORDPRESS_SITE2_APP_PASSWORD=yyyy yyyy yyyy yyyy yyyy yyyy
-WORDPRESS_SITE2_WC_CONSUMER_KEY=ck_yyyyyyyyyyyyy
-WORDPRESS_SITE2_WC_CONSUMER_SECRET=cs_yyyyyyyyyyyyy
-WORDPRESS_SITE2_ALIAS=shop
+# ============================================
+# WooCommerce Store (separate plugin)
+# ============================================
+WOOCOMMERCE_STORE1_URL=https://mystore.com
+WOOCOMMERCE_STORE1_CONSUMER_KEY=ck_xxxxx
+WOOCOMMERCE_STORE1_CONSUMER_SECRET=cs_xxxxx
+WOOCOMMERCE_STORE1_ALIAS=mystore
 
-# Site 3 - Blog Site (Optional)
-WORDPRESS_SITE3_URL=https://blog.example.com
-WORDPRESS_SITE3_USERNAME=admin
-WORDPRESS_SITE3_APP_PASSWORD=zzzz zzzz zzzz zzzz zzzz zzzz
-WORDPRESS_SITE3_ALIAS=blog
+# ============================================
+# Gitea Instance (optional)
+# ============================================
+GITEA_REPO1_URL=https://git.example.com
+GITEA_REPO1_TOKEN=your_gitea_token
+GITEA_REPO1_ALIAS=mygitea
 
-# Rate Limiting (Optional)
+# ============================================
+# OAuth (required for Claude/ChatGPT auto-registration)
+# ============================================
+OAUTH_JWT_SECRET_KEY=your-jwt-secret
+OAUTH_BASE_URL=https://your-server:8000
+
+# ============================================
+# Optional
+# ============================================
+LOG_LEVEL=INFO
 RATE_LIMIT_PER_MINUTE=60
 RATE_LIMIT_PER_HOUR=1000
 RATE_LIMIT_PER_DAY=10000
-
-# Logging (Optional)
-LOG_LEVEL=INFO
 ```
 
 ### Configuration Tips
 
-- **Site Aliases**: Use friendly names like `mainsite`, `shop`, or `blog`
-- **Minimal WooCommerce**: Only configure WooCommerce keys if you need e-commerce tools
+- **Site Aliases**: Use friendly names like `myblog`, `mystore`, or `mygitea`
+- **Separate plugins**: WordPress and WooCommerce are separate plugins with separate env var prefixes
 - **Testing**: Start with one site, verify it works, then add more
 - **Security**: Never commit `.env` file to git
 
@@ -175,18 +172,16 @@ LOG_LEVEL=INFO
 
 ## Running the Server
 
-### Development Mode
+### SSE Transport (for remote AI clients)
 
 ```bash
-# Activate virtual environment (if not already active)
-source venv/bin/activate  # Linux/Mac
-.\venv\Scripts\Activate.ps1  # Windows
+python server.py --transport sse --port 8000
+```
 
-# Run server
-python src/main.py
+### Stdio Transport (for Claude Desktop local)
 
-# Or use the dev script
-./scripts/dev.sh  # Linux/Mac
+```bash
+python server.py
 ```
 
 ### Verify Server is Running
@@ -194,119 +189,133 @@ python src/main.py
 Check logs for:
 
 ```
-INFO: MCP Server initialized
-INFO: Registered 390 tools
+INFO: MCP Hub initialized
+INFO: Registered 589 tools
 INFO: Server ready
+```
+
+Or test the health endpoint:
+
+```bash
+curl http://localhost:8000/health
 ```
 
 ---
 
-## Testing Your Setup
+## Connect Your AI Client
 
-### Quick Health Check
+### Claude Desktop
 
-Run the test script:
+Add to `claude_desktop_config.json`:
 
-```bash
-./scripts/test.sh quick
+```json
+{
+  "mcpServers": {
+    "mcphub": {
+      "url": "https://your-server:8000/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_MASTER_API_KEY"
+      }
+    }
+  }
+}
 ```
 
-### Manual Testing
+### Claude Code
 
-```bash
-# Run all tests
-pytest
+Add to `.mcp.json` in your project:
 
-# Run with coverage
-pytest --cov
-
-# Run specific test
-pytest tests/test_wordpress_plugin.py
+```json
+{
+  "mcpServers": {
+    "mcphub": {
+      "type": "sse",
+      "url": "https://your-server:8000/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_MASTER_API_KEY"
+      }
+    }
+  }
+}
 ```
 
-### Verify Tool Registration
+### Cursor
 
-Check that tools are registered:
+Go to **Settings > MCP Servers > Add Server**:
 
-```bash
-python -c "
-from src.main import app
-tools = app.list_tools()
-print(f'Total tools: {len(tools)}')
-"
+- **Name**: MCP Hub
+- **URL**: `https://your-server:8000/mcp`
+- **Headers**: `Authorization: Bearer YOUR_MASTER_API_KEY`
+
+### VS Code + Copilot
+
+Add to `.vscode/mcp.json`:
+
+```json
+{
+  "servers": {
+    "mcphub": {
+      "type": "sse",
+      "url": "https://your-server:8000/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_MASTER_API_KEY"
+      }
+    }
+  }
+}
 ```
 
-Expected output: `Total tools: 390` (for 3 configured sites)
+### ChatGPT (Remote MCP)
+
+MCP Hub supports **Open Dynamic Client Registration** (RFC 7591). ChatGPT can auto-register as an OAuth client:
+
+1. Deploy MCP Hub with `OAUTH_BASE_URL` set
+2. In ChatGPT, add MCP server: `https://your-server:8000/mcp`
+3. ChatGPT auto-discovers OAuth metadata and registers
 
 ---
 
 ## Using MCP Tools
 
-### Tool Naming Convention
+### 589 Tools Across 9 Plugins
 
-#### Per-Site Tools (Legacy)
-```
-wordpress_{site}_action
-```
-Examples:
-- `wordpress_site1_list_posts`
-- `wordpress_site2_get_product`
-- `wordpress_site3_create_page`
+| Plugin | Tools | Env Prefix |
+|--------|-------|------------|
+| WordPress | 67 | `WORDPRESS_` |
+| WooCommerce | 28 | `WOOCOMMERCE_` |
+| WordPress Advanced | 22 | `WORDPRESS_` (same sites, advanced ops) |
+| Gitea | 56 | `GITEA_` |
+| n8n | 56 | `N8N_` |
+| Supabase | 70 | `SUPABASE_` |
+| OpenPanel | 73 | `OPENPANEL_` |
+| Appwrite | 100 | `APPWRITE_` |
+| Directus | 100 | `DIRECTUS_` |
+| System | 17 | (no config needed) |
 
-#### Unified Tools (Recommended)
-```
-wordpress_action(site="site_id", ...)
-```
-Examples:
-- `wordpress_list_posts(site="site1")`
-- `wordpress_get_product(site="shop", product_id=123)`
-- `wordpress_create_page(site="blog", title="Hello", content="...")`
+### Unified Tool Pattern
 
-### Using Site Aliases
-
-If you configured `WORDPRESS_SITE2_ALIAS=shop`:
+All tools use a `site` parameter to select which site to operate on:
 
 ```python
-# Both work the same
-wordpress_list_products(site="site2")
-wordpress_list_products(site="shop")
+wordpress_list_posts(site="myblog", per_page=10, status="publish")
+wordpress_create_post(site="myblog", title="Hello", content="World")
+woocommerce_list_products(site="mystore")
+gitea_list_repos(site="mygitea")
 ```
 
-### Example: List Posts
+The `site` parameter accepts either a **site_id** (e.g., `site1`) or an **alias** (e.g., `myblog`).
 
-**Using Per-Site Tools**:
-```python
-result = wordpress_site1_list_posts(per_page=10, status="publish")
+### Multi-Endpoint Architecture
+
+Use specific endpoints to limit tool access:
+
 ```
-
-**Using Unified Tools**:
-```python
-result = wordpress_list_posts(site="mainsite", per_page=10, status="publish")
-```
-
-### Example: Create Product
-
-```python
-result = wordpress_create_product(
-    site="shop",
-    name="New Product",
-    type="simple",
-    regular_price="29.99",
-    description="Product description",
-    status="publish"
-)
-```
-
-### Example: Update Page
-
-```python
-result = wordpress_update_page(
-    site="blog",
-    page_id=42,
-    title="Updated Title",
-    content="<p>Updated content</p>",
-    status="publish"
-)
+/mcp                        → All 589 tools (Master API Key)
+/system/mcp                 → System tools only (17 tools)
+/wordpress/mcp              → WordPress tools (67 tools)
+/woocommerce/mcp            → WooCommerce tools (28 tools)
+/gitea/mcp                  → Gitea tools (56 tools)
+/project/{alias}/mcp        → Per-project (auto-injects site)
 ```
 
 ---
@@ -316,10 +325,6 @@ result = wordpress_update_page(
 ### Quick Start
 
 ```bash
-# Deploy with Docker
-./scripts/deploy.sh
-
-# Or manually
 docker compose up -d
 ```
 
@@ -356,11 +361,6 @@ curl http://localhost:8000/health
 
 ## Coolify Deployment
 
-### Prerequisites
-
-- Coolify instance running
-- Docker registry access (optional)
-
 ### Step 1: Create New Resource
 
 1. Log in to Coolify dashboard
@@ -369,20 +369,24 @@ curl http://localhost:8000/health
 
 ### Step 2: Configure Repository
 
-1. **Git Repository**: `https://github.com/mcphub/mcphub.git`
+1. **Git Repository**: `https://github.com/airano-ir/mcphub.git`
 2. **Branch**: `main`
 3. **Build Pack**: `Docker Compose`
 
 ### Step 3: Configure Environment Variables
 
-Add all required environment variables from `.env.example`:
+Add all required environment variables in Coolify's environment variable UI:
 
 ```
+MASTER_API_KEY=your-secure-key-here
+OAUTH_JWT_SECRET_KEY=your-jwt-secret
+OAUTH_BASE_URL=https://your-domain.com
 WORDPRESS_SITE1_URL=https://example.com
 WORDPRESS_SITE1_USERNAME=admin
-WORDPRESS_SITE1_APP_PASSWORD=xxxx xxxx xxxx xxxx xxxx xxxx
-...
+WORDPRESS_SITE1_APP_PASSWORD=xxxx xxxx xxxx xxxx
 ```
+
+The server auto-discovers all `WORDPRESS_*`, `WOOCOMMERCE_*`, `GITEA_*`, and other plugin environment variables at startup.
 
 ### Step 4: Configure Health Check
 
@@ -398,51 +402,14 @@ WORDPRESS_SITE1_APP_PASSWORD=xxxx xxxx xxxx xxxx xxxx xxxx
 2. Wait for build to complete
 3. Check logs for successful startup
 
-### Coolify-Specific Configuration
-
-Add to `docker-compose.yml` if needed:
-
-```yaml
-services:
-  mcp-server:
-    labels:
-      - "coolify.managed=true"
-      - "coolify.port=8000"
-      - "coolify.health_check=/health"
-```
-
 ---
 
 ## Next Steps
 
-### 1. Explore Available Tools
-
-Check the [README](../README.md) for complete tool listing.
-
-### 2. Configure Monitoring
-
-- View health metrics: Use `check_all_projects_health` tool
-- Check rate limits: Use `get_rate_limit_stats` tool
-- Review audit logs: `tail -f logs/audit.log`
-
-### 3. Customize Configuration
-
-- Adjust rate limits in `.env`
-- Configure log levels
-- Add more WordPress sites
-
-### 4. Read Documentation
-
-- [Troubleshooting Guide](troubleshooting.md)
-- [Security Policy](../SECURITY.md)
-- [Contributing Guide](../CONTRIBUTING.md)
-
-### 5. Join Community
-
-- **Repository**: [github.com/mcphub/mcphub](https://github.com/mcphub/mcphub)
-- **Contact**: hello@mcphub.dev
-- **Website**: [mcphub.dev](https://mcphub.dev)
-
----
+1. **Explore the full tool list**: See the [README](../README.md) for all 589 tools
+2. **Set up API keys**: [API Keys Guide](API_KEYS_GUIDE.md) for per-project access control
+3. **Configure OAuth**: [OAuth Guide](OAUTH_GUIDE.md) for Claude/ChatGPT auto-registration
+4. **Monitor health**: Use `check_all_projects_health` tool or visit the web dashboard
+5. **Troubleshoot issues**: [Troubleshooting Guide](troubleshooting.md)
 
 ---

@@ -1,6 +1,5 @@
 # ===================================
-# Coolify Projects MCP Server
-# Docker Compose Configuration
+# MCP Hub — Docker Compose Configuration
 # ===================================
 # 
 # Build Pack: Docker Compose
@@ -35,7 +34,7 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - PYTHONUNBUFFERED=1
 
-      # === OAuth 2.1 Configuration (Phase B) ===
+      # === OAuth 2.1 Configuration ===
       # Required for OAuth authentication
       - OAUTH_JWT_SECRET_KEY=${OAUTH_JWT_SECRET_KEY}
       - OAUTH_JWT_ALGORITHM=${OAUTH_JWT_ALGORITHM:-HS256}
@@ -67,9 +66,10 @@ services:
       # ⚠️ DO NOT add example values here - configure in Coolify!
       # The server will auto-discover all WORDPRESS_* variables at startup.
       
-      # === Future Plugins ===
-      # Gitea, Supabase, and other plugins will auto-discover
-      # their environment variables when implemented.
+      # === Other Plugins ===
+      # Gitea, n8n, Supabase, OpenPanel, Appwrite, and Directus plugins
+      # auto-discover their environment variables at startup.
+      # Format: {PLUGIN_TYPE}_{SITE_ID}_{CONFIG_KEY}
       # No need to pre-define them here.
     
     # Health check
@@ -80,7 +80,7 @@ services:
       retries: 3
       start_period: 40s
     
-    # Docker socket access for WP-CLI tools (Phase 5+)
+    # Docker socket access for WP-CLI tools
     # Required for: wp_cache_flush, wp_cache_type, wp_transient_*, etc.
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro

@@ -9,7 +9,7 @@ Thank you for your interest in contributing to MCP Hub!
 **Prerequisites**: Python 3.11+, Docker (optional), Git
 
 ```bash
-git clone https://github.com/mcphub/mcphub.git
+git clone https://github.com/airano-ir/mcphub.git
 cd mcphub
 cp env.example .env
 pip install -e ".[dev]"

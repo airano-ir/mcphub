@@ -173,7 +173,7 @@ main() {
     echo -e "   ${BLUE}pytest --cov${NC}"
     echo ""
     echo "For more information, visit:"
-    echo -e "${BLUE}https://github.com/mcphub/mcphub${NC}"
+    echo -e "${BLUE}https://github.com/airano-ir/mcphub${NC}"
     echo ""
 }
 

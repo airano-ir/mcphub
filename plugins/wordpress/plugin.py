@@ -30,7 +30,7 @@ class WordPressPlugin(BasePlugin):
     - Internal link analysis
 
     Note: WooCommerce functionality moved to separate woocommerce plugin (Phase D.1)
-    Total: 65 tools
+    Total: 67 tools
     """
 
     @staticmethod
@@ -96,7 +96,7 @@ class WordPressPlugin(BasePlugin):
         with site parameter routing.
 
         Returns:
-            List of tool specification dictionaries (65 tools)
+            List of tool specification dictionaries (67 tools)
         """
         specs = []
 

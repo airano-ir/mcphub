@@ -30,7 +30,7 @@ After 2-month hiatus (Dec 2025 - Feb 2026), updated all dependencies and verifie
 - All 54 tests now pass (previously 5 were failing)
 
 #### Verified
-- All 587 tools generate correctly
+- All 589 tools generate correctly
 - Middleware API stable (Middleware, MiddlewareContext, get_http_headers)
 - 30+ custom routes operational (dashboard + OAuth)
 - Multi-endpoint architecture functional
@@ -604,5 +604,5 @@ Initial implementation of WordPress management tools.
 
 ---
 
-[1.0.0]: https://github.com/mcphub/mcphub/releases/tag/v1.0.0
-[Unreleased]: https://github.com/mcphub/mcphub/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/airano-ir/mcphub/releases/tag/v1.0.0
+[Unreleased]: https://github.com/airano-ir/mcphub/compare/v1.0.0...HEAD

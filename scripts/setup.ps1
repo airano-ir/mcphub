@@ -178,7 +178,7 @@ function Main {
     Write-Host "   pytest --cov" -ForegroundColor Blue
     Write-Host ""
     Write-Host "For more information, visit:"
-    Write-Host "https://github.com/mcphub/mcphub" -ForegroundColor Blue
+    Write-Host "https://github.com/airano-ir/mcphub" -ForegroundColor Blue
     Write-Host ""
 }
 

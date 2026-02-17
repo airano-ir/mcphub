@@ -15,6 +15,9 @@ keywords = [
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Environment :: Console",
     "Intended Audience :: Developers",
     "Intended Audience :: System Administrators",
     "Programming Language :: Python :: 3",
@@ -54,11 +57,11 @@ dev = [
 mcphub = "server:main"
 
 [project.urls]
-Homepage = "https://github.com/mcphub/mcphub"
-Repository = "https://github.com/mcphub/mcphub"
-Documentation = "https://github.com/mcphub/mcphub#readme"
-Issues = "https://github.com/mcphub/mcphub/issues"
-Changelog = "https://github.com/mcphub/mcphub/releases"
+Homepage = "https://github.com/airano-ir/mcphub"
+Repository = "https://github.com/airano-ir/mcphub"
+Documentation = "https://github.com/airano-ir/mcphub#readme"
+Issues = "https://github.com/airano-ir/mcphub/issues"
+Changelog = "https://github.com/airano-ir/mcphub/releases"
 
 [build-system]
 requires = ["setuptools>=68.0", "wheel"]

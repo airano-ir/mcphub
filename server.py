@@ -4173,9 +4173,9 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
     logger.info("=" * 60)
     logger.info("Dashboard: /dashboard")  # Phase K
     logger.info("Endpoints:")
-    logger.info("  /mcp                     - Admin (all 587 tools)")
-    logger.info("  /system/mcp              - System (17 tools)")  # Phase X.3
-    logger.info("  /wordpress/mcp           - WordPress Core (65 tools)")
+    logger.info("  /mcp                     - Admin (all 589 tools)")
+    logger.info("  /system/mcp              - System (17 tools)")
+    logger.info("  /wordpress/mcp           - WordPress Core (67 tools)")
     logger.info("  /woocommerce/mcp         - WooCommerce (28 tools)")  # Phase D.1
     logger.info("  /wordpress-advanced/mcp  - WordPress Advanced (22 tools)")
     logger.info("  /gitea/mcp               - Gitea (56 tools)")

@@ -86,8 +86,8 @@ jobs:
           context: .
           push: true
           tags: |
-            mcphub/mcphub:latest
-            mcphub/mcphub:${{ steps.version.outputs.VERSION }}
+            airano/mcphub:latest
+            airano/mcphub:${{ steps.version.outputs.VERSION }}
           platforms: linux/amd64,linux/arm64
 
   github-release:
