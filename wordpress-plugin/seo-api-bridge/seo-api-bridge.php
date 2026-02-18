@@ -6,7 +6,7 @@
  * Version: 1.3.0
  * Author: MCP Hub
  * Author URI: https://github.com/airano-ir
- * License: MIT
+ * License: GPL-2.0-or-later
  * Requires at least: 5.0
  * Requires PHP: 7.4
  * Text Domain: seo-api-bridge
@@ -690,8 +690,8 @@ class SEO_API_Bridge {
             $supported_types = implode(', ', $this->supported_post_types);
 
             echo '<div class="notice notice-success is-dismissible">';
-            echo '<p><strong>SEO API Bridge v' . self::VERSION . ':</strong> Successfully registered meta fields for ' . implode(' and ', $active_plugins) . '.</p>';
-            echo '<p><strong>Supported post types:</strong> ' . $supported_types . '</p>';
+            echo '<p><strong>SEO API Bridge v' . esc_html( self::VERSION ) . ':</strong> ' . esc_html( sprintf( 'Successfully registered meta fields for %s.', implode( ' and ', $active_plugins ) ) ) . '</p>';
+            echo '<p><strong>Supported post types:</strong> ' . esc_html( $supported_types ) . '</p>';
 
             if ($woocommerce_active) {
                 echo '<p><strong>WooCommerce:</strong> Detected and supported. Product SEO fields are available via REST API.</p>';

@@ -1055,6 +1055,7 @@ from core import initialize_health_monitor
 health_monitor = initialize_health_monitor(
     project_manager=project_manager,
     audit_logger=audit_logger,
+    site_manager=site_manager,
     metrics_retention_hours=24,
     max_metrics_per_project=1000,
 )
@@ -4440,6 +4441,13 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
     for mount_path, project_app, project_id in project_apps:
         safe_name = project_id.replace("-", "_").replace(".", "_")
         routes.append(Mount(mount_path, app=project_app, name=f"mcp_project_{safe_name}"))
+
+    # Static files (favicon, logo)
+    _static_dir = os.path.join(os.path.dirname(__file__), "core", "templates", "static")
+    if os.path.isdir(_static_dir):
+        from starlette.staticfiles import StaticFiles
+
+        routes.append(Mount("/static", app=StaticFiles(directory=_static_dir), name="static"))
 
     # Main admin endpoint (must be last - catches all remaining routes)
     routes.append(Mount("/", app=main_app, name="mcp_admin"))

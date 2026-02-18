@@ -9,8 +9,7 @@ This module provides comprehensive health monitoring capabilities including:
 - Dependency health checks
 - System uptime tracking
 
-Author: Coolify MCP Team
-Version: 7.2
+Author: MCP Hub Team
 """
 
 import json
@@ -24,6 +23,7 @@ from typing import Any
 
 from core.audit_log import AuditLogger
 from core.project_manager import ProjectManager
+from core.site_manager import SiteManager
 
 logger = logging.getLogger(__name__)
 
@@ -133,6 +133,7 @@ class HealthMonitor:
         audit_logger: AuditLogger | None = None,
         metrics_retention_hours: int = 24,
         max_metrics_per_project: int = 1000,
+        site_manager: SiteManager | None = None,
     ):
         """
         Initialize health monitor.
@@ -142,8 +143,10 @@ class HealthMonitor:
             audit_logger: Optional audit logger for logging health events
             metrics_retention_hours: Hours to retain historical metrics
             max_metrics_per_project: Maximum metrics to store per project
+            site_manager: Optional SiteManager for comprehensive site discovery
         """
         self.project_manager = project_manager
+        self.site_manager = site_manager
         self.audit_logger = audit_logger
         self.metrics_retention_hours = metrics_retention_hours
         self.max_metrics_per_project = max_metrics_per_project
@@ -401,9 +404,17 @@ class HealthMonitor:
         start_time = time.time()
 
         try:
-            # Get plugin instance
+            # Get plugin instance from ProjectManager
             plugin = self.project_manager.projects.get(project_id)
-            if not plugin:
+
+            if plugin:
+                # Perform health check via plugin instance
+                health_result = await plugin.health_check()
+            elif self.site_manager:
+                # Fallback: site exists in SiteManager but not ProjectManager
+                # (e.g. WooCommerce uses CONSUMER_KEY, not USERNAME/APP_PASSWORD)
+                health_result = await self._basic_site_health_check(project_id)
+            else:
                 return ProjectHealthStatus(
                     project_id=project_id,
                     healthy=False,
@@ -413,9 +424,6 @@ class HealthMonitor:
                     recent_errors=["Project not found"],
                     alerts=["CRITICAL: Project not found"],
                 )
-
-            # Perform health check
-            health_result = await plugin.health_check()
             response_time_ms = (time.time() - start_time) * 1000
 
             # Handle both dict and string (JSON) responses
@@ -495,6 +503,43 @@ class HealthMonitor:
                 alerts=[f"CRITICAL: Health check failed - {error_msg}"],
             )
 
+    async def _basic_site_health_check(self, project_id: str) -> dict[str, Any]:
+        """Basic HTTP health check for sites not in ProjectManager."""
+        import aiohttp
+
+        if not self.site_manager:
+            return {"healthy": False, "message": "SiteManager not available"}
+
+        # Parse plugin_type and site_id from full_id (e.g. "woocommerce_site1")
+        parts = project_id.split("_", 1)
+        if len(parts) < 2:
+            return {"healthy": False, "message": f"Invalid project_id format: {project_id}"}
+
+        plugin_type = parts[0]
+        site_id = parts[1]
+
+        try:
+            config = self.site_manager.get_site_config(plugin_type, site_id)
+        except (KeyError, ValueError):
+            return {"healthy": False, "message": f"Site not found: {project_id}"}
+
+        url = config.url
+        if not url:
+            return {"healthy": False, "message": "No URL configured for site"}
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    url, timeout=aiohttp.ClientTimeout(total=10), ssl=False
+                ) as resp:
+                    return {
+                        "healthy": resp.status < 500,
+                        "status_code": resp.status,
+                        "message": f"HTTP {resp.status} from {url}",
+                    }
+        except Exception as e:
+            return {"healthy": False, "message": f"Connection failed: {e}"}
+
     async def check_all_projects_health(self, include_metrics: bool = True) -> dict[str, Any]:
         """
         Check health of all projects.
@@ -507,8 +552,14 @@ class HealthMonitor:
         """
         health_statuses = {}
 
+        # Collect all known project/site IDs from both sources
+        all_project_ids = set(self.project_manager.projects.keys())
+        if self.site_manager:
+            for site_info in self.site_manager.list_all_sites():
+                all_project_ids.add(site_info["full_id"])
+
         # Check each project
-        for project_id in self.project_manager.projects.keys():
+        for project_id in sorted(all_project_ids):
             status = await self.check_project_health(project_id, include_metrics)
             health_statuses[project_id] = status.to_dict()
 
@@ -673,7 +724,10 @@ def get_health_monitor() -> HealthMonitor | None:
 
 
 def initialize_health_monitor(
-    project_manager: ProjectManager, audit_logger: AuditLogger | None = None, **kwargs
+    project_manager: ProjectManager,
+    audit_logger: AuditLogger | None = None,
+    site_manager: SiteManager | None = None,
+    **kwargs,
 ) -> HealthMonitor:
     """
     Initialize the global health monitor.
@@ -681,11 +735,14 @@ def initialize_health_monitor(
     Args:
         project_manager: Project manager instance
         audit_logger: Optional audit logger
+        site_manager: Optional SiteManager for comprehensive site discovery
         **kwargs: Additional configuration options
 
     Returns:
         HealthMonitor instance
     """
     global _health_monitor
-    _health_monitor = HealthMonitor(project_manager, audit_logger, **kwargs)
+    _health_monitor = HealthMonitor(
+        project_manager, audit_logger, site_manager=site_manager, **kwargs
+    )
     return _health_monitor

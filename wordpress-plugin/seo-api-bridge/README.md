@@ -2,7 +2,7 @@
 
 **Version:** 1.3.0
 **Requires:** WordPress 5.0+, PHP 7.4+
-**License:** MIT
+**License:** GPLv2 or later
 
 ## Description
 
@@ -421,7 +421,7 @@ For issues related to:
 
 ## License
 
-MIT License - See LICENSE file for details
+GPLv2 or later - See [LICENSE](https://www.gnu.org/licenses/gpl-2.0.html) for details
 
 ## Credits
 

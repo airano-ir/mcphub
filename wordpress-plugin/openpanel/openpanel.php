@@ -3,11 +3,13 @@
  * Plugin Name: OpenPanel
  * Description: Activate OpenPanel to start tracking your website. Supports both Cloud and Self-Hosted instances.
  * Version: 1.1.1
- * Author: OpenPanel / Airano
+ * Plugin URI: https://github.com/airano-ir/mcphub
+ * Author: OpenPanel / MCP Hub
+ * Author URI: https://github.com/airano-ir
  * License: GPLv2 or later
  * Requires at least: 5.8
  * Requires PHP: 7.4
- * Tested up to: 6.8
+ * Tested up to: 6.9
  * Text Domain: openpanel
  */
 
@@ -479,7 +481,7 @@ final class OP_WP_Proxy {
         // Content-Type is a special header NOT prefixed with HTTP_ in PHP
         // This is critical for OpenPanel API which requires application/json
         if (!empty($_SERVER['CONTENT_TYPE'])) {
-            $headers['Content-Type'] = sanitize_text_field($_SERVER['CONTENT_TYPE']);
+            $headers['Content-Type'] = sanitize_text_field(wp_unslash($_SERVER['CONTENT_TYPE']));
         }
 
         foreach ($_SERVER as $name => $value) {

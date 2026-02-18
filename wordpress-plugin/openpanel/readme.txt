@@ -1,14 +1,14 @@
 === OpenPanel ===
 Contributors: openpanel, airano
-Tags: analytics, web analytics, privacy-friendly, tracking, proxy, self-hosted
+Tags: analytics, privacy-friendly, tracking, self-hosted, proxy
 Requires at least: 5.8
-Tested up to: 6.8
+Tested up to: 6.9
 Requires PHP: 7.4
 Stable tag: 1.1.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-OpenPanel WordPress plugin - Privacy-friendly analytics with ad-blocker resistance. Supports both OpenPanel Cloud and Self-Hosted instances. Inline tracking scripts and proxy API calls through your domain.
+Privacy-friendly analytics with ad-blocker resistance. Supports OpenPanel Cloud and Self-Hosted instances.
 
 == Description ==
 
