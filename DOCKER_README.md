@@ -143,8 +143,13 @@ docker compose up -d
 | `WORDPRESS_SITE1_USERNAME` | For WP | WordPress admin username |
 | `WORDPRESS_SITE1_APP_PASSWORD` | For WP | WordPress Application Password |
 | `WORDPRESS_SITE1_ALIAS` | Recommended | Friendly name (e.g., `myblog`) |
-| `OAUTH_JWT_SECRET_KEY` | For OAuth | JWT secret for ChatGPT/Claude auto-registration |
-| `OAUTH_BASE_URL` | For OAuth | Public URL of your server |
+| `WORDPRESS_SITE1_CONTAINER` | For WP-CLI | Docker container name of your WordPress site (enables cache/db/system tools) |
+| `OAUTH_JWT_SECRET_KEY` | For OAuth | JWT secret for ChatGPT auto-registration (not needed for Claude/Cursor) |
+| `OAUTH_BASE_URL` | For OAuth | Public URL of your server (not needed for Claude/Cursor) |
+
+> **CONTAINER**: Required for WP-CLI tools (cache flush, database export, system info) and **all** WordPress Advanced tools. Find your container name: `docker ps --filter name=wordpress`. Also requires Docker socket mount.
+
+> **OAuth**: Only needed for ChatGPT Remote MCP auto-registration. For Claude Desktop, Claude Code, Cursor, and VS Code — just use `MASTER_API_KEY` with Bearer token auth.
 
 Add more sites with `SITE2`, `SITE3`, etc. See [full configuration guide](https://github.com/airano-ir/mcphub/blob/main/docs/getting-started.md).
 

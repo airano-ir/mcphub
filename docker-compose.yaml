@@ -36,21 +36,16 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - PYTHONUNBUFFERED=1
 
-      # === OAuth 2.1 Configuration ===
-      # Required for OAuth authentication
-      - OAUTH_JWT_SECRET_KEY=${OAUTH_JWT_SECRET_KEY}
-      - OAUTH_JWT_ALGORITHM=${OAUTH_JWT_ALGORITHM:-HS256}
-      - OAUTH_ACCESS_TOKEN_TTL=${OAUTH_ACCESS_TOKEN_TTL:-3600}
-      - OAUTH_REFRESH_TOKEN_TTL=${OAUTH_REFRESH_TOKEN_TTL:-604800}
+      # === OAuth 2.1 (OPTIONAL) ===
+      # Only needed for ChatGPT auto-registration or third-party OAuth clients.
+      # For Claude Desktop/Code/Cursor with Bearer token auth, skip these entirely.
+      # - OAUTH_JWT_SECRET_KEY=${OAUTH_JWT_SECRET_KEY}
+      # - OAUTH_BASE_URL=${OAUTH_BASE_URL}
+      # - OAUTH_JWT_ALGORITHM=${OAUTH_JWT_ALGORITHM:-HS256}
+      # - OAUTH_ACCESS_TOKEN_TTL=${OAUTH_ACCESS_TOKEN_TTL:-3600}
+      # - OAUTH_REFRESH_TOKEN_TTL=${OAUTH_REFRESH_TOKEN_TTL:-604800}
       - OAUTH_STORAGE_TYPE=${OAUTH_STORAGE_TYPE:-json}
       - OAUTH_STORAGE_PATH=${OAUTH_STORAGE_PATH:-/app/data}
-
-      # OAuth Authorization Security
-      # IMPORTANT: API Key is always required for authorization (OAuth manual mode)
-      # Use 'required' (recommended) to enforce API Key authentication
-      - OAUTH_AUTH_MODE=${OAUTH_AUTH_MODE:-required}
-      # OAUTH_TRUSTED_DOMAINS is deprecated - API Key always required for security
-      - OAUTH_BASE_URL=${OAUTH_BASE_URL}
 
       # === WordPress Projects ===
       # Configure WordPress sites in Coolify environment variables
