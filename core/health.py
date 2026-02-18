@@ -1,5 +1,5 @@
 """
-Enhanced Health Monitoring System for MCP Server (Phase 7.2)
+Enhanced Health Monitoring System for MCP Server
 
 This module provides comprehensive health monitoring capabilities including:
 - Response time tracking
@@ -172,7 +172,7 @@ class HealthMonitor:
         # Request rate tracking (for requests per minute)
         self.request_timestamps: deque = deque(maxlen=1000)
 
-        logger.info("HealthMonitor initialized (Phase 7.2)")
+        logger.info("HealthMonitor initialized")
 
     def _setup_default_thresholds(self):
         """Setup default alert thresholds."""

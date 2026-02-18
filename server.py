@@ -1183,6 +1183,19 @@ async def _list_projects_impl() -> str:
     """Internal implementation for listing projects."""
     try:
         projects = project_manager.list_projects()
+
+        # Enrich with alias and endpoint info from SiteManager
+        all_sites = site_manager.list_all_sites()
+        site_lookup = {s["full_id"]: s for s in all_sites}
+
+        for project in projects:
+            full_id = project.get("id", "")
+            site_info = site_lookup.get(full_id, {})
+            alias = site_info.get("alias")
+            path_suffix = alias if alias and alias != site_info.get("site_id") else full_id
+            project["alias"] = alias
+            project["endpoint"] = f"/project/{path_suffix}/mcp"
+
         result = {"total": len(projects), "projects": projects}
         import json
 
@@ -2827,7 +2840,7 @@ async def oauth_get_client_info(client_id: str) -> dict:
 # === PHASE X.3: SYSTEM TOOLS ===
 
 
-# Internal implementations for Phase X.3 system tools
+# Internal implementations for system tools
 async def _get_endpoints_impl() -> dict:
     """Internal implementation for listing endpoints."""
     try:
@@ -2835,7 +2848,7 @@ async def _get_endpoints_impl() -> dict:
         endpoints = [
             {
                 "path": "/mcp",
-                "name": "Coolify Admin",
+                "name": "MCP Hub Admin",
                 "description": "Full administrative access to all tools",
                 "require_master_key": True,
                 "plugin_types": ["all"],
@@ -2846,7 +2859,7 @@ async def _get_endpoints_impl() -> dict:
                 "description": "System management tools (API keys, OAuth, health, rate limiting)",
                 "require_master_key": True,
                 "plugin_types": ["system"],
-                "tool_count": 16,
+                "tool_count": 24,
             },
             {
                 "path": "/wordpress/mcp",
@@ -3333,13 +3346,14 @@ async def manage_api_keys_rotate(project_id: str) -> dict:
 
 def create_system_mcp():
     """
-    Create System-only MCP instance (Phase X.3).
+    Create System-only MCP instance.
 
-    Contains only 16 system management tools:
-    - API Key Management (6)
-    - OAuth Management (3)
-    - Rate Limiting (3)
-    - Health & Status (4)
+    Contains 24 system management tools:
+    - API Key Management (6): create, list, get_info, revoke, delete, rotate
+    - OAuth Management (4): register_client, list_clients, revoke_client, get_client_info
+    - Rate Limiting (3): get_stats, reset, set_config
+    - Health & Monitoring (7): check_all, get_project, get_metrics, get_uptime, get_project_metrics, export
+    - Status & Discovery (4): list_projects, get_endpoints, get_system_info, get_audit_log
     """
     from fastmcp import FastMCP
 
@@ -3349,7 +3363,9 @@ Available tools:
 • API Key Management: create, list, get_info, revoke, delete, rotate
 • OAuth Management: register_client, list_clients, revoke_client, get_client_info
 • Rate Limiting: get_stats, reset, set_config
-• Health & Status: list_projects, get_endpoints, get_system_info, get_audit_log
+• Health & Monitoring: check_all_projects_health, get_project_health, get_system_metrics,
+  get_system_uptime, get_project_metrics, export_health_metrics, get_project_info
+• Status & Discovery: list_projects, get_endpoints, get_system_info, get_audit_log
 
 Use list_projects() to see all configured sites across all plugin types.
 Use get_endpoints() to see all available MCP endpoints."""
@@ -3459,6 +3475,92 @@ Use get_endpoints() to see all available MCP endpoints."""
         return await _set_rate_limit_config_impl(
             requests_per_minute, requests_per_hour, requests_per_day
         )
+
+    # Health & Monitoring tools (7)
+    @system_mcp.tool()
+    async def get_project_info(project_id: str) -> str:
+        """Get detailed information about a specific project."""
+        try:
+            info = project_manager.get_project_info(project_id)
+            if info is None:
+                return f"Project '{project_id}' not found. Use list_projects to see available projects."
+            import json
+
+            return json.dumps(info, indent=2)
+        except Exception as e:
+            logger.error(f"Error getting project info: {e}", exc_info=True)
+            return f"Error: {str(e)}"
+
+    @system_mcp.tool()
+    async def check_all_projects_health() -> str:
+        """Check health status of all projects with enhanced metrics."""
+        try:
+            health_data = await health_monitor.check_all_projects_health(include_metrics=True)
+            import json
+
+            return json.dumps(health_data, indent=2)
+        except Exception as e:
+            logger.error(f"Error checking health: {e}", exc_info=True)
+            return f"Error: {str(e)}"
+
+    @system_mcp.tool()
+    async def get_project_health(project_id: str) -> str:
+        """Get detailed health information for a specific project."""
+        try:
+            status = await health_monitor.check_project_health(project_id, include_metrics=True)
+            import json
+
+            return json.dumps(status.to_dict(), indent=2)
+        except Exception as e:
+            logger.error(f"Error getting project health: {e}", exc_info=True)
+            return f"Error: {str(e)}"
+
+    @system_mcp.tool()
+    async def get_system_metrics() -> str:
+        """Get overall MCP server metrics and statistics."""
+        try:
+            metrics = health_monitor.get_system_metrics()
+            import json
+
+            return json.dumps(metrics.to_dict(), indent=2)
+        except Exception as e:
+            logger.error(f"Error getting system metrics: {e}", exc_info=True)
+            return f"Error: {str(e)}"
+
+    @system_mcp.tool()
+    async def get_system_uptime() -> str:
+        """Get MCP server uptime information."""
+        try:
+            uptime = health_monitor.get_uptime()
+            import json
+
+            return json.dumps(uptime, indent=2)
+        except Exception as e:
+            logger.error(f"Error getting uptime: {e}", exc_info=True)
+            return f"Error: {str(e)}"
+
+    @system_mcp.tool()
+    async def get_project_metrics(project_id: str, hours: int = 1) -> str:
+        """Get historical metrics for a specific project."""
+        try:
+            hours = min(hours, 24)
+            metrics = health_monitor.get_project_metrics(project_id, hours=hours)
+            import json
+
+            return json.dumps(metrics, indent=2)
+        except Exception as e:
+            logger.error(f"Error getting project metrics: {e}", exc_info=True)
+            return f"Error: {str(e)}"
+
+    @system_mcp.tool()
+    async def export_health_metrics(output_path: str = "logs/metrics_export.json") -> str:
+        """Export all health metrics to a JSON file."""
+        try:
+            exported_path = health_monitor.export_metrics(output_path=output_path, format="json")
+            return f"Metrics exported successfully to: {exported_path}"
+        except Exception as e:
+            logger.error(f"Error exporting metrics: {e}", exc_info=True)
+            return f"Error: {str(e)}"
 
     logger.info("Created System endpoint with 24 tools")
     return system_mcp

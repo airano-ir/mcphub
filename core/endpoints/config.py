@@ -99,7 +99,7 @@ ENDPOINT_CONFIGS = {
     # Mounted at "/" → /mcp (FastMCP adds /mcp automatically)
     EndpointType.ADMIN: EndpointConfig(
         path="/",
-        name="Coolify Admin",
+        name="MCP Hub Admin",
         description="Full administrative access to all tools and plugins",
         endpoint_type=EndpointType.ADMIN,
         plugin_types=[],  # Empty = all plugins

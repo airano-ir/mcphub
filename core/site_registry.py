@@ -94,15 +94,13 @@ class SiteRegistry:
 
         # Log alias conflicts if any
         if self.alias_conflicts:
-            self.logger.warning("=" * 50)
-            self.logger.warning("DUPLICATE ALIAS CONFLICTS DETECTED:")
+            self.logger.info("Duplicate alias conflicts detected:")
             for alias, full_ids in self.alias_conflicts.items():
                 winner = self.aliases.get(alias)
                 losers = [fid for fid in full_ids if fid != winner]
-                self.logger.warning(
+                self.logger.info(
                     f"  Alias '{alias}': {winner} (winner), {losers} (using full_id)"
                 )
-            self.logger.warning("=" * 50)
 
     # Reserved words that should NOT be interpreted as site IDs
     RESERVED_SITE_WORDS = {
@@ -206,7 +204,7 @@ class SiteRegistry:
                 if alias not in self.alias_conflicts:
                     self.alias_conflicts[alias] = [existing_full_id]
                 self.alias_conflicts[alias].append(full_id)
-                self.logger.warning(
+                self.logger.info(
                     f"Duplicate alias '{alias}': {full_id} conflicts with {existing_full_id}. "
                     f"{full_id} will use full_id for endpoint path."
                 )

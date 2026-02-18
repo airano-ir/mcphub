@@ -127,7 +127,7 @@ class WordPressAdvancedPlugin(BasePlugin):
                 rest_api_available = False
 
             return {
-                "healthy": wp_cli_available,  # Only WP-CLI is critical for wordpress_advanced
+                "healthy": wp_cli_available or rest_api_available,
                 "wp_cli_available": wp_cli_available,
                 "rest_api_available": rest_api_available,
                 "features": {

@@ -139,7 +139,7 @@ class TokenManager:
             logger.warning("Expired access token")
             raise
         except jwt.InvalidTokenError as e:
-            logger.warning(f"Invalid access token: {e}")
+            logger.debug(f"Invalid access token: {e}")
             raise
 
     def generate_refresh_token(self, client_id: str, access_token: str) -> str:

@@ -129,7 +129,7 @@ Edit the `.env` file with your credentials:
 
 ```bash
 # ============================================
-# Required
+# Authentication (recommended — auto-generates temp key if omitted)
 # ============================================
 MASTER_API_KEY=your-secure-key-here
 
@@ -170,6 +170,52 @@ RATE_LIMIT_PER_MINUTE=60
 RATE_LIMIT_PER_HOUR=1000
 RATE_LIMIT_PER_DAY=10000
 ```
+
+### WordPress Plugin Requirements
+
+Some WordPress tools require additional plugins on your WordPress site:
+
+| MCP Tool Category | WordPress Plugin Required |
+|-------------------|--------------------------|
+| SEO tools (`get_post_seo`, `update_post_seo`) | **Rank Math** or **Yoast SEO** |
+| WP-CLI tools (`wp_cache_flush`, `wp_db_export`, etc.) | Docker socket access + `CONTAINER` env var |
+| WooCommerce tools | **WooCommerce** 3.0+ (separate `WOOCOMMERCE_` config) |
+
+### Docker Socket for WP-CLI Tools
+
+WP-CLI tools (cache management, database export, plugin updates via CLI) require Docker socket access:
+
+1. Add the container name to your `.env`:
+   ```bash
+   WORDPRESS_SITE1_CONTAINER=your-wp-container-name
+   ```
+
+2. Mount the Docker socket in `docker-compose.yaml`:
+   ```yaml
+   volumes:
+     - /var/run/docker.sock:/var/run/docker.sock:ro
+   ```
+
+Without Docker socket, WP-CLI tools will return a "not available" message but all REST API tools work normally.
+
+### Environment Variable Naming Convention
+
+All site configuration follows the pattern: `{PLUGIN_PREFIX}_{SITE_ID}_{CONFIG_KEY}`
+
+| Plugin | Prefix | Example |
+|--------|--------|---------|
+| WordPress | `WORDPRESS_` | `WORDPRESS_SITE1_URL` |
+| WooCommerce | `WOOCOMMERCE_` | `WOOCOMMERCE_STORE1_URL` |
+| WordPress Advanced | `WORDPRESS_ADVANCED_` | `WORDPRESS_ADVANCED_SITE1_URL` |
+| Gitea | `GITEA_` | `GITEA_REPO1_URL` |
+| n8n | `N8N_` | `N8N_INSTANCE1_URL` |
+| Supabase | `SUPABASE_` | `SUPABASE_PROJECT1_URL` |
+| OpenPanel | `OPENPANEL_` | `OPENPANEL_INSTANCE1_URL` |
+| Appwrite | `APPWRITE_` | `APPWRITE_PROJECT1_URL` |
+| Directus | `DIRECTUS_` | `DIRECTUS_INSTANCE1_URL` |
+
+- `SITE_ID` can be any alphanumeric identifier (e.g., `SITE1`, `PROD`, `MYBLOG`)
+- Add `_ALIAS` for a friendly name used in tool calls (e.g., `WORDPRESS_SITE1_ALIAS=myblog`)
 
 ### Configuration Tips
 
@@ -239,6 +285,8 @@ docker compose logs -f mcphub
 ---
 
 ## Connect Your AI Client
+
+MCP Hub uses **SSE (Server-Sent Events)** transport over HTTP. All requests require **Bearer token** authentication via the `Authorization` header. Query parameter auth is not supported.
 
 ### Claude Desktop
 
@@ -343,7 +391,7 @@ The `site` parameter accepts either a **site_id** (e.g., `site1`) or an **alias*
 
 ### Multi-Endpoint Architecture
 
-Use specific endpoints to limit tool access:
+Use specific endpoints to limit tool access and save tokens:
 
 ```
 /mcp                        → All 596 tools (Master API Key)
@@ -351,8 +399,23 @@ Use specific endpoints to limit tool access:
 /wordpress/mcp              → WordPress tools (67 tools)
 /woocommerce/mcp            → WooCommerce tools (28 tools)
 /gitea/mcp                  → Gitea tools (56 tools)
+/n8n/mcp                    → n8n tools (56 tools)
+/supabase/mcp               → Supabase tools (70 tools)
+/openpanel/mcp              → OpenPanel tools (73 tools)
+/appwrite/mcp               → Appwrite tools (100 tools)
+/directus/mcp               → Directus tools (100 tools)
 /project/{alias}/mcp        → Per-project (auto-injects site)
 ```
+
+> **Recommendation**: Use plugin-specific endpoints (e.g., `/wordpress/mcp`) instead of `/mcp` when possible. This reduces the number of tools your AI client loads, saving context tokens and improving response quality.
+
+**Plugin endpoint vs Project endpoint:**
+
+| Feature | Plugin endpoint (`/wordpress/mcp`) | Project endpoint (`/project/myblog/mcp`) |
+|---------|-----------------------------------|----------------------------------------|
+| Tools loaded | All tools for that plugin type | Same tools, but `site` parameter auto-injected |
+| Site selection | Must pass `site` parameter manually | Site is auto-selected (no `site` param needed) |
+| Best for | Managing multiple sites of same type | Dedicated access to a single site |
 
 ---
 

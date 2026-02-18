@@ -56,6 +56,16 @@ In Claude Desktop's `claude_desktop_config.json`:
 }
 ```
 
+## Authentication
+
+MCP Hub uses **Bearer token** authentication. Include the `Authorization` header in all requests:
+
+```
+Authorization: Bearer YOUR_MASTER_API_KEY
+```
+
+This applies to both MCP clients and API calls. Query parameter auth is not supported.
+
 ## Using Docker Compose
 
 ```yaml
@@ -69,12 +79,17 @@ services:
     volumes:
       - mcphub-data:/app/data
       - mcphub-logs:/app/logs
+      # Optional: mount Docker socket for WP-CLI tools
+      # - /var/run/docker.sock:/var/run/docker.sock:ro
     restart: unless-stopped
 
 volumes:
   mcphub-data:
   mcphub-logs:
 ```
+
+> **WP-CLI tools** (cache flush, database export, plugin updates via CLI) require Docker socket access.
+> Add `WORDPRESS_SITE1_CONTAINER=your-wp-container-name` to your `.env` and uncomment the Docker socket volume above.
 
 ```bash
 docker compose up -d
@@ -92,7 +107,7 @@ docker compose up -d
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `MASTER_API_KEY` | **Yes** | API key for authentication |
+| `MASTER_API_KEY` | Recommended | API key for authentication. If omitted, a temporary key is auto-generated and printed to logs |
 | `WORDPRESS_SITE1_URL` | For WP | WordPress site URL |
 | `WORDPRESS_SITE1_USERNAME` | For WP | WordPress admin username |
 | `WORDPRESS_SITE1_APP_PASSWORD` | For WP | WordPress Application Password |
