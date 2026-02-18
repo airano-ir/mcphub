@@ -112,11 +112,23 @@ class WordPressAdvancedPlugin(BasePlugin):
             Dict with health status and WP-CLI availability
         """
         try:
-            # Test REST API access (primary health indicator — most tools use REST)
+            # Test REST API access by hitting /wp-json/ directly
+            # NOTE: self.client.get("/") hits /wp-json/wp/v2/ which doesn't
+            # return a "name" field. We need /wp-json/ for the site index.
             rest_api_available = False
             try:
-                site_info = await self.client.get("/")
-                rest_api_available = bool(site_info.get("name"))
+                import aiohttp
+
+                site_url = self.client.site_url
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        f"{site_url}/wp-json/",
+                        timeout=aiohttp.ClientTimeout(total=10),
+                        ssl=False,
+                    ) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            rest_api_available = bool(data.get("name"))
             except Exception as e:
                 self.logger.warning(f"REST API check failed: {e}")
 

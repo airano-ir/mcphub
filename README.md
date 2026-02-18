@@ -6,6 +6,7 @@
 
 Connect your sites, stores, repos, and databases — manage them all through Claude, ChatGPT, Cursor, or any MCP client.
 
+[![Version: 3.0.1](https://img.shields.io/badge/version-3.0.1-blue.svg)](https://github.com/airano-ir/mcphub/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776ab.svg)](https://www.python.org/)
 [![PyPI](https://img.shields.io/pypi/v/mcphub-server.svg)](https://pypi.org/project/mcphub-server/)
@@ -133,6 +134,53 @@ GITEA_REPO1_TOKEN=your_gitea_token
 GITEA_REPO1_ALIAS=mygitea
 ```
 
+<details>
+<summary><b>Full Environment Variable Reference</b></summary>
+
+**System Configuration:**
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `MASTER_API_KEY` | Recommended | Auto-generated | Master API key for admin access |
+| `LOG_LEVEL` | No | `INFO` | Logging level (DEBUG, INFO, WARNING, ERROR) |
+| `OAUTH_JWT_SECRET_KEY` | For OAuth | — | JWT signing secret for OAuth tokens |
+| `OAUTH_BASE_URL` | For OAuth | — | Public URL (e.g., `https://mcp.example.com`) |
+| `OAUTH_JWT_ALGORITHM` | No | `HS256` | JWT algorithm |
+| `OAUTH_ACCESS_TOKEN_TTL` | No | `3600` | Access token TTL in seconds |
+| `OAUTH_REFRESH_TOKEN_TTL` | No | `604800` | Refresh token TTL in seconds |
+| `OAUTH_STORAGE_TYPE` | No | `json` | Token storage type |
+| `OAUTH_STORAGE_PATH` | No | `/app/data` | Data directory path |
+
+**Plugin Site Configuration** — Pattern: `{PLUGIN_TYPE}_{SITE_ID}_{KEY}`
+
+| Plugin | Required Keys | Optional Keys |
+|--------|--------------|---------------|
+| `WORDPRESS` | `URL`, `USERNAME`, `APP_PASSWORD` | `ALIAS`, `CONTAINER` |
+| `WOOCOMMERCE` | `URL`, `CONSUMER_KEY`, `CONSUMER_SECRET` | `ALIAS` |
+| `WORDPRESS_ADVANCED` | `URL`, `USERNAME`, `APP_PASSWORD`, `CONTAINER` | `ALIAS` |
+| `GITEA` | `URL`, `TOKEN` | `ALIAS` |
+| `N8N` | `URL`, `API_KEY` | `ALIAS` |
+| `SUPABASE` | `URL`, `SERVICE_ROLE_KEY` | `ALIAS` |
+| `OPENPANEL` | `URL`, `CLIENT_ID`, `CLIENT_SECRET` | `ALIAS` |
+| `APPWRITE` | `URL`, `API_KEY`, `PROJECT_ID` | `ALIAS` |
+| `DIRECTUS` | `URL`, `TOKEN` | `ALIAS` |
+
+**Example** — Multiple WordPress sites:
+
+```bash
+WORDPRESS_BLOG_URL=https://blog.example.com
+WORDPRESS_BLOG_USERNAME=admin
+WORDPRESS_BLOG_APP_PASSWORD=xxxx xxxx xxxx xxxx
+WORDPRESS_BLOG_ALIAS=blog
+
+WORDPRESS_SHOP_URL=https://shop.example.com
+WORDPRESS_SHOP_USERNAME=admin
+WORDPRESS_SHOP_APP_PASSWORD=yyyy yyyy yyyy yyyy
+WORDPRESS_SHOP_ALIAS=shop
+```
+
+</details>
+
 ### Connect Your AI Client
 
 All MCP clients use **Bearer token** authentication: `Authorization: Bearer YOUR_API_KEY`
@@ -235,6 +283,7 @@ MCP Hub supports **Open Dynamic Client Registration** (RFC 7591). ChatGPT can au
 /system/mcp                 → System tools only (24 tools)
 /wordpress/mcp              → WordPress tools (67 tools)
 /woocommerce/mcp            → WooCommerce tools (28 tools)
+/wordpress_advanced/mcp     → WordPress Advanced tools (22 tools)
 /gitea/mcp                  → Gitea tools (56 tools)
 /n8n/mcp                    → n8n tools (56 tools)
 /supabase/mcp               → Supabase tools (70 tools)

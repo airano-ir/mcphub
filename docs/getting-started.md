@@ -302,7 +302,7 @@ DIRECTUS_SITE1_ALIAS=my-directus                   # Recommended
 
 ## Running the Server
 
-### SSE Transport (for remote AI clients)
+### Streamable HTTP Transport (for remote AI clients)
 
 ```bash
 python server.py --transport streamable-http --port 8000

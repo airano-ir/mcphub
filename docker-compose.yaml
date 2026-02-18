@@ -7,8 +7,10 @@
 #   curl http://localhost:8000/health    # verify server is running
 #   open http://localhost:8000/dashboard  # web dashboard
 #
-# For Coolify deployments:
-#   Change ports to "8000" (no host mapping) — Coolify handles routing.
+# Port mapping:
+#   - Coolify: Do NOT use 'ports' — Coolify's reverse proxy handles routing.
+#     The 'expose' directive below is sufficient.
+#   - Standalone Docker: Uncomment the 'ports' section below to bind to host.
 # ===================================
 
 services:
@@ -19,8 +21,14 @@ services:
     container_name: mcphub
     restart: unless-stopped
 
-    ports:
-      - "8000:8000"
+    # Container exposes port 8000 to linked services / Coolify proxy
+    expose:
+      - "8000"
+
+    # Standalone Docker: Uncomment below to access at http://localhost:8000
+    # Coolify: Leave commented — Coolify's reverse proxy handles routing
+    # ports:
+    #   - "8000:8000"
     
     # Environment variables
     environment:

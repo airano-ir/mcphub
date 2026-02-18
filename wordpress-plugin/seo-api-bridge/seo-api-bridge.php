@@ -674,13 +674,19 @@ class SEO_API_Bridge {
      * Display admin notices
      */
     public function admin_notices() {
+        // Only show notices on the Plugins page to avoid clutter on every admin page
+        $screen = get_current_screen();
+        if ( ! $screen || $screen->id !== 'plugins' ) {
+            return;
+        }
+
         $rank_math_active = $this->is_rank_math_active();
         $yoast_active = $this->is_yoast_active();
         $woocommerce_active = $this->is_woocommerce_active();
 
         if (!$rank_math_active && !$yoast_active) {
             echo '<div class="notice notice-warning is-dismissible">';
-            echo '<p><strong>SEO API Bridge:</strong> Neither Rank Math SEO nor Yoast SEO is detected. Please install and activate one of these plugins to enable SEO meta field access via REST API.</p>';
+            echo '<p><strong>SEO API Bridge:</strong> ' . esc_html__( 'Neither Rank Math SEO nor Yoast SEO is detected. Please install and activate one of these plugins to enable SEO meta field access via REST API.', 'seo-api-bridge' ) . '</p>';
             echo '</div>';
         } else {
             $active_plugins = [];
@@ -691,10 +697,10 @@ class SEO_API_Bridge {
 
             echo '<div class="notice notice-success is-dismissible">';
             echo '<p><strong>SEO API Bridge v' . esc_html( self::VERSION ) . ':</strong> ' . esc_html( sprintf( 'Successfully registered meta fields for %s.', implode( ' and ', $active_plugins ) ) ) . '</p>';
-            echo '<p><strong>Supported post types:</strong> ' . esc_html( $supported_types ) . '</p>';
+            echo '<p><strong>' . esc_html__( 'Supported post types:', 'seo-api-bridge' ) . '</strong> ' . esc_html( $supported_types ) . '</p>';
 
             if ($woocommerce_active) {
-                echo '<p><strong>WooCommerce:</strong> Detected and supported. Product SEO fields are available via REST API.</p>';
+                echo '<p><strong>WooCommerce:</strong> ' . esc_html__( 'Detected and supported. Product SEO fields are available via REST API.', 'seo-api-bridge' ) . '</p>';
             }
             echo '</div>';
         }
