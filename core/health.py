@@ -411,9 +411,9 @@ class HealthMonitor:
                 # Perform health check via plugin instance
                 health_result = await plugin.health_check()
             elif self.site_manager:
-                # Fallback: site exists in SiteManager but not ProjectManager
-                # (e.g. WooCommerce uses CONSUMER_KEY, not USERNAME/APP_PASSWORD)
-                health_result = await self._basic_site_health_check(project_id)
+                # Site exists in SiteManager but not legacy ProjectManager
+                # Create a temporary plugin instance for a proper health check
+                health_result = await self._site_manager_health_check(project_id)
             else:
                 return ProjectHealthStatus(
                     project_id=project_id,
@@ -503,27 +503,62 @@ class HealthMonitor:
                 alerts=[f"CRITICAL: Health check failed - {error_msg}"],
             )
 
-    async def _basic_site_health_check(self, project_id: str) -> dict[str, Any]:
-        """Basic HTTP health check for sites not in ProjectManager."""
-        import aiohttp
+    def _find_site_info(self, project_id: str) -> dict[str, Any] | None:
+        """Find site info from SiteManager by full_id."""
+        if not self.site_manager:
+            return None
+        for info in self.site_manager.list_all_sites():
+            if info["full_id"] == project_id:
+                return info
+        return None
 
+    async def _site_manager_health_check(self, project_id: str) -> dict[str, Any]:
+        """
+        Health check for sites managed by SiteManager (not in legacy ProjectManager).
+
+        Creates a temporary plugin instance and calls its health_check() method,
+        falling back to a basic HTTP check if plugin instantiation fails.
+        """
         if not self.site_manager:
             return {"healthy": False, "message": "SiteManager not available"}
 
-        # Parse plugin_type and site_id from full_id (e.g. "woocommerce_site1")
-        parts = project_id.split("_", 1)
-        if len(parts) < 2:
-            return {"healthy": False, "message": f"Invalid project_id format: {project_id}"}
+        # Look up site info by full_id (handles multi-word plugin types like wordpress_advanced)
+        site_info = self._find_site_info(project_id)
+        if not site_info:
+            return {"healthy": False, "message": f"Site not found: {project_id}"}
 
-        plugin_type = parts[0]
-        site_id = parts[1]
+        plugin_type = site_info["plugin_type"]
+        site_id = site_info["site_id"]
 
         try:
             config = self.site_manager.get_site_config(plugin_type, site_id)
         except (KeyError, ValueError):
-            return {"healthy": False, "message": f"Site not found: {project_id}"}
+            return {"healthy": False, "message": f"Site config not found: {project_id}"}
 
-        url = config.url
+        # Try to create a temporary plugin instance for a proper health check
+        try:
+            from plugins import registry as plugin_registry
+
+            config_dict = config.to_dict()
+            plugin_instance = plugin_registry.create_instance(
+                plugin_type, site_id, config_dict
+            )
+            return await plugin_instance.health_check()
+        except Exception as e:
+            logger.debug(
+                f"Could not create plugin instance for {project_id}, "
+                f"falling back to basic HTTP check: {e}"
+            )
+
+        # Fallback: basic HTTP check if plugin instantiation fails
+        return await self._basic_http_health_check(config.url, project_id)
+
+    async def _basic_http_health_check(
+        self, url: str | None, project_id: str
+    ) -> dict[str, Any]:
+        """Basic HTTP health check as a last-resort fallback."""
+        import aiohttp
+
         if not url:
             return {"healthy": False, "message": "No URL configured for site"}
 

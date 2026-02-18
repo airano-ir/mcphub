@@ -501,22 +501,15 @@ class SiteManager:
             >>> suffix = manager.get_effective_path_suffix('wordpress_site1')
             >>> print(suffix)  # 'myblog' or 'wordpress_site1'
         """
-        # Parse full_id to get plugin_type and site_id
-        parts = full_id.split("_", 1)
-        if len(parts) != 2:
-            return full_id
+        # Look up by full_id from registered sites (handles multi-word plugin types)
+        for info in self.list_all_sites():
+            if info["full_id"] == full_id:
+                config = self.sites[info["plugin_type"]].get(info["site_id"])
+                if config and config.alias and config.alias != config.site_id:
+                    return config.alias
+                return full_id
 
-        plugin_type, site_id = parts
-
-        # Try to get config
-        try:
-            config = self.get_site_config(plugin_type, site_id)
-            # If alias exists and is different from site_id, use alias
-            if config.alias and config.alias != config.site_id:
-                return config.alias
-            return full_id
-        except ValueError:
-            return full_id
+        return full_id
 
     def get_alias_conflicts(self) -> dict[str, list[str]]:
         """
