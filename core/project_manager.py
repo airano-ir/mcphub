@@ -61,11 +61,24 @@ class ProjectManager:
         """
         prefix = plugin_type.upper() + "_"
 
+        # Build list of longer prefixes from other plugin types to avoid collisions.
+        # e.g. WORDPRESS_ must not match WORDPRESS_ADVANCED_ env vars.
+        plugin_types = registry.get_registered_types()
+        longer_prefixes = [
+            pt.upper() + "_"
+            for pt in plugin_types
+            if pt != plugin_type and pt.upper().startswith(plugin_type.upper() + "_")
+        ]
+
         # Find all project IDs for this plugin type
         project_ids = set()
         env_pattern = re.compile(f"^{prefix}([A-Z0-9_]+?)_(.+)$")
 
         for env_key in os.environ.keys():
+            # Skip env vars that belong to a more specific plugin type
+            if any(env_key.startswith(lp) for lp in longer_prefixes):
+                continue
+
             match = env_pattern.match(env_key)
             if match:
                 project_id = match.group(1).lower()

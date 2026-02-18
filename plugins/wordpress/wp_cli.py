@@ -10,9 +10,6 @@ Security:
 - WP-CLI installation check
 - Timeout protection (30s default)
 - Graceful error handling
-
-Phase 5.1: Cache Management (4 tools)
-Phase 5.2: Database & Plugin/Theme Info (7 tools)
 """
 
 import asyncio
@@ -75,10 +72,7 @@ class WPCLIManager:
         Check if the Docker container exists and is running.
 
         Returns:
-            bool: True if container exists and is running
-
-        Raises:
-            Exception: If docker command fails or container not found
+            bool: True if container exists and is running, False otherwise
         """
         try:
             # First, test if we have Docker socket access
@@ -93,15 +87,12 @@ class WPCLIManager:
 
             if test_process.returncode != 0:
                 error_msg = test_stderr.decode().strip()
-                self.logger.error(f"Cannot access Docker daemon: {error_msg}")
-                raise Exception(
-                    f"Cannot access Docker daemon. This is likely a permissions issue. "
-                    f"Error: {error_msg}. "
-                    f"Please ensure:\n"
-                    f"1. Docker socket is mounted: /var/run/docker.sock\n"
-                    f"2. User has permission to access Docker (member of docker group)\n"
-                    f"3. Docker daemon is running on the host"
+                self.logger.warning(
+                    f"Docker daemon not accessible for container '{self.container_name}': "
+                    f"{error_msg}. WP-CLI features will be unavailable. "
+                    f"Mount /var/run/docker.sock to enable WP-CLI."
                 )
+                return False
 
             docker_version = test_stdout.decode().strip()
             self.logger.debug(f"Docker access OK - Server version: {docker_version}")
@@ -151,15 +142,14 @@ class WPCLIManager:
             return True
 
         except TimeoutError:
-            self.logger.error("Docker command timed out")
-            raise Exception("Docker command timed out after 5 seconds")
+            self.logger.warning(
+                f"Docker command timed out for container '{self.container_name}'. "
+                f"WP-CLI features will be unavailable."
+            )
+            return False
         except Exception as e:
-            # Re-raise exceptions with full context
-            if "Cannot access Docker" in str(e) or "not found" in str(e):
-                raise
-            else:
-                self.logger.error(f"Error checking container: {e}")
-                raise Exception(f"Failed to check container existence: {str(e)}")
+            self.logger.warning(f"Docker check failed for '{self.container_name}': {e}")
+            return False
 
     async def _check_wp_cli_available(self) -> bool:
         """

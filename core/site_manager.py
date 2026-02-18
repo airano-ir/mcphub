@@ -211,12 +211,27 @@ class SiteManager:
         """
         prefix = plugin_type.upper() + "_"
 
+        # Build list of longer prefixes from other plugin types to avoid collisions.
+        # e.g. WORDPRESS_ must not match WORDPRESS_ADVANCED_ env vars.
+        from plugins import registry as plugin_registry
+
+        all_plugin_types = plugin_registry.get_registered_types()
+        longer_prefixes = [
+            pt.upper() + "_"
+            for pt in all_plugin_types
+            if pt != plugin_type and pt.upper().startswith(plugin_type.upper() + "_")
+        ]
+
         # Pattern to match: WORDPRESS_SITE1_URL, WORDPRESS_SITE2_USERNAME, etc.
         env_pattern = re.compile(f"^{prefix}([A-Z0-9_]+?)_(.+)$")
 
         # Find all unique site IDs
         site_ids = set()
         for env_key in os.environ.keys():
+            # Skip env vars that belong to a more specific plugin type
+            if any(env_key.startswith(lp) for lp in longer_prefixes):
+                continue
+
             match = env_pattern.match(env_key)
             if match:
                 site_id = match.group(1).lower()
