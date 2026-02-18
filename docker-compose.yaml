@@ -8,9 +8,9 @@
 #   open http://localhost:8000/dashboard  # web dashboard
 #
 # Port mapping:
-#   - Coolify: Do NOT use 'ports' — Coolify's reverse proxy handles routing.
-#     The 'expose' directive below is sufficient.
-#   - Standalone Docker: Uncomment the 'ports' section below to bind to host.
+#   - Standalone Docker: ports "8000:8000" works out-of-the-box.
+#   - Coolify: Comment out or remove the 'ports' section below.
+#     Coolify's reverse proxy handles routing — 'expose' is sufficient.
 # ===================================
 
 services:
@@ -21,14 +21,11 @@ services:
     container_name: mcphub
     restart: unless-stopped
 
-    # Container exposes port 8000 to linked services / Coolify proxy
-    expose:
-      - "8000"
+    ports:
+      - "8000:8000"
 
-    # Standalone Docker: Uncomment below to access at http://localhost:8000
-    # Coolify: Leave commented — Coolify's reverse proxy handles routing
-    # ports:
-    #   - "8000:8000"
+    # Coolify users: Remove the 'ports' section above.
+    # Coolify's reverse proxy routes traffic to the container's exposed port.
     
     # Environment variables
     environment:

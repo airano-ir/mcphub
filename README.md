@@ -283,7 +283,7 @@ MCP Hub supports **Open Dynamic Client Registration** (RFC 7591). ChatGPT can au
 /system/mcp                 → System tools only (24 tools)
 /wordpress/mcp              → WordPress tools (67 tools)
 /woocommerce/mcp            → WooCommerce tools (28 tools)
-/wordpress_advanced/mcp     → WordPress Advanced tools (22 tools)
+/wordpress-advanced/mcp     → WordPress Advanced tools (22 tools)
 /gitea/mcp                  → Gitea tools (56 tools)
 /n8n/mcp                    → n8n tools (56 tools)
 /supabase/mcp               → Supabase tools (70 tools)
