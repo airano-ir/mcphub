@@ -1,4 +1,4 @@
-=== OpenPanel ===
+=== OpenPanel Self-Hosted ===
 Contributors: openpanel, airano
 Tags: analytics, privacy-friendly, tracking, self-hosted, proxy
 Requires at least: 5.8
@@ -12,7 +12,9 @@ Privacy-friendly analytics with ad-blocker resistance. Supports OpenPanel Cloud 
 
 == Description ==
 
-**OpenPanel** is an open-source web and product analytics platform that serves as a privacy-friendly alternative to traditional analytics solutions. This WordPress plugin seamlessly integrates [OpenPanel](https://openpanel.dev) with your WordPress site while maximizing reliability and avoiding ad-blocker interference.
+**OpenPanel Self-Hosted** is a fork of the [official OpenPanel WordPress plugin](https://wordpress.org/plugins/openpanel/) with full **Self-Hosted instance support**. [OpenPanel](https://openpanel.dev) is an open-source web and product analytics platform — a privacy-friendly alternative to Google Analytics. This plugin seamlessly integrates OpenPanel (Cloud or Self-Hosted) with your WordPress site while maximizing reliability and avoiding ad-blocker interference.
+
+Designed to work with [MCP Hub](https://github.com/airano-ir/mcphub) for AI-powered analytics management.
 
 = Key Features =
 

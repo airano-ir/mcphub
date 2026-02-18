@@ -1,16 +1,16 @@
 <?php
 /**
- * Plugin Name: OpenPanel
- * Description: Activate OpenPanel to start tracking your website. Supports both Cloud and Self-Hosted instances.
- * Version: 1.1.1
+ * Plugin Name: OpenPanel Self-Hosted
  * Plugin URI: https://github.com/airano-ir/mcphub
+ * Description: OpenPanel analytics with full Self-Hosted instance support. Ad-blocker resistant proxy, privacy-friendly cookie-less tracking. Fork of the official OpenPanel plugin with self-hosted enhancements.
+ * Version: 1.1.1
  * Author: OpenPanel / MCP Hub
  * Author URI: https://github.com/airano-ir
  * License: GPLv2 or later
  * Requires at least: 5.8
  * Requires PHP: 7.4
  * Tested up to: 6.9
- * Text Domain: openpanel
+ * Text Domain: openpanel-self-hosted
  */
 
 if (!defined('ABSPATH')) { exit; }
@@ -54,55 +54,55 @@ final class OP_WP_Proxy {
         ]);
 
         // Section: Hosting Mode
-        add_settings_section('op_hosting', __('Hosting Mode', 'openpanel'), function() {
-            echo '<p>' . esc_html__('Choose between OpenPanel Cloud or your own Self-Hosted instance.', 'openpanel') . '</p>';
+        add_settings_section('op_hosting', __('Hosting Mode', 'openpanel-self-hosted'), function() {
+            echo '<p>' . esc_html__('Choose between OpenPanel Cloud or your own Self-Hosted instance.', 'openpanel-self-hosted') . '</p>';
         }, self::OPTION_KEY);
 
-        add_settings_field('hosting_mode', __('Mode', 'openpanel'), function() {
+        add_settings_field('hosting_mode', __('Mode', 'openpanel-self-hosted'), function() {
             $opts = get_option(self::OPTION_KEY);
             $mode = isset($opts['hosting_mode']) ? $opts['hosting_mode'] : 'cloud';
             ?>
             <label>
                 <input type="radio" name="<?php echo esc_attr(self::OPTION_KEY); ?>[hosting_mode]" value="cloud" <?php checked($mode, 'cloud'); ?> class="op-hosting-mode">
-                <?php esc_html_e('Cloud (openpanel.dev)', 'openpanel'); ?>
+                <?php esc_html_e('Cloud (openpanel.dev)', 'openpanel-self-hosted'); ?>
             </label><br>
             <label>
                 <input type="radio" name="<?php echo esc_attr(self::OPTION_KEY); ?>[hosting_mode]" value="selfhosted" <?php checked($mode, 'selfhosted'); ?> class="op-hosting-mode">
-                <?php esc_html_e('Self-Hosted', 'openpanel'); ?>
+                <?php esc_html_e('Self-Hosted', 'openpanel-self-hosted'); ?>
             </label>
-            <p class="description"><?php esc_html_e('Select Self-Hosted if you run your own OpenPanel instance.', 'openpanel'); ?></p>
+            <p class="description"><?php esc_html_e('Select Self-Hosted if you run your own OpenPanel instance.', 'openpanel-self-hosted'); ?></p>
             <?php
         }, self::OPTION_KEY, 'op_hosting');
 
         // Section: Self-Hosted URLs
-        add_settings_section('op_selfhosted', __('Self-Hosted Settings', 'openpanel'), function() {
-            echo '<p>' . esc_html__('Configure your Self-Hosted OpenPanel URLs. Only required if using Self-Hosted mode.', 'openpanel') . '</p>';
+        add_settings_section('op_selfhosted', __('Self-Hosted Settings', 'openpanel-self-hosted'), function() {
+            echo '<p>' . esc_html__('Configure your Self-Hosted OpenPanel URLs. Only required if using Self-Hosted mode.', 'openpanel-self-hosted') . '</p>';
         }, self::OPTION_KEY);
 
-        add_settings_field('api_url', __('API URL', 'openpanel'), function() {
+        add_settings_field('api_url', __('API URL', 'openpanel-self-hosted'), function() {
             $opts = get_option(self::OPTION_KEY);
             printf('<input type="url" name="%s[api_url]" value="%s" class="regular-text op-selfhosted-field" placeholder="https://api.openpanel.yourdomain.com"/>',
                 esc_attr(self::OPTION_KEY),
                 isset($opts['api_url']) ? esc_attr($opts['api_url']) : ''
             );
-            echo '<p class="description">' . esc_html__('Your OpenPanel API endpoint (e.g., https://api.openpanel.yourdomain.com)', 'openpanel') . '</p>';
+            echo '<p class="description">' . esc_html__('Your OpenPanel API endpoint (e.g., https://api.openpanel.yourdomain.com)', 'openpanel-self-hosted') . '</p>';
         }, self::OPTION_KEY, 'op_selfhosted');
 
-        add_settings_field('dashboard_url', __('Dashboard URL', 'openpanel'), function() {
+        add_settings_field('dashboard_url', __('Dashboard URL', 'openpanel-self-hosted'), function() {
             $opts = get_option(self::OPTION_KEY);
             printf('<input type="url" name="%s[dashboard_url]" value="%s" class="regular-text op-selfhosted-field" placeholder="https://openpanel.yourdomain.com"/>',
                 esc_attr(self::OPTION_KEY),
                 isset($opts['dashboard_url']) ? esc_attr($opts['dashboard_url']) : ''
             );
-            echo '<p class="description">' . esc_html__('Your OpenPanel Dashboard URL — used to load op1.js from your server instead of the CDN (e.g., https://openpanel.yourdomain.com)', 'openpanel') . '</p>';
+            echo '<p class="description">' . esc_html__('Your OpenPanel Dashboard URL — used to load op1.js from your server instead of the CDN (e.g., https://openpanel.yourdomain.com)', 'openpanel-self-hosted') . '</p>';
         }, self::OPTION_KEY, 'op_selfhosted');
 
         // Section: Main Settings
-        add_settings_section('op_main', __('OpenPanel Settings', 'openpanel'), function() {
-            echo '<p>' . esc_html__('Set your OpenPanel Client ID. The SDK and requests are served from your domain to avoid ad blockers.', 'openpanel') . '</p>';
+        add_settings_section('op_main', __('OpenPanel Settings', 'openpanel-self-hosted'), function() {
+            echo '<p>' . esc_html__('Set your OpenPanel Client ID. The SDK and requests are served from your domain to avoid ad blockers.', 'openpanel-self-hosted') . '</p>';
         }, self::OPTION_KEY);
 
-        add_settings_field('client_id', __('Client ID', 'openpanel'), function() {
+        add_settings_field('client_id', __('Client ID', 'openpanel-self-hosted'), function() {
             $opts = get_option(self::OPTION_KEY);
             printf('<input type="text" name="%s[client_id]" value="%s" class="regular-text" placeholder="op_client_..."/>',
                 esc_attr(self::OPTION_KEY),
@@ -110,14 +110,14 @@ final class OP_WP_Proxy {
             );
         }, self::OPTION_KEY, 'op_main');
 
-        add_settings_field('toggles', __('Auto-tracking (optional)', 'openpanel'), function() {
+        add_settings_field('toggles', __('Auto-tracking (optional)', 'openpanel-self-hosted'), function() {
             $o = get_option(self::OPTION_KEY);
             // Default track_screen to true if not set
             $track_screen = isset($o['track_screen']) ? !empty($o['track_screen']) : true;
             ?>
-            <label><input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[track_screen]" <?php checked($track_screen); ?>> <?php esc_html_e('Track page views automatically', 'openpanel'); ?></label><br>
-            <label><input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[track_outgoing]" <?php checked(!empty($o['track_outgoing'])); ?>> <?php esc_html_e('Track clicks on outgoing links', 'openpanel'); ?></label><br>
-            <label><input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[track_attributes]" <?php checked(!empty($o['track_attributes'])); ?>> <?php esc_html_e('Track additional page attributes', 'openpanel'); ?></label>
+            <label><input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[track_screen]" <?php checked($track_screen); ?>> <?php esc_html_e('Track page views automatically', 'openpanel-self-hosted'); ?></label><br>
+            <label><input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[track_outgoing]" <?php checked(!empty($o['track_outgoing'])); ?>> <?php esc_html_e('Track clicks on outgoing links', 'openpanel-self-hosted'); ?></label><br>
+            <label><input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[track_attributes]" <?php checked(!empty($o['track_attributes'])); ?>> <?php esc_html_e('Track additional page attributes', 'openpanel-self-hosted'); ?></label>
             <?php
         }, self::OPTION_KEY, 'op_main');
     }
@@ -138,7 +138,7 @@ final class OP_WP_Proxy {
                 delete_transient(self::TRANSIENT_JS);
                 add_action('admin_notices', function() {
                     echo '<div class="notice notice-success is-dismissible"><p>' . 
-                         esc_html__('OpenPanel cache cleared successfully. The latest op1.js will be fetched on the next page load.', 'openpanel') . 
+                         esc_html__('OpenPanel cache cleared successfully. The latest op1.js will be fetched on the next page load.', 'openpanel-self-hosted') . 
                          '</p></div>';
                 });
             }
@@ -155,18 +155,18 @@ final class OP_WP_Proxy {
                 <?php
                 settings_fields(self::OPTION_KEY);
                 do_settings_sections(self::OPTION_KEY);
-                submit_button(__('Save Settings', 'openpanel'));
+                submit_button(__('Save Settings', 'openpanel-self-hosted'));
                 ?>
             </form>
 
             <hr style="margin: 2rem 0;">
 
-            <h2><?php esc_html_e('Cache Management', 'openpanel'); ?></h2>
-            <p><?php esc_html_e('Clear the cached op1.js file to force fetch the latest version from OpenPanel.', 'openpanel'); ?></p>
+            <h2><?php esc_html_e('Cache Management', 'openpanel-self-hosted'); ?></h2>
+            <p><?php esc_html_e('Clear the cached op1.js file to force fetch the latest version from OpenPanel.', 'openpanel-self-hosted'); ?></p>
 
             <form method="post" action="">
                 <?php wp_nonce_field('op_clear_cache_nonce'); ?>
-                <input type="submit" name="op_clear_cache" class="button button-secondary" value="<?php esc_attr_e('Clear Cache & Force Refresh', 'openpanel'); ?>">
+                <input type="submit" name="op_clear_cache" class="button button-secondary" value="<?php esc_attr_e('Clear Cache & Force Refresh', 'openpanel-self-hosted'); ?>">
             </form>
 
             <?php
@@ -180,42 +180,42 @@ final class OP_WP_Proxy {
                 if ($time_remaining > 0) {
                     echo '<p style="margin-top:1rem;color:#666;">' .
                          /* translators: %s: human readable time difference */
-                         sprintf(esc_html__('Cache expires in %s', 'openpanel'), esc_html(human_time_diff(time(), $cached_time))) .
+                         sprintf(esc_html__('Cache expires in %s', 'openpanel-self-hosted'), esc_html(human_time_diff(time(), $cached_time))) .
                          '</p>';
                 } else {
                     echo '<p style="margin-top:1rem;color:#666;">' .
-                         esc_html__('Cache has expired and will refresh on next page load.', 'openpanel') .
+                         esc_html__('Cache has expired and will refresh on next page load.', 'openpanel-self-hosted') .
                          '</p>';
                 }
             } else {
                 echo '<p style="margin-top:1rem;color:#666;">' .
-                     esc_html__('No cached version found. op1.js will be fetched on next page load.', 'openpanel') .
+                     esc_html__('No cached version found. op1.js will be fetched on next page load.', 'openpanel-self-hosted') .
                      '</p>';
             }
             ?>
 
             <p style="margin-top:1rem;color:#666;">
-                <?php esc_html_e('The plugin fetches and inlines op1.js (cached for 1 week). If fetching fails, it falls back to the CDN script.', 'openpanel'); ?>
+                <?php esc_html_e('The plugin fetches and inlines op1.js (cached for 1 week). If fetching fails, it falls back to the CDN script.', 'openpanel-self-hosted'); ?>
             </p>
 
             <hr style="margin: 2rem 0;">
 
-            <h2><?php esc_html_e('Current Configuration', 'openpanel'); ?></h2>
+            <h2><?php esc_html_e('Current Configuration', 'openpanel-self-hosted'); ?></h2>
             <table class="widefat" style="max-width: 600px;">
                 <tr>
-                    <td><strong><?php esc_html_e('Mode', 'openpanel'); ?></strong></td>
+                    <td><strong><?php esc_html_e('Mode', 'openpanel-self-hosted'); ?></strong></td>
                     <td><?php echo esc_html($mode === 'selfhosted' ? 'Self-Hosted' : 'Cloud'); ?></td>
                 </tr>
                 <tr>
-                    <td><strong><?php esc_html_e('API URL', 'openpanel'); ?></strong></td>
+                    <td><strong><?php esc_html_e('API URL', 'openpanel-self-hosted'); ?></strong></td>
                     <td><code><?php echo esc_html($this->get_api_base()); ?></code></td>
                 </tr>
                 <tr>
-                    <td><strong><?php esc_html_e('JS URL', 'openpanel'); ?></strong></td>
+                    <td><strong><?php esc_html_e('JS URL', 'openpanel-self-hosted'); ?></strong></td>
                     <td><code><?php echo esc_html($this->get_js_url()); ?></code></td>
                 </tr>
                 <tr>
-                    <td><strong><?php esc_html_e('Proxy Endpoint', 'openpanel'); ?></strong></td>
+                    <td><strong><?php esc_html_e('Proxy Endpoint', 'openpanel-self-hosted'); ?></strong></td>
                     <td><code><?php echo esc_html(rest_url(self::REST_NS . '/')); ?></code></td>
                 </tr>
             </table>

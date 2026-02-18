@@ -271,7 +271,7 @@ Some MCP Hub tools require companion WordPress plugins:
 | SEO tools (`wordpress_get_post_seo`, etc.) | [SEO API Bridge](wordpress-plugin/seo-api-bridge/) ([Download ZIP](wordpress-plugin/seo-api-bridge.zip)) + Rank Math or Yoast SEO |
 | WP-CLI tools (15 tools: `wp_cache_*`, `wp_db_*`, etc.) | Docker socket + `CONTAINER` env var |
 | WordPress Advanced database/system tools | Docker socket + `CONTAINER` env var |
-| OpenPanel analytics integration | [OpenPanel](wordpress-plugin/openpanel/) ([Download ZIP](wordpress-plugin/openpanel.zip)) |
+| OpenPanel analytics integration | [OpenPanel Self-Hosted](wordpress-plugin/openpanel-self-hosted/) ([Download ZIP](wordpress-plugin/openpanel-self-hosted.zip)) |
 | WooCommerce tools | WooCommerce plugin (separate `WOOCOMMERCE_` config) |
 
 **Docker socket** is needed for WP-CLI and WordPress Advanced system tools. Add to your docker-compose:
