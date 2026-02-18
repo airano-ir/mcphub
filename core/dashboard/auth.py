@@ -101,9 +101,13 @@ class DashboardAuth:
 
             api_key_manager = get_api_key_manager()
 
-            key_info = api_key_manager.validate_key(api_key)
-            if key_info and "admin" in key_info.get("scope", "").split():
-                return True, "api_key", key_info.get("key_id")
+            # Dashboard login is not project-specific, so skip project check
+            # and require admin scope
+            key_id = api_key_manager.validate_key(
+                api_key, project_id="*", required_scope="admin", skip_project_check=True
+            )
+            if key_id:
+                return True, "api_key", key_id
         except Exception as e:
             logger.warning(f"Error checking API key: {e}")
 
