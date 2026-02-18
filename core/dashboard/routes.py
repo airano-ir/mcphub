@@ -334,6 +334,7 @@ async def dashboard_login_page(request: Request) -> Response:
             "t": t,
             "error": error,
             "next_url": next_url,
+            "version": _get_project_version(),
         },
     )
 
@@ -1984,6 +1985,19 @@ def get_registered_plugins() -> list:
     return plugins
 
 
+def _get_project_version() -> str:
+    """Read version from pyproject.toml."""
+    try:
+        toml_path = os.path.join(os.path.dirname(os.path.dirname(TEMPLATES_DIR)), "pyproject.toml")
+        with open(toml_path) as f:
+            for line in f:
+                if line.strip().startswith("version"):
+                    return line.split("=")[1].strip().strip('"').strip("'")
+    except Exception:
+        pass
+    return "3.0.0"
+
+
 def get_about_info() -> dict:
     """Get about information."""
     import sys
@@ -1998,7 +2012,7 @@ def get_about_info() -> dict:
         pass
 
     return {
-        "version": "1.0.0",
+        "version": _get_project_version(),
         "mcp_version": "2024-11-05",
         "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
         "tools_count": tools_count,

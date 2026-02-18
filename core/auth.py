@@ -27,11 +27,14 @@ class AuthManager:
         if not self.master_api_key:
             # Generate a random key if not provided (dev mode)
             self.master_api_key = secrets.token_urlsafe(32)
+            self._is_temporary_key = True
             logger.warning(
                 "No MASTER_API_KEY environment variable found. "
-                f"Generated temporary key: {self.master_api_key[:8]}***{self.master_api_key[-4:]} "
+                f"Generated temporary key: {self.master_api_key} "
                 "(set MASTER_API_KEY in .env for production use)"
             )
+        else:
+            self._is_temporary_key = False
 
         # Project-specific keys (future feature)
         self.project_keys = {}

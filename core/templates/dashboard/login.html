@@ -108,13 +108,20 @@
                     <svg class="w-5 h-5 text-blue-400 {% if lang == 'fa' %}ml-2{% else %}mr-2{% endif %} mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
-                    <p class="text-sm text-blue-300">
+                    <div class="text-sm text-blue-300">
                         {% if lang == 'fa' %}
-                        برای دسترسی به داشبورد به Master API Key یا یک API Key با scope=admin نیاز دارید.
+                        <p>برای دسترسی به داشبورد به Master API Key نیاز دارید.</p>
+                        <p class="mt-2 text-blue-400">کلید API خود را در متغیر محیطی <code class="bg-gray-700 px-1 rounded">MASTER_API_KEY</code> تنظیم کنید.</p>
                         {% else %}
-                        You need a Master API Key or an API Key with scope=admin to access the dashboard.
+                        <p>Enter your <code class="bg-gray-700 px-1 rounded">MASTER_API_KEY</code> to access the dashboard.</p>
+                        <p class="mt-2 text-blue-400">Don't have one? Set it in your <code class="bg-gray-700 px-1 rounded">.env</code> file, or check the server logs for the temporary key.</p>
                         {% endif %}
-                    </p>
+                        <p class="mt-2">
+                            <a href="https://github.com/airano-ir/mcphub#quick-start" target="_blank" class="text-purple-400 hover:text-purple-300 underline">
+                                {% if lang == 'fa' %}راهنمای شروع{% else %}Setup Guide{% endif %}
+                            </a>
+                        </p>
+                    </div>
                 </div>
             </div>
 
@@ -131,7 +138,7 @@
 
         <!-- Footer -->
         <p class="text-center text-gray-500 text-sm mt-6">
-            MCP Hub v3.0.0
+            MCP Hub v{{ version|default('3.0.0') }}
         </p>
     </div>
 </body>

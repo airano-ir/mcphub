@@ -274,7 +274,10 @@ logger.info("=" * 60)
 logger.info("MCP Hub Server - Initialized")
 logger.info("=" * 60)
 _mk = auth_manager.get_master_key()
-logger.info(f"Master API Key: {_mk[:8]}***{_mk[-4:]}")
+if auth_manager._is_temporary_key:
+    logger.info(f"Master API Key (temporary): {_mk}")
+else:
+    logger.info(f"Master API Key: {_mk[:8]}***{_mk[-4:]}")
 logger.info(f"Discovered {len(project_manager.projects)} per-site project instances (legacy)")
 logger.info(
     f"Discovered {site_manager.get_count()} unique sites across {len(plugin_types)} plugin types"
@@ -4182,12 +4185,18 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
                 except Exception as e:
                     logger.warning(f"Error during lifespan cleanup for {name}: {e}")
 
+    # Root redirect: / → /dashboard (so users don't see 404)
+    async def root_redirect(request):
+        return RedirectResponse(url="/dashboard", status_code=302)
+
     # Build routes
     # Note: Order matters! More specific routes first
     routes = [
         # Health check
         Route("/health", health_check, methods=["GET"]),
-        # Dashboard routes (Phase K.1)
+        # Root redirect
+        Route("/", root_redirect, methods=["GET"]),
+        # Dashboard routes
         Route("/dashboard/login", dashboard_login_page, methods=["GET"]),
         Route("/dashboard/login", dashboard_login_submit, methods=["POST"]),
         Route("/dashboard/logout", dashboard_logout, methods=["GET", "POST"]),
