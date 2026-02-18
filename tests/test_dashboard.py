@@ -177,6 +177,27 @@ class TestDashboardAuthValidation:
         assert user_type == "master"
         assert key_id is None
 
+    def test_temp_key_via_auth_manager(self, auth, monkeypatch):
+        """Should accept temp key from AuthManager when no env MASTER_API_KEY."""
+        from core.auth import AuthManager
+
+        # Simulate AuthManager with a temp key that DashboardAuth doesn't know about
+        temp_key = "temp-generated-key-12345"
+        mgr = AuthManager.__new__(AuthManager)
+        mgr.master_api_key = temp_key
+        mgr._is_temporary_key = True
+        mgr.project_keys = {}
+
+        monkeypatch.setattr("core.auth.get_auth_manager", lambda: mgr)
+
+        # DashboardAuth has master_api_key=None (no env var)
+        auth_no_env = DashboardAuth(secret_key="test-secret", master_api_key=None)
+
+        is_valid, user_type, key_id = auth_no_env.validate_api_key(temp_key)
+        assert is_valid is True
+        assert user_type == "master"
+        assert key_id is None
+
     def test_invalid_key_rejected(self, auth):
         """Should reject invalid API key."""
         is_valid, user_type, key_id = auth.validate_api_key("wrong-key")

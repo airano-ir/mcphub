@@ -1,7 +1,5 @@
 """
 Dashboard Authentication - Session-based authentication for Web UI.
-
-Phase K.1: Core Infrastructure
 """
 
 import logging
@@ -91,9 +89,19 @@ class DashboardAuth:
         if not api_key:
             return False, "", None
 
-        # Check master API key
+        # Check master API key (from env var)
         if self.master_api_key and secrets.compare_digest(api_key, self.master_api_key):
             return True, "master", None
+
+        # Check AuthManager's master key (covers auto-generated temp keys)
+        try:
+            from core.auth import get_auth_manager
+
+            auth_mgr = get_auth_manager()
+            if auth_mgr.validate_master_key(api_key):
+                return True, "master", None
+        except Exception as e:
+            logger.debug(f"AuthManager check skipped: {e}")
 
         # Check project API keys with admin scope
         try:
