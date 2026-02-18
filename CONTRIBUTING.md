@@ -20,7 +20,7 @@ pytest  # Verify setup
 
 ```bash
 python server.py                                    # stdio (Claude Desktop)
-python server.py --transport sse --port 8000        # HTTP (testing)
+python server.py --transport streamable-http --port 8000  # HTTP (testing)
 ```
 
 ### Code Style

@@ -70,7 +70,7 @@ cd mcphub
 pip install -e .
 cp env.example .env
 # Edit .env with your site credentials
-python server.py --transport sse --port 8000
+python server.py --transport streamable-http --port 8000
 ```
 
 ### Option 4: Automated Setup Scripts
@@ -305,7 +305,7 @@ DIRECTUS_SITE1_ALIAS=my-directus                   # Recommended
 ### SSE Transport (for remote AI clients)
 
 ```bash
-python server.py --transport sse --port 8000
+python server.py --transport streamable-http --port 8000
 ```
 
 ### Stdio Transport (for Claude Desktop local)

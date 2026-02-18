@@ -10,7 +10,7 @@ Connect your sites, stores, repos, and databases — manage them all through Cla
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776ab.svg)](https://www.python.org/)
 [![PyPI](https://img.shields.io/pypi/v/mcphub-server.svg)](https://pypi.org/project/mcphub-server/)
 [![Docker](https://img.shields.io/docker/v/airano/mcphub?label=docker)](https://hub.docker.com/r/airano/mcphub)
-[![Tests: 289 passing](https://img.shields.io/badge/tests-289%20passing-brightgreen.svg)]()
+[![Tests: 290 passing](https://img.shields.io/badge/tests-290%20passing-brightgreen.svg)]()
 [![Tools: 596](https://img.shields.io/badge/tools-596-orange.svg)]()
 [![CI](https://github.com/airano-ir/mcphub/actions/workflows/ci.yml/badge.svg)](https://github.com/airano-ir/mcphub/actions/workflows/ci.yml)
 
@@ -91,7 +91,7 @@ cd mcphub
 pip install -e .
 cp env.example .env
 # Edit .env with your site credentials
-python server.py --transport sse --port 8000
+python server.py --transport streamable-http --port 8000
 ```
 
 ### Verify It Works
@@ -112,7 +112,7 @@ You should see the login page. Use your `MASTER_API_KEY` to log in.
 Add site credentials to `.env`:
 
 ```bash
-# Master API Key (required)
+# Master API Key (recommended — auto-generates temp key if omitted)
 MASTER_API_KEY=your-secure-key-here
 
 # WordPress Site
@@ -135,6 +135,10 @@ GITEA_REPO1_ALIAS=mygitea
 
 ### Connect Your AI Client
 
+All MCP clients use **Bearer token** authentication: `Authorization: Bearer YOUR_API_KEY`
+
+> Use a plugin-specific endpoint (e.g., `/wordpress/mcp`) instead of `/mcp` to reduce tool count and save tokens. See [Architecture](#architecture) below.
+
 <details>
 <summary><b>Claude Desktop</b></summary>
 
@@ -143,10 +147,11 @@ Add to `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "mcphub": {
-      "url": "https://your-server:8000/mcp",
+    "mcphub-wordpress": {
+      "type": "streamableHttp",
+      "url": "http://your-server:8000/wordpress/mcp",
       "headers": {
-        "Authorization": "Bearer YOUR_MASTER_API_KEY"
+        "Authorization": "Bearer YOUR_API_KEY"
       }
     }
   }
@@ -163,11 +168,11 @@ Add to `.mcp.json` in your project:
 ```json
 {
   "mcpServers": {
-    "mcphub": {
-      "type": "sse",
-      "url": "https://your-server:8000/mcp",
+    "mcphub-wordpress": {
+      "type": "http",
+      "url": "http://your-server:8000/wordpress/mcp",
       "headers": {
-        "Authorization": "Bearer YOUR_MASTER_API_KEY"
+        "Authorization": "Bearer YOUR_API_KEY"
       }
     }
   }
@@ -181,9 +186,9 @@ Add to `.mcp.json` in your project:
 
 Go to **Settings > MCP Servers > Add Server**:
 
-- **Name**: MCP Hub
-- **URL**: `https://your-server:8000/mcp`
-- **Headers**: `Authorization: Bearer YOUR_MASTER_API_KEY`
+- **Name**: MCP Hub WordPress
+- **URL**: `http://your-server:8000/wordpress/mcp`
+- **Headers**: `Authorization: Bearer YOUR_API_KEY`
 
 </details>
 
@@ -195,11 +200,11 @@ Add to `.vscode/mcp.json`:
 ```json
 {
   "servers": {
-    "mcphub": {
-      "type": "sse",
-      "url": "https://your-server:8000/mcp",
+    "mcphub-wordpress": {
+      "type": "http",
+      "url": "http://your-server:8000/wordpress/mcp",
       "headers": {
-        "Authorization": "Bearer YOUR_MASTER_API_KEY"
+        "Authorization": "Bearer YOUR_API_KEY"
       }
     }
   }
@@ -219,6 +224,8 @@ MCP Hub supports **Open Dynamic Client Registration** (RFC 7591). ChatGPT can au
 
 </details>
 
+> **Transport types**: Use `"type": "streamableHttp"` for Claude Desktop and `"type": "http"` for VS Code/Claude Code. Using `"type": "sse"` will cause `400 Bad Request` errors.
+
 ---
 
 ## Architecture
@@ -237,7 +244,13 @@ MCP Hub supports **Open Dynamic Client Registration** (RFC 7591). ChatGPT can au
 /project/{alias}/mcp        → Per-project endpoint (auto-injects site)
 ```
 
-**Multi-endpoint architecture**: Give each team member or AI agent access to only the tools they need.
+**Recommendation**: Use plugin-specific endpoints instead of `/mcp` (596 tools) to minimize token usage.
+
+| Endpoint | Use Case | Tools |
+|----------|----------|------:|
+| `/project/{alias}/mcp` | Single-site workflow (recommended) | 22-100 |
+| `/{plugin}/mcp` | Multi-site management | 23-101 |
+| `/mcp` | Admin & discovery only | 596 |
 
 ### Security
 
@@ -248,6 +261,28 @@ MCP Hub supports **Open Dynamic Client Registration** (RFC 7591). ChatGPT can au
 - **Web dashboard** with real-time health monitoring (8 pages, EN/FA i18n)
 
 > **Compatibility Note**: MCP Hub requires FastMCP 2.x (`>=2.14.0,<3.0.0`). FastMCP 3.0 introduced breaking changes and is not yet supported. If you install dependencies manually, ensure you don't upgrade to FastMCP 3.x.
+
+### WordPress Plugin Requirements
+
+Some MCP Hub tools require companion WordPress plugins:
+
+| Tools | Requirement |
+|-------|-------------|
+| SEO tools (`wordpress_get_post_seo`, etc.) | [SEO API Bridge](wordpress-plugin/seo-api-bridge/) + Rank Math or Yoast SEO |
+| WP-CLI tools (15 tools: `wp_cache_*`, `wp_db_*`, etc.) | Docker socket + `CONTAINER` env var |
+| WordPress Advanced database/system tools | Docker socket + `CONTAINER` env var |
+| WooCommerce tools | WooCommerce plugin (separate `WOOCOMMERCE_` config) |
+
+**Docker socket** is needed for WP-CLI and WordPress Advanced system tools. Add to your docker-compose:
+
+```yaml
+volumes:
+  - /var/run/docker.sock:/var/run/docker.sock:ro
+environment:
+  WORDPRESS_SITE1_CONTAINER: your-wp-container-name
+```
+
+Without Docker socket, WP-CLI tools return "not available" but all REST API tools work normally.
 
 ---
 
@@ -272,14 +307,14 @@ MCP Hub supports **Open Dynamic Client Registration** (RFC 7591). ChatGPT can au
 # Install with dev dependencies
 pip install -e ".[dev]"
 
-# Run tests (289 tests)
+# Run tests (290 tests)
 pytest
 
 # Format and lint
 black . && ruff check --fix .
 
 # Run server locally
-python server.py --transport sse --port 8000
+python server.py --transport streamable-http --port 8000
 ```
 
 ---

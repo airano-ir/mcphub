@@ -31,7 +31,7 @@ SEO API Bridge is a comprehensive WordPress plugin that exposes Rank Math SEO an
 
 #### Core Fields
 - `rank_math_focus_keyword` - Focus keyword
-- `rank_math_seo_title` - Meta title
+- `rank_math_title` - Meta title
 - `rank_math_description` - Meta description
 - `rank_math_additional_keywords` - Additional keywords
 
@@ -94,7 +94,7 @@ SEO API Bridge is a comprehensive WordPress plugin that exposes Rank Math SEO an
 2. Go to WordPress Admin → Plugins
 3. Find "SEO API Bridge" and click "Activate"
 
-### Method 3: WP-CLI (Recommended for Coolify)
+### Method 3: WP-CLI
 
 ```bash
 # Via SSH to your WordPress container
@@ -107,48 +107,48 @@ wp plugin activate seo-api-bridge
 
 ### Status Endpoint
 
-**GET** `/wp-json/seo-bridge/v1/status`
+**GET** `/wp-json/seo-api-bridge/v1/status`
 
 Check plugin status and detected SEO plugins.
 
 ```bash
-curl https://yoursite.com/wp-json/seo-bridge/v1/status
+curl https://yoursite.com/wp-json/seo-api-bridge/v1/status
 ```
 
 ### Post SEO Endpoints
 
-**GET** `/wp-json/seo-bridge/v1/posts/{id}/seo`
+**GET** `/wp-json/seo-api-bridge/v1/posts/{id}/seo`
 
 Get SEO metadata for a post.
 
-**POST** `/wp-json/seo-bridge/v1/posts/{id}/seo`
+**POST** `/wp-json/seo-api-bridge/v1/posts/{id}/seo`
 
 Update SEO metadata for a post.
 
 ```bash
-curl -X POST https://yoursite.com/wp-json/seo-bridge/v1/posts/123/seo \
+curl -X POST https://yoursite.com/wp-json/seo-api-bridge/v1/posts/123/seo \
   -H "Content-Type: application/json" \
   -d '{"focus_keyword": "wordpress", "seo_title": "My Title"}'
 ```
 
 ### Page SEO Endpoints
 
-**GET** `/wp-json/seo-bridge/v1/pages/{id}/seo`
+**GET** `/wp-json/seo-api-bridge/v1/pages/{id}/seo`
 
-**POST** `/wp-json/seo-bridge/v1/pages/{id}/seo`
+**POST** `/wp-json/seo-api-bridge/v1/pages/{id}/seo`
 
 ### Product SEO Endpoints (WooCommerce)
 
-**GET** `/wp-json/seo-bridge/v1/products/{id}/seo`
+**GET** `/wp-json/seo-api-bridge/v1/products/{id}/seo`
 
 Get SEO metadata for a WooCommerce product.
 
-**POST** `/wp-json/seo-bridge/v1/products/{id}/seo`
+**POST** `/wp-json/seo-api-bridge/v1/products/{id}/seo`
 
 Update SEO metadata for a WooCommerce product.
 
 ```bash
-curl -X POST https://yoursite.com/wp-json/seo-bridge/v1/products/1217/seo \
+curl -X POST https://yoursite.com/wp-json/seo-api-bridge/v1/products/1217/seo \
   -H "Content-Type: application/json" \
   -d '{"focus_keyword": "product keyword", "seo_title": "Product Title"}'
 ```
@@ -190,7 +190,7 @@ await mcp.wordpress_update_product_seo({
   "title": {"rendered": "My Post"},
   "meta": {
     "rank_math_focus_keyword": "wordpress seo",
-    "rank_math_seo_title": "Complete SEO Guide",
+    "rank_math_title": "Complete SEO Guide",
     "rank_math_description": "Learn WordPress SEO best practices..."
   }
 }
@@ -210,7 +210,7 @@ GET /wp-json/wp/v2/posts/{id}
   "title": {"rendered": "My Post"},
   "meta": {
     "rank_math_focus_keyword": "wordpress seo",
-    "rank_math_seo_title": "Complete WordPress SEO Guide",
+    "rank_math_title": "Complete WordPress SEO Guide",
     "rank_math_description": "Learn how to optimize your WordPress site...",
     "rank_math_facebook_title": "SEO Guide for Facebook",
     "rank_math_twitter_card_type": "summary_large_image"
@@ -229,7 +229,7 @@ Content-Type: application/json
 {
   "meta": {
     "rank_math_focus_keyword": "wordpress optimization",
-    "rank_math_seo_title": "WordPress Optimization Tips",
+    "rank_math_title": "WordPress Optimization Tips",
     "rank_math_description": "Discover the best practices for WordPress optimization"
   }
 }
@@ -255,7 +255,7 @@ POST /wp-json/wp/v2/products/{id}
 
 ## Usage with MCP Server
 
-This plugin is designed to work with the [Coolify Projects MCP Server](https://github.com/your-repo/mcphub).
+This plugin is designed to work with the [MCP Hub](https://github.com/airano-ir/mcphub).
 
 ### Example MCP Tool Usage
 
@@ -397,8 +397,8 @@ curl -X GET "https://your-site.com/wp-json/wp/v2/posts/1" \
 ## Support
 
 For issues related to:
-- **This plugin:** [GitHub Issues](https://github.com/your-repo/mcphub/issues)
-- **MCP Server:** [MCP Server Documentation](https://github.com/your-repo/mcphub)
+- **This plugin:** [GitHub Issues](https://github.com/airano-ir/mcphub/issues)
+- **MCP Server:** [MCP Server Documentation](https://github.com/airano-ir/mcphub)
 - **Rank Math SEO:** [Rank Math Support](https://rankmath.com/support/)
 - **Yoast SEO:** [Yoast Support](https://yoast.com/help/)
 
@@ -425,4 +425,4 @@ MIT License - See LICENSE file for details
 
 ## Credits
 
-Developed for use with Coolify Projects MCP Server to enable AI-powered SEO content management.
+Developed for use with MCP Hub to enable AI-powered SEO content management.

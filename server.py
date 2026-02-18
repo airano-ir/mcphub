@@ -9,8 +9,8 @@ Usage:
     # With stdio transport (Claude Desktop)
     python server.py
 
-    # With SSE transport (HTTP server)
-    python server.py --transport sse --port 8000
+    # With HTTP transport (Streamable HTTP server)
+    python server.py --transport streamable-http --port 8000
 
 Environment Variables:
     MASTER_API_KEY: Master API key for authentication

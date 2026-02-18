@@ -19,7 +19,7 @@ Benefits:
 - Scalable architecture
 
 Usage:
-    python server_multi.py --transport sse --port 8000
+    python server_multi.py --transport streamable-http --port 8000
 """
 
 import inspect

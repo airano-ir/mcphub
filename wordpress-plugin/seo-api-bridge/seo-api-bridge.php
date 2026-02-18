@@ -1,11 +1,11 @@
 <?php
 /**
  * Plugin Name: SEO API Bridge
- * Plugin URI: https://github.com/your-repo/seo-api-bridge
+ * Plugin URI: https://github.com/airano-ir/mcphub
  * Description: Exposes Rank Math SEO and Yoast SEO meta fields via WordPress REST API for use with MCP servers and AI agents. Supports posts, pages, and WooCommerce products with full CRUD operations.
  * Version: 1.3.0
- * Author: MCP Coolify Projects
- * Author URI: https://github.com/your-repo
+ * Author: MCP Hub
+ * Author URI: https://github.com/airano-ir
  * License: MIT
  * Requires at least: 5.0
  * Requires PHP: 7.4
@@ -70,7 +70,9 @@ class SEO_API_Bridge {
             [
                 'methods' => 'GET',
                 'callback' => [$this, 'get_post_seo'],
-                'permission_callback' => '__return_true',
+                'permission_callback' => function() {
+                    return current_user_can('edit_posts');
+                },
                 'args' => [
                     'id' => [
                         'validate_callback' => function($param) {
@@ -100,7 +102,9 @@ class SEO_API_Bridge {
             [
                 'methods' => 'GET',
                 'callback' => [$this, 'get_page_seo'],
-                'permission_callback' => '__return_true',
+                'permission_callback' => function() {
+                    return current_user_can('edit_posts');
+                },
                 'args' => [
                     'id' => [
                         'validate_callback' => function($param) {
@@ -130,7 +134,9 @@ class SEO_API_Bridge {
             [
                 'methods' => 'GET',
                 'callback' => [$this, 'get_product_seo'],
-                'permission_callback' => '__return_true',
+                'permission_callback' => function() {
+                    return current_user_can('edit_posts');
+                },
                 'args' => [
                     'id' => [
                         'validate_callback' => function($param) {
@@ -246,7 +252,7 @@ class SEO_API_Bridge {
                 'description' => 'Rank Math focus keyword',
                 'single' => true,
             ],
-            'rank_math_seo_title' => [
+            'rank_math_title' => [
                 'type' => 'string',
                 'description' => 'Rank Math SEO title (meta title)',
                 'single' => true,

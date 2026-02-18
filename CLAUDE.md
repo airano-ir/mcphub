@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 cp env.example .env        # Copy and fill in credentials
 pip install -e ".[dev]"    # Install with dev deps
 python server.py           # Run (stdio) or:
-python server.py --transport sse --port 8000  # Run (HTTP)
+python server.py --transport streamable-http --port 8000  # Run (HTTP)
 ```
 
 ## Build & Development Commands
@@ -24,8 +24,8 @@ pip install -e ".[dev]"
 # Run server (stdio transport for Claude Desktop)
 python server.py
 
-# Run server (SSE/HTTP transport for testing)
-python server.py --transport sse --port 8000
+# Run server (HTTP transport for testing)
+python server.py --transport streamable-http --port 8000
 
 # Run all tests
 pytest
