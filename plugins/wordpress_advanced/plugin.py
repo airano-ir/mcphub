@@ -112,22 +112,24 @@ class WordPressAdvancedPlugin(BasePlugin):
             Dict with health status and WP-CLI availability
         """
         try:
-            # Test WP-CLI access (primary requirement for wordpress_advanced)
-            wp_cli_version = await self.system.wp_cli_version()
-            wp_cli_available = bool(wp_cli_version.get("version"))
-
-            # Test REST API access with a public endpoint
+            # Test REST API access (primary health indicator — most tools use REST)
             rest_api_available = False
             try:
-                # Use a public endpoint that doesn't require authentication
                 site_info = await self.client.get("/")
                 rest_api_available = bool(site_info.get("name"))
             except Exception as e:
-                self.logger.warning(f"REST API check failed (non-critical): {e}")
-                rest_api_available = False
+                self.logger.warning(f"REST API check failed: {e}")
+
+            # Test WP-CLI access (optional — only needed for database/system tools)
+            wp_cli_available = False
+            try:
+                wp_cli_version = await self.system.wp_cli_version()
+                wp_cli_available = bool(wp_cli_version.get("version"))
+            except Exception:
+                pass
 
             return {
-                "healthy": wp_cli_available or rest_api_available,
+                "healthy": rest_api_available,
                 "wp_cli_available": wp_cli_available,
                 "rest_api_available": rest_api_available,
                 "features": {

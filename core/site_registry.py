@@ -98,9 +98,7 @@ class SiteRegistry:
             for alias, full_ids in self.alias_conflicts.items():
                 winner = self.aliases.get(alias)
                 losers = [fid for fid in full_ids if fid != winner]
-                self.logger.info(
-                    f"  Alias '{alias}': {winner} (winner), {losers} (using full_id)"
-                )
+                self.logger.info(f"  Alias '{alias}': {winner} (winner), {losers} (using full_id)")
 
     # Reserved words that should NOT be interpreted as site IDs
     RESERVED_SITE_WORDS = {

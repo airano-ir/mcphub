@@ -1180,25 +1180,29 @@ def add_endpoint_middleware(endpoint_mcp, endpoint_name: str = "unknown"):
 
 # Internal implementation functions (not decorated) for system tools
 async def _list_projects_impl() -> str:
-    """Internal implementation for listing projects."""
+    """Internal implementation for listing projects (reads from SiteManager)."""
+    import json
+
     try:
-        projects = project_manager.list_projects()
-
-        # Enrich with alias and endpoint info from SiteManager
         all_sites = site_manager.list_all_sites()
-        site_lookup = {s["full_id"]: s for s in all_sites}
+        projects = []
 
-        for project in projects:
-            full_id = project.get("id", "")
-            site_info = site_lookup.get(full_id, {})
+        for site_info in all_sites:
             alias = site_info.get("alias")
-            path_suffix = alias if alias and alias != site_info.get("site_id") else full_id
-            project["alias"] = alias
-            project["endpoint"] = f"/project/{path_suffix}/mcp"
+            site_id = site_info.get("site_id")
+            full_id = site_info.get("full_id", "")
+            path_suffix = alias if alias and alias != site_id else full_id
+            projects.append(
+                {
+                    "id": full_id,
+                    "type": site_info.get("plugin_type", ""),
+                    "project_id": site_id,
+                    "alias": alias,
+                    "endpoint": f"/project/{path_suffix}/mcp",
+                }
+            )
 
         result = {"total": len(projects), "projects": projects}
-        import json
-
         return json.dumps(result, indent=2)
     except Exception as e:
         logger.error(f"Error listing projects: {e}", exc_info=True)
@@ -1269,13 +1273,21 @@ async def get_project_info(project_id: str) -> str:
     Returns:
         JSON string with project information
     """
+    import json
+
     try:
+        # Try legacy ProjectManager first
         info = project_manager.get_project_info(project_id)
+
+        # Fallback to SiteManager if legacy finds nothing
+        if info is None:
+            for site_data in site_manager.list_all_sites():
+                if site_data["full_id"] == project_id:
+                    info = site_data
+                    break
 
         if info is None:
             return f"Project '{project_id}' not found. Use list_projects to see available projects."
-
-        import json
 
         return json.dumps(info, indent=2)
     except Exception as e:
@@ -3111,7 +3123,6 @@ async def health_check(request: Request) -> JSONResponse:
         {
             "status": "healthy",
             "uptime": uptime_seconds,
-            "projects": len(project_manager.projects),
             "sites": site_manager.get_count(),
             "tools": _total_tool_count,  # Total tools (plugin + system)
             "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
@@ -3480,12 +3491,17 @@ Use get_endpoints() to see all available MCP endpoints."""
     @system_mcp.tool()
     async def get_project_info(project_id: str) -> str:
         """Get detailed information about a specific project."""
+        import json
+
         try:
             info = project_manager.get_project_info(project_id)
             if info is None:
+                for site_data in site_manager.list_all_sites():
+                    if site_data["full_id"] == project_id:
+                        info = site_data
+                        break
+            if info is None:
                 return f"Project '{project_id}' not found. Use list_projects to see available projects."
-            import json
-
             return json.dumps(info, indent=2)
         except Exception as e:
             logger.error(f"Error getting project info: {e}", exc_info=True)
@@ -4507,10 +4523,10 @@ def main():
         logger.info(f"Host: {args.host}")
         logger.info(f"Port: {args.port}")
 
-    # Check if any projects were discovered
-    if len(project_manager.projects) == 0:
-        logger.warning("No projects discovered! Check your environment variables.")
-        logger.warning("Expected format: {PLUGIN_TYPE}_{PROJECT_ID}_{CONFIG_KEY}=value")
+    # Check if any sites were discovered (SiteManager is the primary discovery system)
+    if site_manager.get_count() == 0:
+        logger.warning("No sites discovered! Check your environment variables.")
+        logger.warning("Expected format: {PLUGIN_TYPE}_{SITE_ID}_{CONFIG_KEY}=value")
         logger.warning("Example: WORDPRESS_SITE1_URL=https://example.com")
 
     try:

@@ -91,9 +91,7 @@ class ProjectManager:
                 if config:
                     self._create_project_instance(plugin_type, project_id, config)
             except Exception as e:
-                self.logger.error(
-                    f"Failed to create {plugin_type} project '{project_id}': {e}", exc_info=True
-                )
+                self.logger.debug(f"Legacy ProjectManager: skipped {plugin_type}/{project_id}: {e}")
 
     def _load_project_config(self, plugin_type: str, project_id: str) -> dict[str, Any] | None:
         """

@@ -173,49 +173,123 @@ RATE_LIMIT_PER_DAY=10000
 
 ### WordPress Plugin Requirements
 
-Some WordPress tools require additional plugins on your WordPress site:
+Some tools require specific WordPress plugins or infrastructure:
 
-| MCP Tool Category | WordPress Plugin Required |
-|-------------------|--------------------------|
-| SEO tools (`get_post_seo`, `update_post_seo`) | **Rank Math** or **Yoast SEO** |
-| WP-CLI tools (`wp_cache_flush`, `wp_db_export`, etc.) | Docker socket access + `CONTAINER` env var |
-| WooCommerce tools | **WooCommerce** 3.0+ (separate `WOOCOMMERCE_` config) |
+| Tools | Requirement |
+|-------|-------------|
+| `wordpress_get_post_seo`, `wordpress_update_post_seo`, `wordpress_get_product_seo`, `wordpress_update_product_seo` | **Yoast SEO** or **RankMath** |
+| `wordpress_wp_cache_*`, `wordpress_wp_db_*`, `wordpress_wp_plugin_*`, `wordpress_wp_theme_*`, `wordpress_wp_core_*`, `wordpress_wp_search_replace_dry_run` (15 tools) | Docker socket + `CONTAINER` env var |
+| `wordpress_advanced_*` database/system tools | Docker socket + `CONTAINER` env var |
+| `woocommerce_*` | **WooCommerce** plugin (separate `WOOCOMMERCE_` config) |
 
-### Docker Socket for WP-CLI Tools
+### Docker Socket for WP-CLI / WordPress Advanced
 
-WP-CLI tools (cache management, database export, plugin updates via CLI) require Docker socket access:
+WP-CLI and WordPress Advanced system tools require Docker socket access:
 
-1. Add the container name to your `.env`:
-   ```bash
-   WORDPRESS_SITE1_CONTAINER=your-wp-container-name
-   ```
+```yaml
+services:
+  mcphub:
+    image: airano/mcphub:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      WORDPRESS_SITE1_URL: https://your-site.com
+      WORDPRESS_SITE1_USERNAME: admin
+      WORDPRESS_SITE1_APP_PASSWORD: xxxx xxxx xxxx xxxx
+      WORDPRESS_SITE1_CONTAINER: wordpress-container-name
+      WORDPRESS_SITE1_ALIAS: mysite
+      WORDPRESS_ADVANCED_SITE1_URL: https://your-site.com
+      WORDPRESS_ADVANCED_SITE1_USERNAME: admin
+      WORDPRESS_ADVANCED_SITE1_APP_PASSWORD: xxxx xxxx xxxx xxxx
+      WORDPRESS_ADVANCED_SITE1_CONTAINER: wordpress-container-name
+      WORDPRESS_ADVANCED_SITE1_ALIAS: mysite-admin
+```
 
-2. Mount the Docker socket in `docker-compose.yaml`:
-   ```yaml
-   volumes:
-     - /var/run/docker.sock:/var/run/docker.sock:ro
-   ```
+Without Docker socket:
+- WP-CLI tools return "not available" errors
+- WordPress Advanced database/system tools are unavailable
+- All REST API tools (bulk operations, content management) work normally
 
-Without Docker socket, WP-CLI tools will return a "not available" message but all REST API tools work normally.
+### Environment Variable Reference
 
-### Environment Variable Naming Convention
-
-All site configuration follows the pattern: `{PLUGIN_PREFIX}_{SITE_ID}_{CONFIG_KEY}`
-
-| Plugin | Prefix | Example |
-|--------|--------|---------|
-| WordPress | `WORDPRESS_` | `WORDPRESS_SITE1_URL` |
-| WooCommerce | `WOOCOMMERCE_` | `WOOCOMMERCE_STORE1_URL` |
-| WordPress Advanced | `WORDPRESS_ADVANCED_` | `WORDPRESS_ADVANCED_SITE1_URL` |
-| Gitea | `GITEA_` | `GITEA_REPO1_URL` |
-| n8n | `N8N_` | `N8N_INSTANCE1_URL` |
-| Supabase | `SUPABASE_` | `SUPABASE_PROJECT1_URL` |
-| OpenPanel | `OPENPANEL_` | `OPENPANEL_INSTANCE1_URL` |
-| Appwrite | `APPWRITE_` | `APPWRITE_PROJECT1_URL` |
-| Directus | `DIRECTUS_` | `DIRECTUS_INSTANCE1_URL` |
+All site configuration follows the pattern: `{PLUGIN_TYPE}_{SITE_ID}_{CONFIG_KEY}=value`
 
 - `SITE_ID` can be any alphanumeric identifier (e.g., `SITE1`, `PROD`, `MYBLOG`)
-- Add `_ALIAS` for a friendly name used in tool calls (e.g., `WORDPRESS_SITE1_ALIAS=myblog`)
+- Multiple sites: change `SITE1` to `SITE2`, `SITE3`, etc.
+
+#### WordPress
+```env
+WORDPRESS_SITE1_URL=https://your-site.com        # Required
+WORDPRESS_SITE1_USERNAME=admin                     # Required
+WORDPRESS_SITE1_APP_PASSWORD=xxxx xxxx xxxx xxxx   # Required (WordPress Application Password)
+WORDPRESS_SITE1_ALIAS=my-site                      # Recommended
+WORDPRESS_SITE1_CONTAINER=wp-container             # Optional (for WP-CLI)
+```
+
+#### WooCommerce
+```env
+WOOCOMMERCE_SITE1_URL=https://your-site.com       # Required
+WOOCOMMERCE_SITE1_CONSUMER_KEY=ck_xxx             # Required
+WOOCOMMERCE_SITE1_CONSUMER_SECRET=cs_xxx          # Required
+WOOCOMMERCE_SITE1_ALIAS=my-shop                   # Recommended
+```
+
+#### WordPress Advanced
+```env
+WORDPRESS_ADVANCED_SITE1_URL=https://your-site.com         # Required
+WORDPRESS_ADVANCED_SITE1_USERNAME=admin                     # Required
+WORDPRESS_ADVANCED_SITE1_APP_PASSWORD=xxxx xxxx xxxx xxxx   # Required
+WORDPRESS_ADVANCED_SITE1_CONTAINER=wp-container             # Required (for WP-CLI tools)
+WORDPRESS_ADVANCED_SITE1_ALIAS=my-site-admin                # Recommended
+```
+
+#### Gitea
+```env
+GITEA_SITE1_URL=https://gitea.example.com         # Required
+GITEA_SITE1_TOKEN=your-access-token                # Required
+GITEA_SITE1_ALIAS=my-gitea                         # Recommended
+```
+
+#### n8n
+```env
+N8N_SITE1_URL=https://n8n.example.com             # Required
+N8N_SITE1_API_KEY=your-api-key                     # Required
+N8N_SITE1_ALIAS=my-n8n                             # Recommended
+```
+
+#### Supabase
+```env
+SUPABASE_SITE1_URL=https://your-project.supabase.co   # Required
+SUPABASE_SITE1_API_KEY=your-service-role-key           # Required
+SUPABASE_SITE1_ALIAS=my-supabase                       # Recommended
+```
+
+#### OpenPanel
+```env
+OPENPANEL_SITE1_URL=https://openpanel.example.com  # Required
+OPENPANEL_SITE1_CLIENT_ID=your-client-id           # Required
+OPENPANEL_SITE1_CLIENT_SECRET=your-client-secret   # Required
+OPENPANEL_SITE1_ALIAS=my-analytics                 # Recommended
+```
+
+#### Appwrite
+```env
+APPWRITE_SITE1_URL=https://appwrite.example.com   # Required
+APPWRITE_SITE1_API_KEY=your-api-key                # Required
+APPWRITE_SITE1_PROJECT_ID=your-project-id          # Required
+APPWRITE_SITE1_ALIAS=my-appwrite                   # Recommended
+```
+
+#### Directus
+```env
+DIRECTUS_SITE1_URL=https://directus.example.com   # Required
+DIRECTUS_SITE1_TOKEN=your-admin-token              # Required
+DIRECTUS_SITE1_ALIAS=my-directus                   # Recommended
+```
+
+> **Note:** Use `APP_PASSWORD` (WordPress Application Password), not `PASSWORD`.
 
 ### Configuration Tips
 
@@ -286,7 +360,13 @@ docker compose logs -f mcphub
 
 ## Connect Your AI Client
 
-MCP Hub uses **SSE (Server-Sent Events)** transport over HTTP. All requests require **Bearer token** authentication via the `Authorization` header. Query parameter auth is not supported.
+All requests require **Bearer token** authentication via the `Authorization` header:
+
+```
+Authorization: Bearer YOUR_API_KEY
+```
+
+> `X-API-Key` header and query parameter auth are **not** supported.
 
 ### Claude Desktop
 
@@ -295,8 +375,9 @@ Add to `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "mcphub": {
-      "url": "https://your-server:8000/mcp",
+    "mcphub-wordpress": {
+      "type": "streamableHttp",
+      "url": "http://your-server:8000/wordpress/mcp",
       "headers": {
         "Authorization": "Bearer YOUR_MASTER_API_KEY"
       }
@@ -312,9 +393,9 @@ Add to `.mcp.json` in your project:
 ```json
 {
   "mcpServers": {
-    "mcphub": {
-      "type": "sse",
-      "url": "https://your-server:8000/mcp",
+    "mcphub-wordpress": {
+      "type": "http",
+      "url": "http://your-server:8000/wordpress/mcp",
       "headers": {
         "Authorization": "Bearer YOUR_MASTER_API_KEY"
       }
@@ -327,8 +408,8 @@ Add to `.mcp.json` in your project:
 
 Go to **Settings > MCP Servers > Add Server**:
 
-- **Name**: MCP Hub
-- **URL**: `https://your-server:8000/mcp`
+- **Name**: MCP Hub WordPress
+- **URL**: `http://your-server:8000/wordpress/mcp`
 - **Headers**: `Authorization: Bearer YOUR_MASTER_API_KEY`
 
 ### VS Code + Copilot
@@ -338,9 +419,9 @@ Add to `.vscode/mcp.json`:
 ```json
 {
   "servers": {
-    "mcphub": {
-      "type": "sse",
-      "url": "https://your-server:8000/mcp",
+    "mcphub-wordpress": {
+      "type": "http",
+      "url": "http://your-server:8000/wordpress/mcp",
       "headers": {
         "Authorization": "Bearer YOUR_MASTER_API_KEY"
       }
@@ -356,6 +437,8 @@ MCP Hub supports **Open Dynamic Client Registration** (RFC 7591). ChatGPT can au
 1. Deploy MCP Hub with `OAUTH_BASE_URL` set
 2. In ChatGPT, add MCP server: `https://your-server:8000/mcp`
 3. ChatGPT auto-discovers OAuth metadata and registers
+
+> **Important**: Use `"type": "streamableHttp"` for Claude Desktop and `"type": "http"` for VS Code/Claude Code. Using `"type": "sse"` will cause `400 Bad Request` errors.
 
 ---
 
@@ -391,31 +474,40 @@ The `site` parameter accepts either a **site_id** (e.g., `site1`) or an **alias*
 
 ### Multi-Endpoint Architecture
 
-Use specific endpoints to limit tool access and save tokens:
+Use the most specific endpoint for your use case to minimize token usage:
 
-```
-/mcp                        → All 596 tools (Master API Key)
-/system/mcp                 → System tools only (24 tools)
-/wordpress/mcp              → WordPress tools (67 tools)
-/woocommerce/mcp            → WooCommerce tools (28 tools)
-/gitea/mcp                  → Gitea tools (56 tools)
-/n8n/mcp                    → n8n tools (56 tools)
-/supabase/mcp               → Supabase tools (70 tools)
-/openpanel/mcp              → OpenPanel tools (73 tools)
-/appwrite/mcp               → Appwrite tools (100 tools)
-/directus/mcp               → Directus tools (100 tools)
-/project/{alias}/mcp        → Per-project (auto-injects site)
-```
+| Endpoint | Use Case | Tools | `site` param? |
+|----------|----------|------:|:-------------:|
+| `/project/{alias}/mcp` | Single-site workflow | 22-100 | No (pre-scoped) |
+| `/{plugin}/mcp` | Multi-site management | 23-101 | Yes |
+| `/system/mcp` | System administration | 24 | N/A |
+| `/mcp` | Admin & discovery only | 596 | Yes |
 
-> **Recommendation**: Use plugin-specific endpoints (e.g., `/wordpress/mcp`) instead of `/mcp` when possible. This reduces the number of tools your AI client loads, saving context tokens and improving response quality.
+> **Recommendation**: Always use the most specific endpoint. Using `/mcp` (596 tools) wastes context tokens and degrades AI response quality.
+
+**Available plugin endpoints:**
+
+| Endpoint | Plugin | Tools |
+|----------|--------|------:|
+| `/wordpress/mcp` | WordPress | 67 |
+| `/woocommerce/mcp` | WooCommerce | 28 |
+| `/wordpress-advanced/mcp` | WordPress Advanced | 22 |
+| `/gitea/mcp` | Gitea | 56 |
+| `/n8n/mcp` | n8n | 56 |
+| `/supabase/mcp` | Supabase | 70 |
+| `/openpanel/mcp` | OpenPanel | 73 |
+| `/appwrite/mcp` | Appwrite | 100 |
+| `/directus/mcp` | Directus | 100 |
+| `/system/mcp` | System Management | 24 |
 
 **Plugin endpoint vs Project endpoint:**
 
-| Feature | Plugin endpoint (`/wordpress/mcp`) | Project endpoint (`/project/myblog/mcp`) |
-|---------|-----------------------------------|----------------------------------------|
-| Tools loaded | All tools for that plugin type | Same tools, but `site` parameter auto-injected |
-| Site selection | Must pass `site` parameter manually | Site is auto-selected (no `site` param needed) |
-| Best for | Managing multiple sites of same type | Dedicated access to a single site |
+| Feature | Plugin (`/wordpress/mcp`) | Project (`/project/{alias}/mcp`) |
+|---------|:------------------------:|:-------------------------------:|
+| `list_sites` tool | Yes | No |
+| `site` parameter needed | Yes | No (pre-scoped) |
+| Tool count | N + 1 (includes `list_sites`) | N |
+| Multi-site support | Yes | No (single site) |
 
 ---
 

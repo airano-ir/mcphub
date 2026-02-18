@@ -9,7 +9,7 @@
 ### 1. Create a `.env` file
 
 ```bash
-# Required
+# Recommended (auto-generates temp key if omitted — check container logs)
 MASTER_API_KEY=your-secure-key-here
 
 # Add at least one WordPress site
@@ -41,13 +41,14 @@ curl http://localhost:8000/health
 
 ### 4. Connect your AI client
 
-In Claude Desktop's `claude_desktop_config.json`:
+**Claude Desktop** (`claude_desktop_config.json`):
 
 ```json
 {
   "mcpServers": {
     "mcphub": {
-      "url": "http://localhost:8000/mcp",
+      "type": "streamableHttp",
+      "url": "http://localhost:8000/wordpress/mcp",
       "headers": {
         "Authorization": "Bearer your-secure-key-here"
       }
@@ -56,15 +57,45 @@ In Claude Desktop's `claude_desktop_config.json`:
 }
 ```
 
+**VS Code** (`.vscode/mcp.json`):
+
+```json
+{
+  "servers": {
+    "mcphub": {
+      "type": "http",
+      "url": "http://localhost:8000/wordpress/mcp",
+      "headers": {
+        "Authorization": "Bearer your-secure-key-here"
+      }
+    }
+  }
+}
+```
+
+> Use a plugin-specific endpoint (e.g., `/wordpress/mcp`) instead of `/mcp` to reduce tool count and save tokens. See [Endpoints](#endpoints) below.
+
 ## Authentication
 
-MCP Hub uses **Bearer token** authentication. Include the `Authorization` header in all requests:
+MCP Hub uses **Bearer token** authentication:
 
 ```
-Authorization: Bearer YOUR_MASTER_API_KEY
+Authorization: Bearer YOUR_API_KEY
 ```
 
-This applies to both MCP clients and API calls. Query parameter auth is not supported.
+> `X-API-Key` header and query parameter auth are **not** supported.
+
+## Endpoints
+
+Use the most specific endpoint for your use case:
+
+| Endpoint | Tools | `site` param? | Best for |
+|----------|------:|:-------------:|----------|
+| `/project/{alias}/mcp` | 22-100 | No (pre-scoped) | Single-site workflow |
+| `/{plugin}/mcp` | 23-101 | Yes | Multi-site management |
+| `/mcp` | 596 | Yes | Admin & discovery only |
+
+Available plugin endpoints: `/wordpress/mcp`, `/woocommerce/mcp`, `/wordpress-advanced/mcp`, `/gitea/mcp`, `/n8n/mcp`, `/supabase/mcp`, `/openpanel/mcp`, `/appwrite/mcp`, `/directus/mcp`, `/system/mcp`
 
 ## Using Docker Compose
 
