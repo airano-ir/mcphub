@@ -143,13 +143,15 @@ GITEA_REPO1_ALIAS=mygitea
 |----------|----------|---------|-------------|
 | `MASTER_API_KEY` | Recommended | Auto-generated | Master API key for admin access |
 | `LOG_LEVEL` | No | `INFO` | Logging level (DEBUG, INFO, WARNING, ERROR) |
-| `OAUTH_JWT_SECRET_KEY` | For OAuth | — | JWT signing secret for OAuth tokens |
-| `OAUTH_BASE_URL` | For OAuth | — | Public URL (e.g., `https://mcp.example.com`) |
+| `OAUTH_JWT_SECRET_KEY` | For OAuth | — | JWT secret for ChatGPT auto-registration (not needed for Claude/Cursor) |
+| `OAUTH_BASE_URL` | For OAuth | — | Public URL of your server (not needed for Claude/Cursor) |
 | `OAUTH_JWT_ALGORITHM` | No | `HS256` | JWT algorithm |
 | `OAUTH_ACCESS_TOKEN_TTL` | No | `3600` | Access token TTL in seconds |
 | `OAUTH_REFRESH_TOKEN_TTL` | No | `604800` | Refresh token TTL in seconds |
 | `OAUTH_STORAGE_TYPE` | No | `json` | Token storage type |
 | `OAUTH_STORAGE_PATH` | No | `/app/data` | Data directory path |
+
+> **OAuth** is only needed for ChatGPT Remote MCP auto-registration. For Claude Desktop, Claude Code, Cursor, and VS Code — just use `MASTER_API_KEY` with Bearer token auth.
 
 **Plugin Site Configuration** — Pattern: `{PLUGIN_TYPE}_{SITE_ID}_{KEY}`
 
@@ -164,6 +166,8 @@ GITEA_REPO1_ALIAS=mygitea
 | `OPENPANEL` | `URL`, `CLIENT_ID`, `CLIENT_SECRET` | `ALIAS` |
 | `APPWRITE` | `URL`, `API_KEY`, `PROJECT_ID` | `ALIAS` |
 | `DIRECTUS` | `URL`, `TOKEN` | `ALIAS` |
+
+> **CONTAINER**: Docker container name of your WordPress site. Optional for WordPress (enables WP-CLI tools like cache flush, transient management). **Required** for WordPress Advanced (all 22 tools use WP-CLI). Find your container: `docker ps --filter name=wordpress`. Also requires Docker socket mount.
 
 **Example** — Multiple WordPress sites:
 
