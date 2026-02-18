@@ -1995,7 +1995,7 @@ def _get_project_version() -> str:
                     return line.split("=")[1].strip().strip('"').strip("'")
     except Exception:
         pass
-    return "3.0.0"
+    return "3.0.1"
 
 
 def get_about_info() -> dict:

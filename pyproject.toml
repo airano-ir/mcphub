@@ -1,6 +1,6 @@
 [project]
 name = "mcphub-server"
-version = "3.0.0"
+version = "3.0.1"
 description = "AI-native management hub for WordPress, WooCommerce, and self-hosted services via Model Context Protocol (MCP)"
 authors = [
     {name = "MCP Hub", email = "contact@mcphub.dev"}

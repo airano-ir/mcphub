@@ -319,7 +319,7 @@ MCP Hub supports **Open Dynamic Client Registration** (RFC 7591). ChatGPT can au
 |--------|-------|------------|
 | WordPress | 67 | `WORDPRESS_` |
 | WooCommerce | 28 | `WOOCOMMERCE_` |
-| WordPress Advanced | 22 | `WORDPRESS_` (same sites, advanced ops) |
+| WordPress Advanced | 22 | `WORDPRESS_ADVANCED_` |
 | Gitea | 56 | `GITEA_` |
 | n8n | 56 | `N8N_` |
 | Supabase | 70 | `SUPABASE_` |

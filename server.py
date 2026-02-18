@@ -4053,7 +4053,53 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
                         },
                     )
 
+                # Validate the token value (not just presence)
+                token = auth_header.removeprefix("Bearer ").strip()
+                if token and not self._is_valid_token(token):
+                    base_url = get_oauth_base_url(request)
+                    resource_metadata_url = f"{base_url}/.well-known/oauth-protected-resource"
+                    logger.warning(f"MCP OAuth: Invalid token for {path}")
+
+                    return Response(
+                        content='{"error": "invalid_token", "error_description": "Bearer token is invalid"}',
+                        status_code=401,
+                        media_type="application/json",
+                        headers={
+                            "WWW-Authenticate": f'Bearer resource_metadata="{resource_metadata_url}", error="invalid_token"',
+                            "Access-Control-Allow-Origin": "*",
+                            "Access-Control-Allow-Headers": "Authorization, Content-Type",
+                            "Access-Control-Expose-Headers": "WWW-Authenticate",
+                        },
+                    )
+
             return await call_next(request)
+
+        @staticmethod
+        def _is_valid_token(token: str) -> bool:
+            """Check if a Bearer token is recognized by any auth backend."""
+            # 1. Master API key
+            if auth_manager.validate_master_key(token):
+                return True
+
+            # 2. Per-project API key (any valid key, skip project/scope check)
+            if token.startswith("cmp_"):
+                key_hash = api_key_manager._hash_key(token)
+                for key in api_key_manager.keys.values():
+                    if key.key_hash == key_hash and key.is_valid():
+                        return True
+                return False
+
+            # 3. OAuth JWT token
+            try:
+                from core.oauth import get_token_manager
+
+                token_manager = get_token_manager()
+                if token_manager.validate_access_token(token):
+                    return True
+            except Exception:
+                pass
+
+            return False
 
     # Create MCP instances
     system_mcp = create_system_mcp()  # Phase X.3 - System endpoint

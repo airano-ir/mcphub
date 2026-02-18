@@ -108,7 +108,7 @@ Add more sites with `SITE2`, `SITE3`, etc. See [full configuration guide](https:
 |--------|-------|------------|
 | WordPress | 67 | `WORDPRESS_` |
 | WooCommerce | 28 | `WOOCOMMERCE_` |
-| WordPress Advanced | 22 | `WORDPRESS_` |
+| WordPress Advanced | 22 | `WORDPRESS_ADVANCED_` |
 | Gitea | 56 | `GITEA_` |
 | n8n | 56 | `N8N_` |
 | Supabase | 70 | `SUPABASE_` |
