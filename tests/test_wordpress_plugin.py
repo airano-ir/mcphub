@@ -4,7 +4,6 @@ Integration tests covering plugin initialization, configuration validation,
 tool specifications, handler delegation, client behavior, and health checks.
 """
 
-import asyncio
 import base64
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
