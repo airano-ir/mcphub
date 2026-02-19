@@ -241,8 +241,8 @@ class TokenManager:
             try:
                 old_payload = self.validate_access_token(token_data.access_token)
                 scope = old_payload.get("scope", "read")
-            except:
-                pass  # Old token might be expired, use default
+            except Exception:
+                pass  # Old token might be expired, use default scope
 
         # Generate new tokens
         new_access_token = self.generate_access_token(

@@ -112,7 +112,7 @@ async def get_instance_info(client: N8nClient) -> str:
         try:
             health = await client.health_check()
             info["health"] = health
-        except:
+        except Exception:
             pass
 
         # Get current user to verify connectivity
@@ -123,7 +123,7 @@ async def get_instance_info(client: N8nClient) -> str:
                 "email": user.get("email"),
                 "role": user.get("role"),
             }
-        except:
+        except Exception:
             pass
 
         info["instance_url"] = client.site_url

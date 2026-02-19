@@ -448,12 +448,15 @@ class ToolGenerator:
 
             except Exception as e:
                 # Import custom exceptions for better error handling
-                from plugins.wordpress.client import AuthenticationError, ConfigurationError
+                from plugins.wordpress.client import (
+                    AuthenticationError,
+                    ConfigurationError,
+                    ConnectionError,
+                )
 
                 error_type = type(e).__name__
 
                 if isinstance(e, ConfigurationError):
-                    # Configuration error - likely missing env vars
                     logger.error(f"Configuration error in {plugin_type}_{method_name}: {e}")
                     return (
                         f"Configuration Error: {str(e)}\n\n"
@@ -464,12 +467,14 @@ class ToolGenerator:
                     )
 
                 elif isinstance(e, AuthenticationError):
-                    # Authentication error - 401/403
                     logger.warning(f"Authentication error in {plugin_type}_{method_name}: {e}")
                     return f"Authentication Error: {str(e)}"
 
+                elif isinstance(e, ConnectionError):
+                    logger.warning(f"Connection error in {plugin_type}_{method_name}: {e}")
+                    return f"Connection Error: {str(e)}"
+
                 else:
-                    # Unexpected error
                     logger.error(
                         f"Error in unified handler for {plugin_type}_{method_name}: {e}",
                         exc_info=True,

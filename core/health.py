@@ -553,6 +553,7 @@ class HealthMonitor:
 
     async def _basic_http_health_check(self, url: str | None, project_id: str) -> dict[str, Any]:
         """Basic HTTP health check as a last-resort fallback."""
+
         import aiohttp
 
         if not url:
@@ -568,8 +569,27 @@ class HealthMonitor:
                         "status_code": resp.status,
                         "message": f"HTTP {resp.status} from {url}",
                     }
+        except TimeoutError:
+            return {
+                "healthy": False,
+                "error_type": "timeout",
+                "message": f"Site at {url} did not respond within 10 seconds.",
+            }
+        except aiohttp.ClientConnectorDNSError:
+            host = url.split("://")[-1].split("/")[0]
+            return {
+                "healthy": False,
+                "error_type": "dns_failure",
+                "message": f"DNS resolution failed for '{host}'. Check the URL.",
+            }
+        except aiohttp.ClientConnectorError:
+            return {
+                "healthy": False,
+                "error_type": "connection_refused",
+                "message": f"Cannot connect to {url}. Server unreachable.",
+            }
         except Exception as e:
-            return {"healthy": False, "message": f"Connection failed: {e}"}
+            return {"healthy": False, "error_type": "unknown", "message": f"Connection failed: {e}"}
 
     async def check_all_projects_health(self, include_metrics: bool = True) -> dict[str, Any]:
         """

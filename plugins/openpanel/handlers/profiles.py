@@ -236,8 +236,8 @@ async def get_profile(client: OpenPanelClient, project_id: str, profile_id: str)
                     indent=2,
                     ensure_ascii=False,
                 )
-        except:
-            pass
+        except Exception:
+            pass  # Profile event fetch is optional; fall through to generic response
 
         return json.dumps(
             {

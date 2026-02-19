@@ -190,7 +190,7 @@ class MenusHandler:
             # Try custom endpoint first, fallback to standard if not available
             try:
                 menus = await self.client.get("menus", use_custom_namespace=True)
-            except:
+            except Exception:
                 # Fallback: use wp/v2/navigation endpoint (WP 5.9+)
                 menus = await self.client.get("navigation")
 
@@ -216,7 +216,7 @@ class MenusHandler:
             # Get menu details
             try:
                 menu = await self.client.get(f"menus/{menu_id}", use_custom_namespace=True)
-            except:
+            except Exception:
                 menu = await self.client.get(f"navigation/{menu_id}")
 
             # Get menu items
@@ -256,7 +256,7 @@ class MenusHandler:
 
             try:
                 menu = await self.client.post("menus", json_data=data, use_custom_namespace=True)
-            except:
+            except Exception:
                 # Try navigation endpoint
                 menu = await self.client.post("navigation", json_data=data)
 

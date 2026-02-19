@@ -173,7 +173,7 @@ async def set_variables(client: N8nClient, variables: dict[str, str]) -> str:
                     # Variable exists, update it
                     await client.update_variable(key, value)
                     updated.append(key)
-                except:
+                except Exception:
                     # Variable doesn't exist, create it
                     await client.create_variable(key, value)
                     created.append(key)

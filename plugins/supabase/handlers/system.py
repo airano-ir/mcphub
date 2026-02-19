@@ -161,21 +161,21 @@ async def get_database_stats(client: SupabaseClient) -> str:
         try:
             tables = await client.list_tables()
             stats["tables"] = len(tables) if isinstance(tables, list) else 0
-        except:
+        except Exception:
             pass
 
         # Get schema count
         try:
             schemas = await client.list_schemas()
             stats["schemas"] = len(schemas) if isinstance(schemas, list) else 0
-        except:
+        except Exception:
             pass
 
         # Get extension count
         try:
             extensions = await client.list_extensions()
             stats["extensions"] = len(extensions) if isinstance(extensions, list) else 0
-        except:
+        except Exception:
             pass
 
         # Get database size and version
@@ -186,7 +186,7 @@ async def get_database_stats(client: SupabaseClient) -> str:
             if isinstance(size_result, list) and len(size_result) > 0:
                 stats["size"] = size_result[0].get("size", "unknown")
                 stats["version"] = size_result[0].get("version", "unknown")
-        except:
+        except Exception:
             pass
 
         # Get connection info
@@ -196,7 +196,7 @@ async def get_database_stats(client: SupabaseClient) -> str:
             )
             if isinstance(conn_result, list) and len(conn_result) > 0:
                 stats["active_connections"] = conn_result[0].get("connections", 0)
-        except:
+        except Exception:
             pass
 
         return json.dumps({"success": True, "database_stats": stats}, indent=2, ensure_ascii=False)
@@ -237,7 +237,7 @@ async def get_storage_stats(client: SupabaseClient) -> str:
                         if isinstance(files, list):
                             bucket_info["file_count"] = len(files)
                             stats["total_files"] += len(files)
-                    except:
+                    except Exception:
                         pass
 
                     stats["bucket_details"].append(bucket_info)
@@ -333,7 +333,7 @@ async def get_instance_info(client: SupabaseClient) -> str:
                     await client.list_schemas()
 
                 info["services_available"].append(service)
-            except:
+            except Exception:
                 pass
 
         # Try to get PostgreSQL version
@@ -341,7 +341,7 @@ async def get_instance_info(client: SupabaseClient) -> str:
             version_result = await client.execute_sql("SELECT version()")
             if isinstance(version_result, list) and len(version_result) > 0:
                 info["postgres_version"] = version_result[0].get("version", "unknown")
-        except:
+        except Exception:
             pass
 
         return json.dumps({"success": True, "instance_info": info}, indent=2, ensure_ascii=False)

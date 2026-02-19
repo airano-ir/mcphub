@@ -362,7 +362,7 @@ class SystemHandler:
             try:
                 db_result = await self.wp_cli.execute_command(db_cmd)
                 sizes["database_size_mb"] = float(db_result.get("output", "0").strip())
-            except:
+            except (ValueError, KeyError, Exception):
                 sizes["database_size_mb"] = 0.0
 
             # Calculate total
@@ -456,7 +456,7 @@ class SystemHandler:
                 schedules_result = await self.wp_cli.execute_command(schedules_cmd)
                 schedules_data = json.loads(schedules_result.get("output", "[]"))
                 schedules = {s.get("name"): s for s in schedules_data}
-            except:
+            except (json.JSONDecodeError, KeyError, Exception):
                 schedules = {}
 
             return {"success": True, "events": events, "total": len(events), "schedules": schedules}
@@ -514,7 +514,7 @@ class SystemHandler:
                 size_result = await self.wp_cli.execute_command(size_cmd)
                 log_size_bytes = int(size_result.get("output", "0").strip())
                 log_size_mb = round(log_size_bytes / 1024 / 1024, 2)
-            except:
+            except (ValueError, KeyError, Exception):
                 log_size_mb = 0.0
 
             # Read log file (last N lines)

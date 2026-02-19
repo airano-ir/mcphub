@@ -5,9 +5,11 @@ Handles all HTTP communication with WordPress REST API.
 Separates API communication from business logic.
 """
 
+import asyncio
 import base64
 import json
 import logging
+import socket
 from typing import Any
 
 import aiohttp
@@ -23,6 +25,23 @@ class AuthenticationError(Exception):
     """Raised when authentication fails (401/403)."""
 
     pass
+
+
+class ConnectionError(Exception):
+    """Raised when a network connection to the site fails."""
+
+    pass
+
+
+# Transient HTTP status codes that are worth retrying
+_RETRYABLE_STATUS_CODES = {502, 503, 504, 429}
+
+# Default request timeout in seconds
+_REQUEST_TIMEOUT = 30
+
+# Retry configuration
+_MAX_RETRIES = 2
+_RETRY_BACKOFF_BASE = 1.0  # seconds
 
 
 class WordPressClient:
@@ -140,37 +159,124 @@ class WordPressClient:
         if json_data:
             json_data = {k: v for k, v in json_data.items() if should_include(v)}
 
-        # Make request
-        async with (
-            aiohttp.ClientSession() as session,
-            session.request(
-                method, url, params=params, json=json_data, data=data, headers=headers
-            ) as response,
-        ):
-            # Handle errors with structured error messages
-            if response.status >= 400:
-                error_text = await response.text()
+        # Make request with retry for transient errors
+        timeout = aiohttp.ClientTimeout(total=_REQUEST_TIMEOUT)
+        last_exception = None
 
-                # Parse structured error response
-                error_info = self._parse_error_response(
-                    response.status, error_text, use_woocommerce
+        for attempt in range(_MAX_RETRIES + 1):
+            try:
+                async with (
+                    aiohttp.ClientSession(timeout=timeout) as session,
+                    session.request(
+                        method, url, params=params, json=json_data, data=data, headers=headers
+                    ) as response,
+                ):
+                    # Handle errors with structured error messages
+                    if response.status >= 400:
+                        error_text = await response.text()
+
+                        # Retry on transient server errors (502, 503, 504, 429)
+                        if response.status in _RETRYABLE_STATUS_CODES and attempt < _MAX_RETRIES:
+                            wait = _RETRY_BACKOFF_BASE * (2**attempt)
+                            self.logger.warning(
+                                f"Transient error {response.status} from {url}, "
+                                f"retrying in {wait:.1f}s (attempt {attempt + 1}/{_MAX_RETRIES})"
+                            )
+                            await asyncio.sleep(wait)
+                            continue
+
+                        # Parse structured error response
+                        error_info = self._parse_error_response(
+                            response.status, error_text, use_woocommerce
+                        )
+
+                        # Log the error for debugging
+                        self.logger.error(
+                            f"API error: {error_info['error_code']} - {error_info['message']}"
+                        )
+
+                        # Raise appropriate exception
+                        if response.status in (401, 403):
+                            raise AuthenticationError(
+                                f"[{error_info['error_code']}] {error_info['message']}"
+                            )
+
+                        raise Exception(f"[{error_info['error_code']}] {error_info['message']}")
+
+                    # Return JSON response
+                    return await response.json()
+
+            except (AuthenticationError, ConfigurationError):
+                raise  # Never retry auth/config errors
+
+            except TimeoutError:
+                last_exception = ConnectionError(
+                    f"Request timed out after {_REQUEST_TIMEOUT}s. "
+                    f"The site at {self.site_url} is not responding. "
+                    "Possible causes: site is overloaded, network is slow, "
+                    "or the server is down."
                 )
-
-                # Log the error for debugging
-                self.logger.error(
-                    f"API error: {error_info['error_code']} - {error_info['message']}"
-                )
-
-                # Raise appropriate exception
-                if response.status in (401, 403):
-                    raise AuthenticationError(
-                        f"[{error_info['error_code']}] {error_info['message']}"
+                if attempt < _MAX_RETRIES:
+                    wait = _RETRY_BACKOFF_BASE * (2**attempt)
+                    self.logger.warning(
+                        f"Timeout connecting to {url}, "
+                        f"retrying in {wait:.1f}s (attempt {attempt + 1}/{_MAX_RETRIES})"
                     )
+                    await asyncio.sleep(wait)
+                    continue
 
-                raise Exception(f"[{error_info['error_code']}] {error_info['message']}")
+            except aiohttp.ClientConnectorCertificateError as e:
+                raise ConnectionError(
+                    f"SSL certificate error for {self.site_url}. "
+                    "The site's SSL certificate is invalid or expired. "
+                    f"Details: {e}"
+                ) from e
 
-            # Return JSON response
-            return await response.json()
+            except aiohttp.ClientConnectorDNSError as e:
+                host = self.site_url.split("://")[-1].split("/")[0]
+                raise ConnectionError(
+                    f"DNS resolution failed for '{host}'. "
+                    "The domain name could not be found. "
+                    "Please check that the URL is correct."
+                ) from e
+
+            except aiohttp.ClientConnectorError as e:
+                os_error = getattr(e, "os_error", None)
+                if isinstance(os_error, socket.gaierror):
+                    host = self.site_url.split("://")[-1].split("/")[0]
+                    raise ConnectionError(
+                        f"DNS resolution failed for '{host}'. "
+                        "The domain name could not be found. "
+                        "Please check that the URL is correct."
+                    ) from e
+
+                raise ConnectionError(
+                    f"Cannot connect to {self.site_url}. "
+                    "The server is unreachable. Possible causes: "
+                    "wrong URL, server is down, firewall blocking, or wrong port."
+                ) from e
+
+            except aiohttp.InvalidURL:
+                raise ConnectionError(
+                    f"Invalid URL: {self.site_url}. "
+                    "Please provide a valid URL starting with https:// or http://."
+                )
+
+            except (aiohttp.ClientError, OSError) as e:
+                last_exception = ConnectionError(
+                    f"Network error connecting to {self.site_url}: {e}"
+                )
+                if attempt < _MAX_RETRIES:
+                    wait = _RETRY_BACKOFF_BASE * (2**attempt)
+                    self.logger.warning(
+                        f"Network error for {url}: {e}, "
+                        f"retrying in {wait:.1f}s (attempt {attempt + 1}/{_MAX_RETRIES})"
+                    )
+                    await asyncio.sleep(wait)
+                    continue
+
+        # All retries exhausted
+        raise last_exception  # type: ignore[misc]
 
     def _parse_error_response(
         self, status_code: int, error_text: str, use_woocommerce: bool = False
@@ -408,24 +514,29 @@ class WordPressClient:
             Dict with 'available' bool and version info
         """
         try:
-            # Try to access WooCommerce system status endpoint
             response = await self.get("system_status", use_woocommerce=True)
             return {
                 "available": True,
                 "version": response.get("environment", {}).get("version", "unknown"),
             }
-        except Exception:
-            return {"available": False, "version": None}
+        except AuthenticationError:
+            return {"available": False, "version": None, "reason": "authentication_failed"}
+        except ConnectionError as e:
+            return {"available": False, "version": None, "reason": str(e)}
+        except Exception as e:
+            self.logger.debug(f"WooCommerce check failed: {e}")
+            return {"available": False, "version": None, "reason": str(e)}
 
     async def check_site_health(self) -> dict[str, Any]:
         """
         Check WordPress site health and accessibility.
 
         Returns:
-            Dict with health status information
+            Dict with health status information including specific error diagnosis.
         """
+        timeout = aiohttp.ClientTimeout(total=10)
         try:
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(timeout=timeout) as session:
                 async with session.get(f"{self.site_url}/wp-json") as response:
                     if response.status == 200:
                         data = await response.json()
@@ -437,15 +548,88 @@ class WordPressClient:
                             "url": data.get("url", self.site_url),
                             "routes": len(data.get("routes", {})),
                         }
-                    else:
+
+                    # Detect REST API disabled (common with security plugins)
+                    if response.status in (403, 404):
                         return {
                             "healthy": False,
-                            "accessible": False,
-                            "message": f"Site returned status {response.status}",
+                            "accessible": True,
+                            "error_type": "rest_api_disabled",
+                            "message": (
+                                f"WordPress REST API returned {response.status}. "
+                                "The REST API may be disabled by a security plugin "
+                                "(e.g., Wordfence, iThemes Security, Disable REST API). "
+                                "Please ensure the REST API is enabled for MCP Hub to work."
+                            ),
                         }
-        except Exception as e:
+
+                    if response.status == 401:
+                        return {
+                            "healthy": False,
+                            "accessible": True,
+                            "error_type": "auth_required",
+                            "message": (
+                                "WordPress REST API requires authentication even for discovery. "
+                                "This may be caused by a security plugin restricting public access."
+                            ),
+                        }
+
+                    return {
+                        "healthy": False,
+                        "accessible": True,
+                        "error_type": "unexpected_status",
+                        "message": f"Site returned HTTP {response.status}.",
+                    }
+
+        except TimeoutError:
             return {
                 "healthy": False,
                 "accessible": False,
-                "message": f"Health check failed: {str(e)}",
+                "error_type": "timeout",
+                "message": (
+                    f"Site at {self.site_url} did not respond within 10 seconds. "
+                    "The server may be overloaded or down."
+                ),
+            }
+
+        except aiohttp.ClientConnectorDNSError:
+            host = self.site_url.split("://")[-1].split("/")[0]
+            return {
+                "healthy": False,
+                "accessible": False,
+                "error_type": "dns_failure",
+                "message": (
+                    f"DNS resolution failed for '{host}'. " "Please check that the URL is correct."
+                ),
+            }
+
+        except aiohttp.ClientConnectorCertificateError:
+            return {
+                "healthy": False,
+                "accessible": False,
+                "error_type": "ssl_error",
+                "message": (
+                    f"SSL certificate error for {self.site_url}. "
+                    "The certificate may be expired or invalid."
+                ),
+            }
+
+        except aiohttp.ClientConnectorError:
+            return {
+                "healthy": False,
+                "accessible": False,
+                "error_type": "connection_refused",
+                "message": (
+                    f"Cannot connect to {self.site_url}. "
+                    "The server is unreachable — check URL, firewall, or server status."
+                ),
+            }
+
+        except Exception as e:
+            self.logger.debug(f"Health check failed with unexpected error: {e}")
+            return {
+                "healthy": False,
+                "accessible": False,
+                "error_type": "unknown",
+                "message": f"Health check failed: {e}",
             }

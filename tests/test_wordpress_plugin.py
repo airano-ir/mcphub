@@ -4,14 +4,21 @@ Integration tests covering plugin initialization, configuration validation,
 tool specifications, handler delegation, client behavior, and health checks.
 """
 
+import asyncio
 import base64
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import aiohttp
 import pytest
 
 from plugins.base import BasePlugin, PluginRegistry
-from plugins.wordpress.client import AuthenticationError, ConfigurationError, WordPressClient
+from plugins.wordpress.client import (
+    AuthenticationError,
+    ConfigurationError,
+    ConnectionError,
+    WordPressClient,
+)
 from plugins.wordpress.plugin import WordPressPlugin
 
 # --- WordPressClient Tests ---
@@ -280,6 +287,282 @@ class TestWordPressClientRequest:
             use_custom_namespace=False,
             use_woocommerce=True,
         )
+
+
+# --- Connection Error Tests ---
+
+
+class TestWordPressClientConnectionErrors:
+    """Test network error differentiation and retry logic."""
+
+    @pytest.fixture
+    def client(self):
+        return WordPressClient(
+            site_url="https://example.com",
+            username="admin",
+            app_password="xxxx",
+        )
+
+    @pytest.mark.asyncio
+    async def test_dns_error_raises_connection_error(self, client):
+        """DNS failure should raise ConnectionError with helpful message."""
+        dns_error = aiohttp.ClientConnectorDNSError(
+            connection_key=MagicMock(), os_error=OSError("Name resolution failed")
+        )
+        with patch("aiohttp.ClientSession") as mock_cls:
+            mock_session = AsyncMock()
+            mock_session.request = MagicMock(side_effect=dns_error)
+            mock_cls.return_value = AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=False),
+            )
+            with pytest.raises(ConnectionError, match="DNS resolution failed"):
+                await client.request("GET", "posts")
+
+    @pytest.mark.asyncio
+    async def test_ssl_error_raises_connection_error(self, client):
+        """SSL certificate error should raise ConnectionError with helpful message."""
+        ssl_error = aiohttp.ClientConnectorCertificateError(
+            connection_key=MagicMock(), certificate_error=Exception("cert expired")
+        )
+        with patch("aiohttp.ClientSession") as mock_cls:
+            mock_session = AsyncMock()
+            mock_session.request = MagicMock(side_effect=ssl_error)
+            mock_cls.return_value = AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=False),
+            )
+            with pytest.raises(ConnectionError, match="SSL certificate error"):
+                await client.request("GET", "posts")
+
+    @pytest.mark.asyncio
+    async def test_connection_refused_raises_connection_error(self, client):
+        """Connection refused should raise ConnectionError with helpful message."""
+        conn_error = aiohttp.ClientConnectorError(
+            connection_key=MagicMock(), os_error=OSError("Connection refused")
+        )
+        with patch("aiohttp.ClientSession") as mock_cls:
+            mock_session = AsyncMock()
+            mock_session.request = MagicMock(side_effect=conn_error)
+            mock_cls.return_value = AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=False),
+            )
+            with pytest.raises(ConnectionError, match="Cannot connect"):
+                await client.request("GET", "posts")
+
+    @pytest.mark.asyncio
+    async def test_timeout_retries_then_raises(self, client):
+        """Timeout should retry then raise ConnectionError."""
+        with patch("aiohttp.ClientSession") as mock_cls:
+            mock_session = AsyncMock()
+            mock_session.request = MagicMock(side_effect=TimeoutError())
+            mock_cls.return_value = AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=False),
+            )
+            with patch("asyncio.sleep", new_callable=AsyncMock):
+                with pytest.raises(ConnectionError, match="timed out"):
+                    await client.request("GET", "posts")
+
+    @pytest.mark.asyncio
+    async def test_invalid_url_raises_connection_error(self, client):
+        """Invalid URL should raise ConnectionError."""
+        with patch("aiohttp.ClientSession") as mock_cls:
+            mock_session = AsyncMock()
+            mock_session.request = MagicMock(side_effect=aiohttp.InvalidURL("bad url"))
+            mock_cls.return_value = AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=False),
+            )
+            with pytest.raises(ConnectionError, match="Invalid URL"):
+                await client.request("GET", "posts")
+
+    @pytest.mark.asyncio
+    async def test_auth_error_not_retried(self, client):
+        """Auth errors should NOT be retried."""
+        mock_response = AsyncMock()
+        mock_response.status = 401
+        mock_response.text = AsyncMock(
+            return_value=json.dumps({"code": "invalid_auth", "message": "Bad"})
+        )
+
+        mock_session = AsyncMock()
+        mock_session.request = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response),
+                __aexit__=AsyncMock(return_value=False),
+            )
+        )
+
+        with patch("aiohttp.ClientSession") as mock_cls:
+            mock_cls.return_value = AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=False),
+            )
+            with pytest.raises(AuthenticationError):
+                await client.request("GET", "posts")
+            # Should be called only once (no retry)
+            assert mock_session.request.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_502_retried_then_raises(self, client):
+        """502 errors should be retried before raising."""
+        mock_response = AsyncMock()
+        mock_response.status = 502
+        mock_response.text = AsyncMock(return_value="Bad Gateway")
+
+        mock_session = AsyncMock()
+        mock_session.request = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response),
+                __aexit__=AsyncMock(return_value=False),
+            )
+        )
+
+        with patch("aiohttp.ClientSession") as mock_cls:
+            mock_cls.return_value = AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=False),
+            )
+            with patch("asyncio.sleep", new_callable=AsyncMock):
+                with pytest.raises(Exception, match="BAD_GATEWAY"):
+                    await client.request("GET", "posts")
+                # Should be called 3 times (1 + 2 retries)
+                assert mock_session.request.call_count == 3
+
+
+class TestWordPressClientHealthCheck:
+    """Test site health check with error differentiation."""
+
+    @pytest.fixture
+    def client(self):
+        return WordPressClient(
+            site_url="https://example.com",
+            username="admin",
+            app_password="xxxx",
+        )
+
+    @pytest.mark.asyncio
+    async def test_healthy_site(self, client):
+        """Healthy site should return proper status."""
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(
+            return_value={
+                "name": "My Blog",
+                "description": "A blog",
+                "url": "https://example.com",
+                "routes": {"a": 1},
+            }
+        )
+
+        with patch("aiohttp.ClientSession") as mock_cls:
+            mock_session = AsyncMock()
+            mock_session.get = MagicMock(
+                return_value=AsyncMock(
+                    __aenter__=AsyncMock(return_value=mock_response),
+                    __aexit__=AsyncMock(return_value=False),
+                )
+            )
+            mock_cls.return_value = AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=False),
+            )
+            result = await client.check_site_health()
+            assert result["healthy"] is True
+            assert result["name"] == "My Blog"
+
+    @pytest.mark.asyncio
+    async def test_rest_api_disabled_detected(self, client):
+        """403/404 on /wp-json should detect REST API disabled."""
+        for status in (403, 404):
+            mock_response = AsyncMock()
+            mock_response.status = status
+
+            with patch("aiohttp.ClientSession") as mock_cls:
+                mock_session = AsyncMock()
+                mock_session.get = MagicMock(
+                    return_value=AsyncMock(
+                        __aenter__=AsyncMock(return_value=mock_response),
+                        __aexit__=AsyncMock(return_value=False),
+                    )
+                )
+                mock_cls.return_value = AsyncMock(
+                    __aenter__=AsyncMock(return_value=mock_session),
+                    __aexit__=AsyncMock(return_value=False),
+                )
+                result = await client.check_site_health()
+                assert result["healthy"] is False
+                assert result["accessible"] is True
+                assert result["error_type"] == "rest_api_disabled"
+                assert "REST API" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_dns_failure_in_health_check(self, client):
+        """DNS failure in health check should be detected."""
+        dns_error = aiohttp.ClientConnectorDNSError(
+            connection_key=MagicMock(), os_error=OSError("DNS failed")
+        )
+        with patch("aiohttp.ClientSession") as mock_cls:
+            mock_session = AsyncMock()
+            mock_session.get = MagicMock(side_effect=dns_error)
+            mock_cls.return_value = AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=False),
+            )
+            result = await client.check_site_health()
+            assert result["healthy"] is False
+            assert result["error_type"] == "dns_failure"
+            assert "DNS" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_timeout_in_health_check(self, client):
+        """Timeout in health check should be detected."""
+        with patch("aiohttp.ClientSession") as mock_cls:
+            mock_session = AsyncMock()
+            mock_session.get = MagicMock(side_effect=TimeoutError())
+            mock_cls.return_value = AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=False),
+            )
+            result = await client.check_site_health()
+            assert result["healthy"] is False
+            assert result["error_type"] == "timeout"
+
+    @pytest.mark.asyncio
+    async def test_ssl_error_in_health_check(self, client):
+        """SSL error in health check should be detected."""
+        ssl_error = aiohttp.ClientConnectorCertificateError(
+            connection_key=MagicMock(), certificate_error=Exception("expired")
+        )
+        with patch("aiohttp.ClientSession") as mock_cls:
+            mock_session = AsyncMock()
+            mock_session.get = MagicMock(side_effect=ssl_error)
+            mock_cls.return_value = AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=False),
+            )
+            result = await client.check_site_health()
+            assert result["healthy"] is False
+            assert result["error_type"] == "ssl_error"
+
+    @pytest.mark.asyncio
+    async def test_connection_refused_in_health_check(self, client):
+        """Connection refused in health check should be detected."""
+        conn_error = aiohttp.ClientConnectorError(
+            connection_key=MagicMock(), os_error=OSError("Connection refused")
+        )
+        with patch("aiohttp.ClientSession") as mock_cls:
+            mock_session = AsyncMock()
+            mock_session.get = MagicMock(side_effect=conn_error)
+            mock_cls.return_value = AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=False),
+            )
+            result = await client.check_site_health()
+            assert result["healthy"] is False
+            assert result["error_type"] == "connection_refused"
 
 
 # --- WordPressPlugin Tests ---

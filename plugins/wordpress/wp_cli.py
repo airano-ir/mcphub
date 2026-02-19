@@ -599,7 +599,7 @@ class WPCLIManager:
                     size_str = f"{size_bytes / (1024 * 1024):.1f} MB"
             else:
                 size_str = "unknown"
-        except:
+        except (ValueError, IndexError, OSError):
             size_str = "unknown"
 
         return {
@@ -1198,7 +1198,7 @@ class WPCLIManager:
                     site_cmd = "core version"
                     version_result = await self._execute_wp_cli(site_cmd)
                     current_version = version_result.get("message", "unknown").strip()
-                except:
+                except Exception:
                     current_version = "unknown"
 
                 return {
@@ -1220,7 +1220,7 @@ class WPCLIManager:
             try:
                 version_result = await self._execute_wp_cli("core version")
                 old_version = version_result.get("message", "unknown").strip()
-            except:
+            except Exception:
                 old_version = "unknown"
 
             # Execute update (long timeout for downloads)
@@ -1230,7 +1230,7 @@ class WPCLIManager:
             try:
                 version_result = await self._execute_wp_cli("core version")
                 new_version = version_result.get("message", "unknown").strip()
-            except:
+            except Exception:
                 new_version = "unknown"
 
             # Determine update type
