@@ -6,7 +6,7 @@
 
 Connect your sites, stores, repos, and databases — manage them all through Claude, ChatGPT, Cursor, or any MCP client.
 
-[![Version: 3.0.1](https://img.shields.io/badge/version-3.0.1-blue.svg)](https://github.com/airano-ir/mcphub/releases)
+[![GitHub Release](https://img.shields.io/github/v/release/airano-ir/mcphub)](https://github.com/airano-ir/mcphub/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776ab.svg)](https://www.python.org/)
 [![PyPI](https://img.shields.io/pypi/v/mcphub-server.svg)](https://pypi.org/project/mcphub-server/)

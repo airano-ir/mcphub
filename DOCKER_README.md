@@ -2,7 +2,7 @@
 
 **The AI-native management hub for WordPress, WooCommerce, and self-hosted services.**
 
-**Version 3.0.1** — 596 tools across 9 plugins. Connect your sites, stores, repos, and databases — manage them all through Claude, ChatGPT, Cursor, or any MCP client.
+596 tools across 9 plugins. Connect your sites, stores, repos, and databases — manage them all through Claude, ChatGPT, Cursor, or any MCP client.
 
 ## Quick Start
 

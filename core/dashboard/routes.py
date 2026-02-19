@@ -1986,7 +1986,7 @@ def get_registered_plugins() -> list:
 
 
 def _get_project_version() -> str:
-    """Read version from pyproject.toml."""
+    """Read version from pyproject.toml, falling back to package metadata."""
     try:
         toml_path = os.path.join(os.path.dirname(os.path.dirname(TEMPLATES_DIR)), "pyproject.toml")
         with open(toml_path) as f:
@@ -1995,7 +1995,12 @@ def _get_project_version() -> str:
                     return line.split("=")[1].strip().strip('"').strip("'")
     except Exception:
         pass
-    return "3.0.1"
+    try:
+        from importlib.metadata import version
+
+        return version("mcphub-server")
+    except Exception:
+        return "unknown"
 
 
 def get_about_info() -> dict:
