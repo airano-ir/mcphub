@@ -540,9 +540,7 @@ class HealthMonitor:
             from plugins import registry as plugin_registry
 
             config_dict = config.to_dict()
-            plugin_instance = plugin_registry.create_instance(
-                plugin_type, site_id, config_dict
-            )
+            plugin_instance = plugin_registry.create_instance(plugin_type, site_id, config_dict)
             return await plugin_instance.health_check()
         except Exception as e:
             logger.debug(
@@ -553,9 +551,7 @@ class HealthMonitor:
         # Fallback: basic HTTP check if plugin instantiation fails
         return await self._basic_http_health_check(config.url, project_id)
 
-    async def _basic_http_health_check(
-        self, url: str | None, project_id: str
-    ) -> dict[str, Any]:
+    async def _basic_http_health_check(self, url: str | None, project_id: str) -> dict[str, Any]:
         """Basic HTTP health check as a last-resort fallback."""
         import aiohttp
 
