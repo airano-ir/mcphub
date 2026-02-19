@@ -27,9 +27,9 @@ import warnings
 from datetime import UTC, datetime
 from typing import Optional
 
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 
-load_dotenv()  # Load .env from current working directory
+load_dotenv(find_dotenv(usecwd=True))  # Always search from CWD (needed for PyPI mcphub.exe)
 
 # Suppress noisy deprecation warning from websockets (transitive dependency)
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="websockets")
