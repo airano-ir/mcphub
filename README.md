@@ -1,3 +1,5 @@
+<!-- mcp-name: io.github.airano-ir/mcphub -->
+
 # MCP Hub
 
 <div align="center">

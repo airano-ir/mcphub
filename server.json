@@ -1,0 +1,72 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.airano-ir/mcphub",
+  "description": "Unified MCP server for managing WordPress, WooCommerce, Gitea, n8n, Supabase, OpenPanel, Appwrite, and Directus with 596 tools, multi-site support, and OAuth 2.1 authentication.",
+  "title": "MCP Hub",
+  "websiteUrl": "https://github.com/airano-ir/mcphub",
+  "repository": {
+    "url": "https://github.com/airano-ir/mcphub",
+    "source": "github"
+  },
+  "version": "3.0.4",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "mcphub-server",
+      "version": "3.0.4",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "MASTER_API_KEY",
+          "description": "Master API key for authentication (also used for dashboard login)",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "WORDPRESS_SITE1_URL",
+          "description": "WordPress site URL (e.g., https://example.com)"
+        },
+        {
+          "name": "WORDPRESS_SITE1_USERNAME",
+          "description": "WordPress admin username"
+        },
+        {
+          "name": "WORDPRESS_SITE1_APP_PASSWORD",
+          "description": "WordPress Application Password",
+          "isSecret": true
+        },
+        {
+          "name": "GITEA_SITE1_URL",
+          "description": "Gitea instance URL"
+        },
+        {
+          "name": "GITEA_SITE1_TOKEN",
+          "description": "Gitea API token",
+          "isSecret": true
+        },
+        {
+          "name": "N8N_SITE1_URL",
+          "description": "n8n instance URL"
+        },
+        {
+          "name": "N8N_SITE1_API_KEY",
+          "description": "n8n API key",
+          "isSecret": true
+        },
+        {
+          "name": "SUPABASE_SITE1_URL",
+          "description": "Supabase project URL"
+        },
+        {
+          "name": "SUPABASE_SITE1_SERVICE_ROLE_KEY",
+          "description": "Supabase service role key",
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

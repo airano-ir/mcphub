@@ -1,0 +1,64 @@
+# Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
+
+startCommand:
+  type: stdio
+  configSchema:
+    # JSON Schema defining the configuration options for the MCP.
+    type: object
+    required:
+      - masterApiKey
+    properties:
+      masterApiKey:
+        type: string
+        description: Master API key for authentication. Generate with python -c "import secrets; print(secrets.token_urlsafe(32))"
+      wordpressSite1Url:
+        type: string
+        description: WordPress site URL (e.g., https://example.com)
+      wordpressSite1Username:
+        type: string
+        description: WordPress admin username
+      wordpressSite1AppPassword:
+        type: string
+        description: WordPress Application Password (generate in WP admin > Users > Profile > Application Passwords)
+      giteaSite1Url:
+        type: string
+        description: Gitea instance URL (e.g., https://gitea.example.com)
+      giteaSite1Token:
+        type: string
+        description: Gitea API token
+      n8nSite1Url:
+        type: string
+        description: n8n instance URL (e.g., https://n8n.example.com)
+      n8nSite1ApiKey:
+        type: string
+        description: n8n API key
+      supabaseSite1Url:
+        type: string
+        description: Supabase project URL
+      supabaseSite1ServiceRoleKey:
+        type: string
+        description: Supabase service role key
+  commandFunction:
+    # A function that produces the CLI command to start the MCP on stdio.
+    |-
+    (config) => {
+      const env = { MASTER_API_KEY: config.masterApiKey };
+      if (config.wordpressSite1Url) {
+        env.WORDPRESS_SITE1_URL = config.wordpressSite1Url;
+        env.WORDPRESS_SITE1_USERNAME = config.wordpressSite1Username || '';
+        env.WORDPRESS_SITE1_APP_PASSWORD = config.wordpressSite1AppPassword || '';
+      }
+      if (config.giteaSite1Url) {
+        env.GITEA_SITE1_URL = config.giteaSite1Url;
+        env.GITEA_SITE1_TOKEN = config.giteaSite1Token || '';
+      }
+      if (config.n8nSite1Url) {
+        env.N8N_SITE1_URL = config.n8nSite1Url;
+        env.N8N_SITE1_API_KEY = config.n8nSite1ApiKey || '';
+      }
+      if (config.supabaseSite1Url) {
+        env.SUPABASE_SITE1_URL = config.supabaseSite1Url;
+        env.SUPABASE_SITE1_SERVICE_ROLE_KEY = config.supabaseSite1ServiceRoleKey || '';
+      }
+      return { command: 'uvx', args: ['mcphub-server'], env };
+    }
