@@ -1,8 +1,9 @@
 """Tests for tenant isolation in Dashboard routes."""
 
 import pytest
+
 from core.dashboard.routes import get_all_projects
-from core.site_manager import SiteManager, SiteConfig
+from core.site_manager import SiteConfig, SiteManager
 
 
 @pytest.mark.asyncio

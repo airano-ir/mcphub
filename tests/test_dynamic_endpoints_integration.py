@@ -3,12 +3,11 @@ Integration tests for the per-user dynamic MCP endpoints.
 Uses Starlette TestClient to simulate real HTTP requests through the server.
 """
 
-import pytest
-from starlette.testclient import TestClient
-from unittest.mock import patch, MagicMock, AsyncMock
-import json
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from server import create_multi_endpoint_app
+from starlette.testclient import TestClient
 
 app = create_multi_endpoint_app()
 client = TestClient(app)

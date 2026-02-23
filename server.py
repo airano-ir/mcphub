@@ -44,7 +44,6 @@ from starlette.templating import Jinja2Templates
 
 # Import core modules
 from core import (
-    EventType,
     LogLevel,
     ToolGenerator,
     get_api_key_manager,
@@ -4258,10 +4257,7 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
                 pass
 
             # 4. Master API key (fallback — no distinguishing prefix)
-            if auth_manager.validate_master_key(token):
-                return True
-
-            return False
+            return bool(auth_manager.validate_master_key(token))
 
     class DashboardCSRFMiddleware(BaseHTTPMiddleware):
         """
