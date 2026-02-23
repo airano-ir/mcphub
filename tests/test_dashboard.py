@@ -377,6 +377,7 @@ def test_dashboard_connect_page(monkeypatch):
     """Test that the /dashboard/connect page renders successfully without 500 errors."""
     from server import create_multi_endpoint_app
     from starlette.testclient import TestClient
+
     import core.dashboard.routes
     import core.site_api
     import core.user_keys
