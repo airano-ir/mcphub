@@ -260,9 +260,11 @@ class Database:
     async def _create_schema(self) -> None:
         """Create all tables if they do not already exist."""
         conn = self._require_conn()
-        
+
         # Check if it's a completely fresh DB (no users table)
-        row = await self.fetchone("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
+        row = await self.fetchone(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='users'"
+        )
         is_fresh = row is None
 
         await conn.executescript(_SCHEMA_SQL)
@@ -299,7 +301,9 @@ class Database:
                 except Exception as e:
                     if "duplicate column name" not in str(e).lower():
                         raise
-                await self.execute("CREATE INDEX IF NOT EXISTS idx_user_api_keys_prefix ON user_api_keys(key_prefix)")
+                await self.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_user_api_keys_prefix ON user_api_keys(key_prefix)"
+                )
             else:
                 migration_sql = _MIGRATIONS.get(version)
                 if migration_sql is not None:
@@ -307,8 +311,10 @@ class Database:
                     await conn.executescript(migration_sql)
                     logger.info("Migration to version %d applied", version)
                 else:
-                    logger.warning("No migration SQL for version %d, recording version only", version)
-            
+                    logger.warning(
+                        "No migration SQL for version %d, recording version only", version
+                    )
+
             # Always record version to avoid infinite retry
             await self.execute(
                 "INSERT INTO schema_version (version, applied_at) VALUES (?, ?)",

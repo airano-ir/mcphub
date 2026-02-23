@@ -4469,6 +4469,7 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
 
         # Start health monitor background checks
         from core.health import get_health_monitor
+
         hm = get_health_monitor()
         if hm:
             await hm.start_background_checks(interval_seconds=60)

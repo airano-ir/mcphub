@@ -329,9 +329,7 @@ async def get_user_dashboard_stats(user_id: str) -> dict:
 
         sites = await get_user_sites(user_id)
         stats["sites_count"] = len(sites)
-        stats["active_sites_count"] = len(
-            [s for s in sites if s.get("status") == "active"]
-        )
+        stats["active_sites_count"] = len([s for s in sites if s.get("status") == "active"])
     except Exception as e:
         logger.warning(f"Error getting user sites count: {e}")
 
@@ -580,6 +578,7 @@ async def auth_logout(request: Request) -> Response:
     logger.info(f"Dashboard logout from {client_ip}")
     return response
 
+
 # Alias for backwards compatibility with __init__.py and other routes
 dashboard_logout = auth_logout
 
@@ -620,20 +619,24 @@ async def dashboard_home(request: Request) -> Response:
         projects_by_type = await get_projects_by_type()
         recent_activity = await get_recent_activity(limit=5)
         health_summary = await get_health_summary()
-        context.update({
-            "stats": stats,
-            "projects_by_type": projects_by_type,
-            "recent_activity": recent_activity,
-            "health_summary": health_summary,
-        })
+        context.update(
+            {
+                "stats": stats,
+                "projects_by_type": projects_by_type,
+                "recent_activity": recent_activity,
+                "health_summary": health_summary,
+            }
+        )
     else:
         # User dashboard — personal stats
         user_stats = await get_user_dashboard_stats(user_id) if user_id else {}
         user_sites = await get_user_sites_summary(user_id) if user_id else []
-        context.update({
-            "stats": user_stats,
-            "user_sites": user_sites,
-        })
+        context.update(
+            {
+                "stats": user_stats,
+                "user_sites": user_sites,
+            }
+        )
 
     return templates.TemplateResponse("dashboard/index.html", context)
 
@@ -704,7 +707,7 @@ def get_cached_health_status(project_id: str) -> dict:
                 "status": status,
                 "last_check": latest.last_check.isoformat() if latest.last_check else None,
                 "error_rate": latest.error_rate_percent,
-                "reason": reason
+                "reason": reason,
             }
 
         # Fallback to cached metrics (last 24 hours) if no active check exists yet
@@ -730,7 +733,12 @@ def get_cached_health_status(project_id: str) -> dict:
             if history:
                 last_check = history[-1].timestamp.isoformat()
 
-        return {"status": status, "last_check": last_check, "error_rate": error_rate, "reason": None}
+        return {
+            "status": status,
+            "last_check": last_check,
+            "error_rate": error_rate,
+            "reason": None,
+        }
     except Exception as e:
         logger.warning(f"Error getting cached health for {project_id}: {e}")
         return {"status": "unknown", "last_check": None, "error_rate": 0}
@@ -2371,7 +2379,9 @@ async def auth_callback(request: Request) -> Response:
                 user = user_by_email
                 logger.info(
                     "User %s logged in with alternate provider %s (original: %s)",
-                    user_info["email"], provider, user_by_email["provider"]
+                    user_info["email"],
+                    provider,
+                    user_by_email["provider"],
                 )
             else:
                 # New registration -- check rate limit
@@ -2386,12 +2396,12 @@ async def auth_callback(request: Request) -> Response:
                     )
 
                 user = await db.create_user(
-                email=user_info["email"],
-                name=user_info.get("name"),
-                provider=user_info["provider"],
-                provider_id=user_info["provider_id"],
-                avatar_url=user_info.get("avatar_url"),
-            )
+                    email=user_info["email"],
+                    name=user_info.get("name"),
+                    provider=user_info["provider"],
+                    provider_id=user_info["provider_id"],
+                    avatar_url=user_info.get("avatar_url"),
+                )
             user_auth.record_registration(client_ip)
             logger.info(
                 "New user registered: %s via %s",

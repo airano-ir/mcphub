@@ -774,15 +774,15 @@ class HealthMonitor:
         self.request_timestamps.clear()
         self.latest_health_status.clear()
         logger.warning("All metrics have been reset")
-        
+
     async def start_background_checks(self, interval_seconds: int = 60):
         """Start background health checks for all projects."""
         if self._is_running:
             return
-            
+
         self._is_running = True
         logger.info(f"Starting background health checks every {interval_seconds} seconds")
-        
+
         async def _loop():
             # Initial wait to let server start up fully
             await asyncio.sleep(5)
@@ -791,15 +791,15 @@ class HealthMonitor:
                     await self.check_all_projects_health(include_metrics=True)
                 except Exception as e:
                     logger.error(f"Error in background health check loop: {e}")
-                
+
                 # Sleep interval, check _is_running periodically
                 for _ in range(interval_seconds):
                     if not self._is_running:
                         break
                     await asyncio.sleep(1)
-                    
+
         self._bg_task = asyncio.create_task(_loop())
-        
+
     async def stop_background_checks(self):
         """Stop background health checks."""
         self._is_running = False

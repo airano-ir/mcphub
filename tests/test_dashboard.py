@@ -385,23 +385,25 @@ def test_dashboard_connect_page(monkeypatch):
     client = TestClient(app)
 
     def mock_req(*args):
-        return {'user_id': 'abc', 'type': 'user'}, None
+        return {"user_id": "abc", "type": "user"}, None
 
-    monkeypatch.setattr(core.dashboard.routes, '_require_user_session', mock_req)
+    monkeypatch.setattr(core.dashboard.routes, "_require_user_session", mock_req)
 
     async def mock_sites(*args):
-        return [{'alias': 'Test', 'plugin_type': 'dummy'}]
+        return [{"alias": "Test", "plugin_type": "dummy"}]
 
-    monkeypatch.setattr(core.site_api, 'get_user_sites', mock_sites)
+    monkeypatch.setattr(core.site_api, "get_user_sites", mock_sites)
 
     class MockKeyMgr:
         async def list_keys(self, *a):
-            return [{'id': '1', 'name': 'Key', 'key_prefix': 'prefix', 'scopes': 'all', 'use_count': 0}]
+            return [
+                {"id": "1", "name": "Key", "key_prefix": "prefix", "scopes": "all", "use_count": 0}
+            ]
 
-    monkeypatch.setattr(core.user_keys, 'get_user_key_manager', lambda: MockKeyMgr())
-    
-    resp = client.get('/dashboard/connect')
-    
+    monkeypatch.setattr(core.user_keys, "get_user_key_manager", lambda: MockKeyMgr())
+
+    resp = client.get("/dashboard/connect")
+
     assert resp.status_code == 200
     assert "Test" in resp.text
     assert "Key" in resp.text

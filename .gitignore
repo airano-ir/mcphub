@@ -162,4 +162,3 @@ pytest-cache-files-*/
 .worktrees/
 worktrees/
 /.agents
-pytest-out.txt

@@ -91,7 +91,9 @@ class DashboardAuth:
 
         api_key_clean = api_key.strip()
         # Check master API key (from env var)
-        if self.master_api_key and secrets.compare_digest(api_key_clean, self.master_api_key.strip()):
+        if self.master_api_key and secrets.compare_digest(
+            api_key_clean, self.master_api_key.strip()
+        ):
             return True, "master", None
 
         # Check AuthManager's master key (covers auto-generated temp keys)

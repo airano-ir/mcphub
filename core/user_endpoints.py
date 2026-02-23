@@ -318,26 +318,25 @@ async def user_mcp_handler(request: Request) -> Response:
 
         # Check required scope
         from core.tool_registry import get_tool_registry
+
         registry = get_tool_registry()
         tool_def = registry.get_by_name(tool_name)
         if not tool_def:
-            return JSONResponse(
-                _jsonrpc_error(req_id, -32601, f"Tool '{tool_name}' not found")
-            )
+            return JSONResponse(_jsonrpc_error(req_id, -32601, f"Tool '{tool_name}' not found"))
 
         required_scope = tool_def.required_scope
         key_scopes = key_info.get("scopes", "").split()
-        
+
         scope_hierarchy = {"read": 1, "write": 2, "admin": 3}
         required_level = scope_hierarchy.get(required_scope, 0)
         key_level = max([scope_hierarchy.get(s, 0) for s in key_scopes] + [0])
-        
+
         if key_level < required_level:
             return JSONResponse(
                 _jsonrpc_error(
-                    req_id, 
-                    -32600, 
-                    f"Insufficient scope. Tool '{tool_name}' requires '{required_scope}' scope."
+                    req_id,
+                    -32600,
+                    f"Insufficient scope. Tool '{tool_name}' requires '{required_scope}' scope.",
                 )
             )
 
