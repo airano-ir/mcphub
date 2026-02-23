@@ -159,3 +159,7 @@ pytest-cache-files-*/
 # Project specific
 # ====================================
 # Add project-specific ignores here
+.worktrees/
+worktrees/
+/.agents
+pytest-out.txt

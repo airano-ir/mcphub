@@ -1,0 +1,107 @@
+<!-- Vazirmatn Font for Persian -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100;200;300;400;500;600;700;800;900&display=swap"
+    rel="stylesheet">
+
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- HTMX for dynamic updates -->
+<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+
+<!-- Alpine.js for simple interactions -->
+<script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+<!-- Custom Tailwind Config -->
+<script>
+    tailwind.config = {
+        darkMode: 'class',
+        theme: {
+            extend: {
+                fontFamily: {
+                    'vazirmatn': ['Vazirmatn', 'system-ui', 'sans-serif'],
+                },
+                colors: {
+                    primary: {
+                        50: '#f5f3ff',
+                        100: '#ede9fe',
+                        200: '#ddd6fe',
+                        300: '#c4b5fd',
+                        400: '#a78bfa',
+                        500: '#8b5cf6',
+                        600: '#7c3aed',
+                        700: '#6d28d9',
+                        800: '#5b21b6',
+                        900: '#4c1d95',
+                    }
+                }
+            }
+        }
+    }
+</script>
+
+<!-- Theme Initialization -->
+<script>
+    if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+    } else {
+        document.documentElement.classList.remove('dark');
+    }
+</script>
+
+<meta name="csrf-token" content="{{ request.state.csrf_token }}">
+
+<!-- Global CSRF Interceptor -->
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const getCsrfToken = () => document.querySelector('meta[name="csrf-token"]')?.content;
+
+        // Intercept HTMX requests
+        document.body.addEventListener('htmx:configRequest', (event) => {
+            const token = getCsrfToken();
+            if (token && event.detail.verb !== 'get') {
+                event.detail.headers['X-CSRF-Token'] = token;
+            }
+        });
+
+        // Intercept standard fetch requests
+        const originalFetch = window.fetch;
+        window.fetch = async function (resource, init) {
+            const token = getCsrfToken();
+            if (token) {
+                const url = typeof resource === 'string' ? new URL(resource, window.location.origin) : resource;
+                if (url.origin === window.location.origin) {
+                    init = init || {};
+                    init.headers = init.headers || {};
+
+                    const method = (init.method || 'GET').toUpperCase();
+                    if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+                        if (init.headers instanceof Headers) {
+                            init.headers.append('X-CSRF-Token', token);
+                        } else if (Array.isArray(init.headers)) {
+                            init.headers.push(['X-CSRF-Token', token]);
+                        } else {
+                            init.headers['X-CSRF-Token'] = token;
+                        }
+                    }
+                }
+            }
+            return originalFetch.call(this, resource, init);
+        };
+    });
+</script>
+
+<style>
+    [x-cloak] {
+        display: none !important;
+    }
+
+    /* Vazirmatn font for Persian */
+    html[lang="fa"],
+    html[lang="fa"] *,
+    [lang="fa"],
+    [lang="fa"] * {
+        font-family: 'Vazirmatn', system-ui, sans-serif !important;
+    }
+</style>

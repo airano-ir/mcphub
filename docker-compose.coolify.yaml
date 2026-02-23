@@ -1,0 +1,79 @@
+# ===================================
+# MCP Hub — Docker Compose (Coolify)
+# ===================================
+#
+# Coolify auto-reads the 'environment' block below and shows
+# each variable in the UI for editing. Just deploy and fill values.
+#
+# Setup:
+#   1. New Resource → Docker Compose → point to this file
+#   2. Fill environment variables in Coolify UI
+#   3. Set domain (e.g., mcp.yourdomain.com)
+#   4. Deploy
+# ===================================
+
+services:
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mcphub
+    restart: unless-stopped
+
+    # No 'ports' — Coolify reverse proxy routes traffic via EXPOSE 8000
+
+    environment:
+      - PYTHONUNBUFFERED=1
+
+      # === REQUIRED ===
+      - MASTER_API_KEY=${MASTER_API_KEY}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - DASHBOARD_SESSION_SECRET=${DASHBOARD_SESSION_SECRET}
+
+      # === OAUTH SOCIAL LOGIN (for user registration) ===
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - PUBLIC_URL=${PUBLIC_URL:-}
+      - SESSION_EXPIRY_HOURS=${SESSION_EXPIRY_HOURS:-168}
+
+      # === LOGGING ===
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+
+      # === SITE MANAGEMENT (E.3) ===
+      - MAX_SITES_PER_USER=${MAX_SITES_PER_USER:-10}
+      - USER_RATE_LIMIT_PER_MIN=${USER_RATE_LIMIT_PER_MIN:-30}
+      - USER_RATE_LIMIT_PER_HR=${USER_RATE_LIMIT_PER_HR:-500}
+
+      # === ADMIN-MANAGED SITES (optional) ===
+      # Add WordPress/Gitea/n8n/etc. sites here if you want admin-level access.
+      # Users can add their own sites via the dashboard without these.
+      # Format: {PLUGIN_TYPE}_{SITE_ID}_{CONFIG_KEY}
+      #
+      # - WORDPRESS_SITE1_URL=${WORDPRESS_SITE1_URL:-}
+      # - WORDPRESS_SITE1_USERNAME=${WORDPRESS_SITE1_USERNAME:-}
+      # - WORDPRESS_SITE1_APP_PASSWORD=${WORDPRESS_SITE1_APP_PASSWORD:-}
+      # - WORDPRESS_SITE1_ALIAS=${WORDPRESS_SITE1_ALIAS:-}
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    volumes:
+      - mcp-data:/app/data          # SQLite DB, API keys, OAuth data
+      - mcp-logs:/app/logs          # Audit logs, health reports
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+    # Coolify uses GID 988 for Docker socket
+    group_add:
+      - "988"
+
+volumes:
+  mcp-data:
+    driver: local
+  mcp-logs:
+    driver: local

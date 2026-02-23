@@ -12,6 +12,7 @@ This module provides comprehensive health monitoring capabilities including:
 Author: MCP Hub Team
 """
 
+import asyncio
 import json
 import logging
 import time
@@ -174,6 +175,11 @@ class HealthMonitor:
 
         # Request rate tracking (for requests per minute)
         self.request_timestamps: deque = deque(maxlen=1000)
+
+        # Active background checks
+        self.latest_health_status: dict[str, ProjectHealthStatus] = {}
+        self._bg_task: asyncio.Task | None = None
+        self._is_running = False
 
         logger.info("HealthMonitor initialized")
 
@@ -470,7 +476,7 @@ class HealthMonitor:
             }
             alerts = self._check_alerts(project_id, alert_check_data)
 
-            return ProjectHealthStatus(
+            status = ProjectHealthStatus(
                 project_id=project_id,
                 healthy=is_healthy,
                 last_check=datetime.now(UTC),
@@ -480,6 +486,8 @@ class HealthMonitor:
                 alerts=alerts,
                 details=health_result,
             )
+            self.latest_health_status[project_id] = status
+            return status
 
         except Exception as e:
             response_time_ms = (time.time() - start_time) * 1000
@@ -493,7 +501,7 @@ class HealthMonitor:
                 error_message=error_msg,
             )
 
-            return ProjectHealthStatus(
+            status = ProjectHealthStatus(
                 project_id=project_id,
                 healthy=False,
                 last_check=datetime.now(UTC),
@@ -502,6 +510,8 @@ class HealthMonitor:
                 recent_errors=[error_msg],
                 alerts=[f"CRITICAL: Health check failed - {error_msg}"],
             )
+            self.latest_health_status[project_id] = status
+            return status
 
     def _find_site_info(self, project_id: str) -> dict[str, Any] | None:
         """Find site info from SiteManager by full_id."""
@@ -762,7 +772,45 @@ class HealthMonitor:
         self.failed_requests = 0
         self.response_times.clear()
         self.request_timestamps.clear()
+        self.latest_health_status.clear()
         logger.warning("All metrics have been reset")
+        
+    async def start_background_checks(self, interval_seconds: int = 60):
+        """Start background health checks for all projects."""
+        if self._is_running:
+            return
+            
+        self._is_running = True
+        logger.info(f"Starting background health checks every {interval_seconds} seconds")
+        
+        async def _loop():
+            # Initial wait to let server start up fully
+            await asyncio.sleep(5)
+            while self._is_running:
+                try:
+                    await self.check_all_projects_health(include_metrics=True)
+                except Exception as e:
+                    logger.error(f"Error in background health check loop: {e}")
+                
+                # Sleep interval, check _is_running periodically
+                for _ in range(interval_seconds):
+                    if not self._is_running:
+                        break
+                    await asyncio.sleep(1)
+                    
+        self._bg_task = asyncio.create_task(_loop())
+        
+    async def stop_background_checks(self):
+        """Stop background health checks."""
+        self._is_running = False
+        if self._bg_task:
+            self._bg_task.cancel()
+            try:
+                await self._bg_task
+            except asyncio.CancelledError:
+                pass
+            self._bg_task = None
+        logger.info("Background health checks stopped")
 
 
 # Singleton instance

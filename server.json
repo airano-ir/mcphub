@@ -8,13 +8,13 @@
     "url": "https://github.com/airano-ir/mcphub",
     "source": "github"
   },
-  "version": "3.0.4",
+  "version": "3.1.0",
   "packages": [
     {
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "mcphub-server",
-      "version": "3.0.4",
+      "version": "3.1.0",
       "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"

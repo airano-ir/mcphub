@@ -51,10 +51,13 @@ class AuthManager:
         Returns:
             bool: True if valid
         """
-        is_valid = secrets.compare_digest(api_key, self.master_api_key)
+        if not self.master_api_key:
+            return False
+
+        is_valid = secrets.compare_digest(api_key.strip(), self.master_api_key.strip())
 
         if not is_valid:
-            logger.warning("Invalid API key attempt")
+            logger.debug("Master key validation failed for provided token")
 
         return is_valid
 

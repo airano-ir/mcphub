@@ -1,0 +1,151 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}{{ t.add_site }} - MCP Hub{% endblock %}
+{% block page_title %}{{ t.add_site }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+    <div class="flex items-center gap-4 mb-6">
+        <a href="/dashboard/sites{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}"
+            class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+        </a>
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white">{{ t.add_site }}</h2>
+    </div>
+
+    <!-- Error display -->
+    <div id="error-msg" class="hidden bg-red-50 dark:bg-red-500/20 border border-red-200 dark:border-red-500/50 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg"></div>
+
+    <form id="add-site-form" class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-6">
+        <!-- Plugin Type -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ t.plugin_type }}</label>
+            <select id="plugin_type" name="plugin_type" required
+                class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                onchange="updateFields()">
+                <option value="">{{ t.select_plugin }}</option>
+                {% for ptype, pname in plugin_names.items() %}
+                <option value="{{ ptype }}">{{ pname }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- URL -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ t.site_url }}</label>
+            <input type="url" id="url" name="url" required placeholder="https://example.com"
+                class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+        </div>
+
+        <!-- Alias -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ t.site_alias }}</label>
+            <input type="text" id="alias" name="alias" required placeholder="myblog" pattern="[a-zA-Z0-9_-]+"
+                minlength="2" maxlength="50"
+                class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ t.site_alias_hint }}</p>
+        </div>
+
+        <!-- Dynamic Credential Fields -->
+        <div id="credential-fields" class="space-y-4">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ t.credentials }}</label>
+            <p class="text-sm text-gray-500 dark:text-gray-400">{{ t.select_plugin }}</p>
+        </div>
+
+        <!-- Submit -->
+        <div class="flex items-center gap-4 pt-4">
+            <button type="submit" id="submit-btn"
+                class="btn-primary px-6 py-2.5 rounded-lg text-white font-medium disabled:opacity-50">
+                {{ t.add_site }}
+            </button>
+            <a href="/dashboard/sites{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}"
+                class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+                {{ t.cancel }}
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const pluginFields = {{ plugin_fields_json| safe }};
+
+    function updateFields() {
+        const ptype = document.getElementById('plugin_type').value;
+        const container = document.getElementById('credential-fields');
+
+        if (!ptype || !pluginFields[ptype]) {
+            container.innerHTML = '<label class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ t.credentials }}</label><p class="text-sm text-gray-500 dark:text-gray-400">{{ t.select_plugin }}</p>';
+            return;
+        }
+
+        let html = '<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ t.credentials }}</label>';
+        pluginFields[ptype].forEach(field => {
+            const req = field.required ? 'required' : '';
+            const hintHtml = field.hint ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${field.hint}</p>` : '';
+            html += `
+        <div class="mb-4">
+            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">${field.label}${field.required ? ' *' : ''}</label>
+            <input type="${field.type}" name="cred_${field.name}" ${req}
+                   class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                   placeholder="${field.label}">
+            ${hintHtml}
+        </div>`;
+        });
+        container.innerHTML = html;
+    }
+
+    document.getElementById('add-site-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('submit-btn');
+        const errorEl = document.getElementById('error-msg');
+        errorEl.classList.add('hidden');
+
+        btn.textContent = '{{ t.adding_site }}';
+        btn.disabled = true;
+
+        const ptype = document.getElementById('plugin_type').value;
+        const url = document.getElementById('url').value;
+        const alias = document.getElementById('alias').value;
+
+        // Collect credentials
+        const creds = {};
+        if (pluginFields[ptype]) {
+            pluginFields[ptype].forEach(field => {
+                const input = document.querySelector(`[name="cred_${field.name}"]`);
+                if (input) creds[field.name] = input.value;
+            });
+        }
+
+        try {
+            const resp = await fetch('/api/sites', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    plugin_type: ptype,
+                    url: url,
+                    alias: alias,
+                    credentials: creds,
+                }),
+            });
+            const data = await resp.json();
+            if (resp.ok) {
+                window.location.href = '/dashboard/sites?msg={{ t.site_added }}{% if lang and lang != "en" %}&lang={{ lang }}{% endif %}';
+            } else {
+                errorEl.textContent = data.error || 'Failed to add site';
+                errorEl.classList.remove('hidden');
+                btn.textContent = '{{ t.add_site }}';
+                btn.disabled = false;
+            }
+        } catch (err) {
+            errorEl.textContent = 'Network error: ' + err.message;
+            errorEl.classList.remove('hidden');
+            btn.textContent = '{{ t.add_site }}';
+            btn.disabled = false;
+        }
+    });
+</script>
+{% endblock %}

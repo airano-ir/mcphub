@@ -1,0 +1,196 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}{{ t.connect }} - MCP Hub{% endblock %}
+{% block page_title %}{{ t.connect }}{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+
+    <!-- API Keys Section -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t.api_keys }}</h3>
+            <button onclick="createKey()" id="create-key-btn"
+                    class="btn-primary px-4 py-2 rounded-lg text-white text-sm font-medium">
+                + {{ t.generate_key }}
+            </button>
+        </div>
+
+        <!-- New key alert -->
+        {% if new_key %}
+        <div class="bg-yellow-50 dark:bg-yellow-500/20 border border-yellow-200 dark:border-yellow-500/50 text-yellow-800 dark:text-yellow-300 px-4 py-3 rounded-lg mb-4">
+            <p class="font-medium mb-1">{{ t.your_api_key }}</p>
+            <div class="flex items-center gap-2">
+                <code class="bg-gray-100 dark:bg-gray-900 px-3 py-1 rounded text-sm flex-1 overflow-x-auto text-gray-800 dark:text-gray-200">{{ new_key }}</code>
+                <button onclick="copyText('{{ new_key }}')" class="text-sm text-yellow-700 dark:text-yellow-300 hover:text-yellow-600 dark:hover:text-yellow-200">{{ t.copy }}</button>
+            </div>
+            <p class="text-xs text-yellow-600 dark:text-yellow-400 mt-1">{{ t.key_shown_once }}</p>
+        </div>
+        {% endif %}
+
+        <!-- New key display (JS-created) -->
+        <div id="new-key-display" class="hidden bg-yellow-50 dark:bg-yellow-500/20 border border-yellow-200 dark:border-yellow-500/50 text-yellow-800 dark:text-yellow-300 px-4 py-3 rounded-lg mb-4">
+            <p class="font-medium mb-1">{{ t.your_api_key }}</p>
+            <div class="flex items-center gap-2">
+                <code id="new-key-value" class="bg-gray-100 dark:bg-gray-900 px-3 py-1 rounded text-sm flex-1 overflow-x-auto text-gray-800 dark:text-gray-200"></code>
+                <button onclick="copyNewKey()" class="text-sm text-yellow-700 dark:text-yellow-300 hover:text-yellow-600 dark:hover:text-yellow-200">{{ t.copy }}</button>
+            </div>
+            <p class="text-xs text-yellow-600 dark:text-yellow-400 mt-1">{{ t.key_shown_once }}</p>
+        </div>
+
+        {% if api_keys %}
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 dark:bg-gray-700/50">
+                    <tr>
+                        <th class="px-4 py-3 text-{{ 'right' if lang == 'fa' else 'left' }} text-sm font-medium text-gray-500 dark:text-gray-300">{{ t.api_key_name }}</th>
+                        <th class="px-4 py-3 text-{{ 'right' if lang == 'fa' else 'left' }} text-sm font-medium text-gray-500 dark:text-gray-300">Prefix</th>
+                        <th class="px-4 py-3 text-{{ 'right' if lang == 'fa' else 'left' }} text-sm font-medium text-gray-500 dark:text-gray-300">
+                            {% if lang == 'fa' %}دسترسی{% else %}Access{% endif %}
+                        </th>
+                        <th class="px-4 py-3 text-{{ 'right' if lang == 'fa' else 'left' }} text-sm font-medium text-gray-500 dark:text-gray-300">Uses</th>
+                        <th class="px-4 py-3 text-{{ 'right' if lang == 'fa' else 'left' }} text-sm font-medium text-gray-500 dark:text-gray-300">{{ t.actions }}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                    {% for key in api_keys %}
+                    <tr id="key-{{ key.id }}">
+                        <td class="px-4 py-3 text-gray-900 dark:text-white">{{ key.name }}</td>
+                        <td class="px-4 py-3 text-gray-500 dark:text-gray-400 font-mono text-sm">mhu_{{ key.key_prefix }}...</td>
+                        <td class="px-4 py-3">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400">
+                                {% if lang == 'fa' %}دسترسی کامل{% else %}Full Access{% endif %}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-sm">{{ key.use_count }}</td>
+                        <td class="px-4 py-3">
+                            <button onclick="deleteKey('{{ key.id }}')" class="text-sm text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300">{{ t.delete }}</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-gray-500 dark:text-gray-400 text-sm">{{ t.no_api_keys }}</p>
+        {% endif %}
+    </div>
+
+    <!-- Config Snippets Section -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">{{ t.config_snippets }}</h3>
+
+        {% if sites %}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ t.select_site }}</label>
+                <select id="config-site" onchange="updateConfig()"
+                        class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
+                    {% for site in sites %}
+                    <option value="{{ site.alias }}">{{ site.alias }} ({{ site.plugin_type }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ t.select_client }}</label>
+                <select id="config-client" onchange="updateConfig()"
+                        class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
+                    {% for client in clients %}
+                    <option value="{{ client.id }}">{{ client.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div class="relative">
+            <pre id="config-output" class="bg-gray-100 dark:bg-gray-900 rounded-lg p-4 text-sm text-gray-700 dark:text-gray-300 overflow-x-auto border border-gray-200 dark:border-gray-700 min-h-[120px]">Select a site and client to generate configuration...</pre>
+            <button onclick="copyConfig()" class="absolute top-2 {{ 'left-2' if lang == 'fa' else 'right-2' }} text-xs bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 px-3 py-1 rounded transition-colors" id="copy-config-btn">{{ t.copy }}</button>
+        </div>
+        {% else %}
+        <p class="text-gray-500 dark:text-gray-400 text-sm">{{ t.no_sites }}. <a href="/dashboard/sites/add{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300">{{ t.add_site }}</a></p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function createKey() {
+    const name = prompt('Key name (e.g., "Claude Desktop"):');
+    if (!name) return;
+
+    const btn = document.getElementById('create-key-btn');
+    btn.disabled = true;
+
+    try {
+        const resp = await fetch('/api/keys', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name }),
+        });
+        const data = await resp.json();
+        if (resp.ok && data.key) {
+            document.getElementById('new-key-value').textContent = data.key.key;
+            document.getElementById('new-key-display').classList.remove('hidden');
+            // Reload to show in table
+            setTimeout(() => location.reload(), 500);
+        } else {
+            alert(data.error || 'Failed to create key');
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+    btn.disabled = false;
+}
+
+async function deleteKey(keyId) {
+    if (!confirm('Delete this API key?')) return;
+    try {
+        const resp = await fetch('/api/keys/' + keyId, { method: 'DELETE' });
+        if (resp.ok) {
+            document.getElementById('key-' + keyId).remove();
+        }
+    } catch (e) {
+        alert('Failed to delete key');
+    }
+}
+
+async function updateConfig() {
+    const alias = document.getElementById('config-site')?.value;
+    const client = document.getElementById('config-client')?.value;
+    if (!alias || !client) return;
+
+    try {
+        const resp = await fetch('/api/config/' + alias + '?client=' + client);
+        const data = await resp.json();
+        if (resp.ok) {
+            document.getElementById('config-output').textContent = data.config;
+        }
+    } catch (e) {
+        document.getElementById('config-output').textContent = 'Error loading config';
+    }
+}
+
+function copyText(text) {
+    navigator.clipboard.writeText(text);
+}
+
+function copyNewKey() {
+    const key = document.getElementById('new-key-value').textContent;
+    navigator.clipboard.writeText(key);
+}
+
+function copyConfig() {
+    const text = document.getElementById('config-output').textContent;
+    navigator.clipboard.writeText(text);
+    const btn = document.getElementById('copy-config-btn');
+    btn.textContent = '{{ t.copied }}';
+    setTimeout(() => btn.textContent = '{{ t.copy }}', 2000);
+}
+
+// Load config on page load
+{% if sites %}
+document.addEventListener('DOMContentLoaded', updateConfig);
+{% endif %}
+</script>
+{% endblock %}

@@ -47,7 +47,6 @@ from core import (
     EventType,
     LogLevel,
     ToolGenerator,
-    UnifiedToolGenerator,
     get_api_key_manager,
     get_audit_logger,
     get_auth_manager,
@@ -55,11 +54,24 @@ from core import (
     get_rate_limiter,
     # Core architecture modules
     get_site_manager,
-    get_site_registry,
     get_tool_registry,
     set_api_key_context,
 )
 from core.dashboard.routes import (
+    # E.3: Site Management routes
+    api_create_key,
+    api_create_site,
+    api_delete_key,
+    api_delete_site,
+    api_get_config,
+    api_list_keys,
+    api_list_sites,
+    api_test_site,
+    # E.2: OAuth Social Login routes
+    auth_callback,
+    auth_login_page,
+    auth_logout,
+    auth_provider_redirect,
     dashboard_api_audit_logs,
     dashboard_api_health,
     dashboard_api_keys_create,
@@ -72,6 +84,8 @@ from core.dashboard.routes import (
     dashboard_api_stats,
     # K.4: Audit Logs routes
     dashboard_audit_logs_list,
+    # E.3: Dashboard pages
+    dashboard_connect_page,
     # K.5: Health Monitoring routes
     dashboard_health_page,
     dashboard_health_projects_partial,
@@ -83,18 +97,23 @@ from core.dashboard.routes import (
     dashboard_oauth_clients_delete,
     # K.4: OAuth Clients routes
     dashboard_oauth_clients_list,
+    # E.2: Profile page
+    dashboard_profile_page,
     dashboard_project_detail,
     dashboard_project_health_check,
     # K.2: Projects routes
     dashboard_projects_list,
     # K.5: Settings routes
     dashboard_settings_page,
+    # E.3: Site Management pages
+    dashboard_sites_add,
+    dashboard_sites_list,
 )
+from core.database import get_database, initialize_database
 from core.i18n import detect_language, get_all_translations
 
 # OAuth and CSRF (Phase E)
 from core.oauth import get_csrf_manager
-from plugins import registry as plugin_registry
 
 # Configure logging
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -256,18 +275,13 @@ project_manager = get_project_manager()
 audit_logger = get_audit_logger()
 csrf_manager = get_csrf_manager()
 
-# Initialize site registry (legacy - kept for backward compatibility)
-site_registry = get_site_registry()
-plugin_types = plugin_registry.get_registered_types()
-site_registry.discover_sites(plugin_types)
-
-# Initialize unified tool generator (legacy - kept for backward compatibility)
-unified_tool_generator = UnifiedToolGenerator(project_manager)
 
 # Initialize site manager
-site_manager = get_site_manager()
-site_manager.discover_sites(plugin_types)
+from plugins import registry as plugin_registry
 
+site_manager = get_site_manager()
+plugin_types = plugin_registry.get_registered_types()
+site_manager.discover_sites(plugin_types)
 # Initialize tool registry (central tool management)
 tool_registry = get_tool_registry()
 
@@ -1025,16 +1039,15 @@ class RateLimitMiddleware(Middleware):
         if not allowed:
             # Log rejection via audit logger
             try:
-                audit_logger.log_event(
-                    event_type=EventType.SECURITY,
-                    level=LogLevel.WARNING,
-                    message=f"Rate limit exceeded for client {client_id[:8]}...",
-                    metadata={
+                audit_logger.log_system_event(
+                    event=f"Rate limit exceeded for client {client_id[:8]}...",
+                    details={
                         "tool_name": tool_name,
                         "plugin_type": plugin_type,
                         "reason": message,
                         "retry_after_seconds": retry_after,
                     },
+                    level=LogLevel.WARNING,
                 )
             except Exception as log_error:
                 logger.error(f"Failed to log rate limit rejection: {log_error}")
@@ -1158,6 +1171,28 @@ class HealthMetricsMiddleware(Middleware):
 # Add health metrics middleware
 mcp.add_middleware(HealthMetricsMiddleware())
 logger.info("Health metrics middleware enabled")
+
+
+# === USER AUTHENTICATION (E.2: OAuth Social Login) ===
+
+try:
+    from core.user_auth import initialize_user_auth
+
+    initialize_user_auth()
+    logger.info("User authentication (OAuth Social Login) initialized")
+except Exception as e:
+    logger.info("User auth not initialized (OAuth not configured): %s", e)
+
+
+# === USER API KEY MANAGER (E.3: Site Management) ===
+
+try:
+    from core.user_keys import initialize_user_key_manager
+
+    initialize_user_key_manager()
+    logger.info("User API Key Manager initialized")
+except Exception as e:
+    logger.info("User API Key Manager not initialized: %s", e)
 
 
 # === ENDPOINT MIDDLEWARE HELPER ===
@@ -2116,8 +2151,8 @@ async def oauth_register(request: Request) -> JSONResponse:
             )
 
             # Audit log for open DCR
-            audit_logger.log_event(
-                event_type="oauth_dcr_open",
+            audit_logger.log_system_event(
+                event="oauth_dcr_open",
                 details={
                     "client_ip": client_ip,
                     "redirect_uris": redirect_uris,
@@ -2133,8 +2168,8 @@ async def oauth_register(request: Request) -> JSONResponse:
             logger.info(f"Protected DCR registration from {client_ip} with Master API Key")
 
             # Audit log for protected DCR
-            audit_logger.log_event(
-                event_type="oauth_dcr_protected",
+            audit_logger.log_system_event(
+                event="oauth_dcr_protected",
                 details={
                     "client_ip": client_ip,
                     "redirect_uris": redirect_uris,
@@ -4200,17 +4235,17 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
         @staticmethod
         def _is_valid_token(token: str) -> bool:
             """Check if a Bearer token is recognized by any auth backend."""
-            # 1. Master API key
-            if auth_manager.validate_master_key(token):
-                return True
-
-            # 2. Per-project API key (any valid key, skip project/scope check)
+            # 1. Per-project API key (cheap prefix check)
             if token.startswith("cmp_"):
                 key_hash = api_key_manager._hash_key(token)
                 for key in api_key_manager.keys.values():
                     if key.key_hash == key_hash and key.is_valid():
                         return True
                 return False
+
+            # 2. User API key (prefix-matched, full validation in endpoint)
+            if token.startswith("mhu_"):
+                return True
 
             # 3. OAuth JWT token
             try:
@@ -4222,7 +4257,87 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
             except Exception:
                 pass
 
+            # 4. Master API key (fallback — no distinguishing prefix)
+            if auth_manager.validate_master_key(token):
+                return True
+
             return False
+
+    class DashboardCSRFMiddleware(BaseHTTPMiddleware):
+        """
+        Double-Submit Cookie CSRF protection for Dashboard APIs.
+        Generates a stateless CSRF cookie and validates against the X-CSRF-Token header.
+        """
+
+        async def dispatch(self, request: Request, call_next):
+            import os
+            import secrets
+
+            from starlette.responses import JSONResponse
+
+            csrf_cookie = request.cookies.get("dashboard_csrf")
+            is_new_cookie = False
+            if not csrf_cookie:
+                csrf_cookie = secrets.token_urlsafe(32)
+                is_new_cookie = True
+
+            request.state.csrf_token = csrf_cookie
+
+            if request.method in ["POST", "PUT", "DELETE", "PATCH"]:
+                path = request.url.path
+
+                # Protect dashboard mutating endpoints
+                is_protected = (
+                    path.startswith("/api/dashboard/")
+                    or path.startswith("/api/sites")
+                    or path.startswith("/api/keys")
+                    or path == "/dashboard/login"
+                )
+
+                # API Requests using Bearer tokens are exempt from CSRF
+                auth_header = request.headers.get("authorization", "")
+                is_bearer = auth_header.startswith("Bearer ")
+
+                if is_protected and not is_bearer:
+                    provided_token = request.headers.get("x-csrf-token")
+
+                    # For form submissions — use raw body parsing to avoid
+                    # consuming the body stream (BaseHTTPMiddleware bug:
+                    # request.form() in middleware makes body empty for route handler)
+                    if not provided_token and request.headers.get("content-type", "").startswith(
+                        "application/x-www-form-urlencoded"
+                    ):
+                        try:
+                            from urllib.parse import parse_qs
+
+                            body = await request.body()
+                            params = parse_qs(body.decode("utf-8", errors="replace"))
+                            csrf_values = params.get("csrf_token", [])
+                            if csrf_values:
+                                provided_token = csrf_values[0]
+                        except Exception:
+                            pass
+
+                    if not provided_token or provided_token != csrf_cookie:
+                        logger.warning(f"CSRF validation failed for {path}")
+                        return JSONResponse(
+                            {"error": "CSRF validation failed. Please refresh the page."},
+                            status_code=403,
+                        )
+
+            response = await call_next(request)
+
+            if is_new_cookie:
+                response.set_cookie(
+                    "dashboard_csrf",
+                    csrf_cookie,
+                    max_age=86400,
+                    httponly=True,
+                    samesite="lax",
+                    secure=os.environ.get("DASHBOARD_SECURE_COOKIE", "true").lower() == "true",
+                )
+
+            return response
 
     # Create MCP instances
     system_mcp = create_system_mcp()  # Phase X.3 - System endpoint
@@ -4320,7 +4435,16 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
     # This is REQUIRED for FastMCP's StreamableHTTPSessionManager task group
     @asynccontextmanager
     async def combined_lifespan(app):
-        """Combine lifespans from all FastMCP http apps"""
+        """Combine lifespans from all FastMCP http apps and initialize database"""
+
+        # Initialize database first
+        try:
+            await initialize_database()
+            logger.info("Database initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize database: {e}")
+            raise
+
         active_contexts = []
 
         # Enter each sub-app's lifespan context
@@ -4343,9 +4467,19 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
                 except Exception as e:
                     logger.warning(f"Failed to start router lifespan for {name}: {e}")
 
+        # Start health monitor background checks
+        from core.health import get_health_monitor
+        hm = get_health_monitor()
+        if hm:
+            await hm.start_background_checks(interval_seconds=60)
+
         try:
             yield
         finally:
+            # Stop health monitor background checks
+            if hm:
+                await hm.stop_background_checks()
+
             # Exit all contexts in reverse order
             for name, ctx in reversed(active_contexts):
                 try:
@@ -4354,9 +4488,17 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
                 except Exception as e:
                     logger.warning(f"Error during lifespan cleanup for {name}: {e}")
 
-    # Root redirect: / → /dashboard (so users don't see 404)
+            # Close database connection
+            try:
+                db = get_database()
+                await db.close()
+                logger.info("Database connection closed")
+            except Exception as e:
+                logger.warning(f"Error closing database: {e}")
+
+    # Root redirect: / → /auth/login (Live Platform landing)
     async def root_redirect(request):
-        return RedirectResponse(url="/dashboard", status_code=302)
+        return RedirectResponse(url="/auth/login", status_code=302)
 
     # Build routes
     # Note: Order matters! More specific routes first
@@ -4365,10 +4507,19 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
         Route("/health", health_check, methods=["GET"]),
         # Root redirect
         Route("/", root_redirect, methods=["GET"]),
+        # Auth routes (E.2: OAuth Social Login)
+        Route("/auth/login", auth_login_page, methods=["GET"]),
+        Route("/auth/callback/{provider}", auth_callback, methods=["GET"]),
+        Route("/auth/logout", auth_logout, methods=["GET", "POST"]),
+        Route("/auth/{provider}", auth_provider_redirect, methods=["GET"]),
         # Dashboard routes
         Route("/dashboard/login", dashboard_login_page, methods=["GET"]),
         Route("/dashboard/login", dashboard_login_submit, methods=["POST"]),
         Route("/dashboard/logout", dashboard_logout, methods=["GET", "POST"]),
+        Route("/dashboard/profile", dashboard_profile_page, methods=["GET"]),
+        Route("/dashboard/sites/add", dashboard_sites_add, methods=["GET"]),
+        Route("/dashboard/sites", dashboard_sites_list, methods=["GET"]),
+        Route("/dashboard/connect", dashboard_connect_page, methods=["GET"]),
         Route("/dashboard", dashboard_home, methods=["GET"]),
         Route("/dashboard/", dashboard_home, methods=["GET"]),
         Route("/api/dashboard/stats", dashboard_api_stats, methods=["GET"]),
@@ -4413,6 +4564,17 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
         Route("/api/dashboard/health/projects", dashboard_health_projects_partial, methods=["GET"]),
         # Dashboard Settings routes (Phase K.5)
         Route("/dashboard/settings", dashboard_settings_page, methods=["GET"]),
+        # Site Management API (E.3)
+        Route("/api/sites", api_list_sites, methods=["GET"]),
+        Route("/api/sites", api_create_site, methods=["POST"]),
+        Route("/api/sites/{id}/test", api_test_site, methods=["POST"]),
+        Route("/api/sites/{id}", api_delete_site, methods=["DELETE"]),
+        # User API Key routes (E.3)
+        Route("/api/keys", api_list_keys, methods=["GET"]),
+        Route("/api/keys", api_create_key, methods=["POST"]),
+        Route("/api/keys/{id}", api_delete_key, methods=["DELETE"]),
+        # Config snippet API (E.3)
+        Route("/api/config/{alias}", api_get_config, methods=["GET"]),
         # OAuth endpoints
         Route("/.well-known/oauth-authorization-server", oauth_metadata, methods=["GET"]),
         # Path-specific OAuth protected resource metadata (must come before root)
@@ -4446,6 +4608,24 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
         safe_name = project_id.replace("-", "_").replace(".", "_")
         routes.append(Mount(mount_path, app=project_app, name=f"mcp_project_{safe_name}"))
 
+    # Per-user MCP endpoints (E.3: Site Management)
+    try:
+        from starlette.routing import Route
+
+        from core.user_endpoints import user_mcp_handler
+
+        routes.append(
+            Route(
+                "/u/{user_id}/{alias}/mcp",
+                endpoint=user_mcp_handler,
+                methods=["POST"],
+                name="user_mcp_endpoint",
+            )
+        )
+        logger.info("Per-user MCP endpoint registered at /u/{user_id}/{alias}/mcp")
+    except Exception as e:
+        logger.warning("Per-user MCP endpoint not registered: %s", e)
+
     # Static files (favicon, logo)
     _static_dir = os.path.join(os.path.dirname(__file__), "core", "templates", "static")
     if os.path.isdir(_static_dir):
@@ -4456,9 +4636,10 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
     # Main admin endpoint (must be last - catches all remaining routes)
     routes.append(Mount("/", app=main_app, name="mcp_admin"))
 
-    # Add OAuth middleware that returns 401 + WWW-Authenticate for MCP endpoints
+    # Add middlewares
     middleware = [
         StarletteMiddleware(OAuthRequiredMiddleware),
+        StarletteMiddleware(DashboardCSRFMiddleware),
     ]
 
     app = Starlette(routes=routes, lifespan=combined_lifespan, middleware=middleware)

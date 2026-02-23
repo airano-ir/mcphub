@@ -1,9 +1,9 @@
 <!-- Projects Table Rows -->
 {% if projects_health %}
     {% for project_id, project in projects_health.items() %}
-    <tr class="hover:bg-gray-700/30 transition-colors">
+    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
         <td class="px-6 py-4">
-            <span class="text-white font-medium">{{ project_id }}</span>
+            <span class="text-gray-900 dark:text-white font-medium">{{ project_id }}</span>
         </td>
         <td class="px-6 py-4">
             {% if project.healthy or project.status == 'healthy' %}
@@ -17,7 +17,7 @@
             {% endif %}
         </td>
         <td class="px-6 py-4">
-            <span class="text-gray-300">{{ project.response_time_ms|round(2) }} ms</span>
+            <span class="text-gray-700 dark:text-gray-300">{{ project.response_time_ms|round(2) }} ms</span>
         </td>
         <td class="px-6 py-4">
             <span class="{% if project.error_rate_percent > 10 %}text-red-400{% elif project.error_rate_percent > 5 %}text-yellow-400{% else %}text-green-400{% endif %}">
@@ -25,14 +25,14 @@
             </span>
         </td>
         <td class="px-6 py-4">
-            <span class="text-sm text-gray-400">{{ project.last_check[:19] if project.last_check else '-' }}</span>
+            <span class="text-sm text-gray-500 dark:text-gray-400">{{ project.last_check[:19] if project.last_check else '-' }}</span>
         </td>
     </tr>
     {% endfor %}
 {% else %}
     <tr>
         <td colspan="5" class="px-6 py-12 text-center">
-            <p class="text-gray-400">
+            <p class="text-gray-500 dark:text-gray-400">
                 {% if lang == 'fa' %}هیچ پروژه‌ای برای بررسی یافت نشد{% else %}No projects found for health check{% endif %}
             </p>
         </td>

@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="{{ lang|default('en') }}" {% if lang=='fa' %}dir="rtl" {% endif %}>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - MCP Hub</title>
+    <link rel="icon" type="image/svg+xml" href="/static/logo.svg">
+    {% include "dashboard/partials/head_assets.html" %}
+    <style>
+        .login-gradient {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .card-shadow {
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .btn-github {
+            background: #24292e;
+        }
+
+        .btn-github:hover {
+            background: #2f363d;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(36, 41, 46, 0.4);
+        }
+
+        .btn-google {
+            background: #4285f4;
+        }
+
+        .btn-google:hover {
+            background: #3367d6;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(66, 133, 244, 0.4);
+        }
+
+        .btn-admin {
+            border: 1px solid #4b5563;
+        }
+
+        .btn-admin:hover {
+            background: #374151;
+            transform: translateY(-1px);
+        }
+
+        .animate-float {
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(0px);
+            }
+
+            50% {
+                transform: translateY(-20px);
+            }
+        }
+
+        .transition-all {
+            transition: all 0.3s ease;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-900 min-h-screen flex items-center justify-center p-4">
+    <!-- Background decoration -->
+    <div class="absolute inset-0 overflow-hidden pointer-events-none">
+        <div class="absolute -top-40 -right-40 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl animate-float"></div>
+        <div class="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl animate-float"
+            style="animation-delay: -3s;"></div>
+    </div>
+
+    <div class="relative w-full max-w-md">
+        <div class="card-shadow bg-gray-800 rounded-2xl p-8">
+            <!-- Logo -->
+            <div class="text-center mb-8">
+                <div class="mx-auto w-16 h-16 login-gradient rounded-2xl flex items-center justify-center mb-4">
+                    <img src="/static/logo.svg" alt="MCP Hub Logo"
+                        class="w-10 h-10 object-contain drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]">
+                </div>
+                <h1 class="text-2xl font-bold text-white">MCP Hub</h1>
+                <p class="text-gray-400 mt-2" {% if lang=='fa' %}dir="rtl" {% endif %}>
+                    {% if lang == 'fa' %}برای مدیریت سایت‌هایتان وارد شوید{% else %}Sign in to manage your sites{% endif
+                    %}
+                </p>
+            </div>
+
+            <!-- Error Message -->
+            {% if error %}
+            <div class="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-lg">
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 text-red-400 {% if lang == 'fa' %}ml-2{% else %}mr-2{% endif %} flex-shrink-0"
+                        fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span class="text-red-400 text-sm">
+                        {% if error == 'rate_limit' %}
+                        {% if lang == 'fa' %}تلاش‌های ثبت‌نام زیاد. لطفاً بعداً تلاش کنید.{% else %}Too many
+                        registration attempts. Please try again later.{% endif %}
+                        {% elif error == 'oauth_denied' %}
+                        {% if lang == 'fa' %}احراز هویت لغو یا رد شد.{% else %}Authentication was cancelled or denied.{%
+                        endif %}
+                        {% elif error == 'no_email' %}
+                        {% if lang == 'fa' %}آدرس ایمیل شما قابل دریافت نبود.{% else %}Could not retrieve your email
+                        address. Please check your provider settings.{% endif %}
+                        {% elif error == 'invalid_state' %}
+                        {% if lang == 'fa' %}نشست منقضی شده. لطفاً دوباره تلاش کنید.{% else %}Session expired. Please
+                        try again.{% endif %}
+                        {% elif error == 'exchange_failed' %}
+                        {% if lang == 'fa' %}احراز هویت ناموفق. لطفاً دوباره تلاش کنید.{% else %}Authentication failed.
+                        Please try again.{% endif %}
+                        {% elif error == 'provider_unavailable' %}
+                        {% if lang == 'fa' %}این ارائه‌دهنده ورود در دسترس نیست.{% else %}This login provider is not
+                        available.{% endif %}
+                        {% else %}
+                        {% if lang == 'fa' %}خطایی رخ داد. لطفاً دوباره تلاش کنید.{% else %}An error occurred. Please
+                        try again.{% endif %}
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- OAuth Buttons -->
+            <div class="space-y-3">
+                {% if "github" in providers %}
+                <a href="/auth/github"
+                    class="btn-github transition-all flex items-center justify-center w-full py-3 px-4 text-white font-semibold rounded-lg">
+                    <svg class="w-5 h-5 {% if lang == 'fa' %}ml-3{% else %}mr-3{% endif %}" fill="currentColor"
+                        viewBox="0 0 24 24">
+                        <path
+                            d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+                    </svg>
+                    {% if lang == 'fa' %}ورود با GitHub{% else %}Continue with GitHub{% endif %}
+                </a>
+                {% endif %}
+
+                {% if "google" in providers %}
+                <a href="/auth/google"
+                    class="btn-google transition-all flex items-center justify-center w-full py-3 px-4 text-white font-semibold rounded-lg">
+                    <svg class="w-5 h-5 {% if lang == 'fa' %}ml-3{% else %}mr-3{% endif %}" viewBox="0 0 24 24">
+                        <path
+                            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                            fill="#fff" />
+                        <path
+                            d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                            fill="#fff" fill-opacity="0.8" />
+                        <path
+                            d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                            fill="#fff" fill-opacity="0.6" />
+                        <path
+                            d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                            fill="#fff" fill-opacity="0.9" />
+                    </svg>
+                    {% if lang == 'fa' %}ورود با Google{% else %}Continue with Google{% endif %}
+                </a>
+                {% endif %}
+
+                {% if not providers %}
+                <div class="text-center p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                    <p class="text-yellow-400 text-sm">
+                        {% if lang == 'fa' %}هیچ ارائه‌دهنده OAuth پیکربندی نشده.{% else %}No OAuth providers
+                        configured. Set GITHUB_CLIENT_ID/SECRET or GOOGLE_CLIENT_ID/SECRET in your environment.{% endif
+                        %}
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Divider -->
+            <div class="my-6 flex items-center">
+                <div class="flex-1 border-t border-gray-600"></div>
+                <span class="px-4 text-sm text-gray-400">
+                    {% if lang == 'fa' %}یا{% else %}or{% endif %}
+                </span>
+                <div class="flex-1 border-t border-gray-600"></div>
+            </div>
+
+            <!-- Admin Login Link -->
+            <a href="/dashboard/login{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}"
+                class="btn-admin transition-all flex items-center justify-center w-full py-3 px-4 text-gray-300 font-medium rounded-lg text-sm">
+                <svg class="w-4 h-4 {% if lang == 'fa' %}ml-2{% else %}mr-2{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                </svg>
+                {% if lang == 'fa' %}ورود مدیر با کلید API{% else %}Admin Login with API Key{% endif %}
+            </a>
+
+            <!-- Language Toggle -->
+            <div class="mt-6 text-center">
+                <a href="?lang={% if lang == 'fa' %}en{% else %}fa{% endif %}"
+                    class="text-sm text-gray-400 hover:text-white transition-colors">
+                    {% if lang == 'fa' %}English{% else %}فارسی{% endif %}
+                </a>
+            </div>
+        </div>
+
+        <p class="text-center text-gray-500 text-sm mt-6">MCP Hub v{{ version }}</p>
+    </div>
+</body>
+
+</html>

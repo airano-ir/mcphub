@@ -17,7 +17,13 @@ python-dotenv>=1.0.0
 # OAuth 2.1 Infrastructure
 authlib>=1.5.0          # OAuth 2.1 server/client implementation
 PyJWT>=2.8.0            # JWT encoding/decoding
-cryptography>=46.0.0    # For RSA/ECDSA JWT signing
+cryptography>=46.0.0    # For RSA/ECDSA JWT signing + AES-256-GCM encryption
 
-# Template engine for OAuth Authorization Page (Phase E)
+# Template engine for dashboard and OAuth pages
 jinja2>=3.1.2           # HTML template rendering
+
+# Database (Track E — Live Platform)
+aiosqlite>=0.20.0       # Async SQLite for user data, sites, API keys
+
+# User API key hashing (Track E.3)
+bcrypt>=4.0.0           # Secure password hashing for user API keys

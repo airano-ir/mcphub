@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.1.0] - 2026-02-23
+
+### Live Platform Foundation (Track E.1 - E.3)
+
+Major release introducing the Live Platform architecture — SQLite database, OAuth social login, site management, and per-user MCP endpoints. All features are included in the Community Edition.
+
+#### Added
+- **SQLite Database Backend** (E.1): Async SQLite via aiosqlite, WAL mode, schema versioning with migrations framework, CRUD for users/sites/API keys/connection tokens
+- **Credential Encryption** (E.1): AES-256-GCM with HKDF per-site key derivation, versioned wire format for future migration support
+- **OAuth Social Login** (E.2): GitHub + Google OAuth 2.0, CSRF state tokens, JWT session management, dual session types (admin + oauth_user)
+- **Site Management API** (E.3): Plugin credential definitions for all 9 plugins, connection validation, encrypted site CRUD, MAX_SITES_PER_USER=10
+- **User API Keys** (E.3): bcrypt-hashed keys with `mhu_` prefix, 8-char prefix for indexed lookup, 5-minute validation cache
+- **Per-User MCP Endpoints** (E.3): Direct JSON-RPC handler at `/u/{user_id}/{alias}/mcp`, per-user rate limiting (30/min, 500/hr)
+- **Config Snippets** (E.3): Auto-generated config for Claude Desktop, Claude Code, Cursor, VS Code, and ChatGPT
+- **Dashboard Pages**: My Sites (list/add/test/delete), Connect (API keys + config snippets), Profile, OAuth Login
+- **Dark/Light Mode Toggle**: Theme switcher across all dashboard pages
+- **RBAC**: Role-based access control for dashboard
+- **Active Health Checks**: Background health monitoring for connected services
+
+#### Fixed
+- CSRF middleware body consumption bug
+- OAuth log noise and DCR crash on startup
+- WordPress site connection validation (uses aiohttp to match plugin client)
+- Tenant isolation enforced on all site queries
+
+#### Security
+- All bare `except:` replaced with `except Exception:` across 12 files
+- Network error differentiation (DNS, SSL, timeout, connection refused)
+- Retry with exponential backoff for transient errors only
+- Auth/config errors never retried
+
+#### Tests
+- 452 total tests (up from 303), all passing
+- New test suites: database (37), encryption (27), user_auth (32), site_api (17), user_keys (14), user_endpoints (12), config_snippets (10)
+
+---
+
 ## [2.9.0] - 2026-02-14
 
 ### Project Revival - Dependency Updates & Documentation Sync

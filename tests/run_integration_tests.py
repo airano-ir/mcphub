@@ -100,8 +100,6 @@ class IntegrationTester:
             # Check handlers initialized
             assert hasattr(plugin, "posts"), "Missing posts handler"
             assert hasattr(plugin, "media"), "Missing media handler"
-            assert hasattr(plugin, "products"), "Missing products handler"
-            assert hasattr(plugin, "orders"), "Missing orders handler"
 
             self.add_result(
                 "wordpress_plugin_init", "passed", "WordPress plugin initializes correctly"
@@ -158,11 +156,6 @@ class IntegrationTester:
                 "CommentsHandler",
                 "UsersHandler",
                 "SiteHandler",
-                "ProductsHandler",
-                "OrdersHandler",
-                "CustomersHandler",
-                "ReportsHandler",
-                "CouponsHandler",
                 "SEOHandler",
                 "WPCLIHandler",
                 "MenusHandler",

@@ -50,6 +50,7 @@ class SiteConfig(BaseModel):
     site_id: str = Field(..., description="Unique site identifier")
     plugin_type: str = Field(..., description="Plugin type (wordpress, gitea, etc)")
     alias: str | None = Field(None, description="Friendly alias for the site")
+    user_id: str | None = Field(None, description="Owner user ID for the site")
 
     # Common config fields (plugins may require additional fields)
     url: str | None = Field(None, description="Site URL")
@@ -452,6 +453,7 @@ class SiteManager:
                         "site_id": config.site_id,
                         "alias": config.alias,
                         "full_id": config.get_full_id(),
+                        "user_id": config.user_id,
                     }
                 )
 

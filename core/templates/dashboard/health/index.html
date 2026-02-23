@@ -8,10 +8,10 @@
     <!-- System Status Overview -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <!-- Overall Status -->
-        <div class="bg-gray-800 rounded-xl border border-gray-700 p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-400">{% if lang == 'fa' %}وضعیت کلی{% else %}Overall Status{% endif %}</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}وضعیت کلی{% else %}Overall Status{% endif %}</p>
                     {% if async_load %}
                     <p id="system-status-badge" class="text-2xl font-bold text-blue-400">
                         {% if lang == 'fa' %}در حال بررسی...{% else %}Checking...{% endif %}
@@ -44,11 +44,11 @@
         </div>
 
         <!-- Uptime -->
-        <div class="bg-gray-800 rounded-xl border border-gray-700 p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-400">{{ t.system_uptime }}</p>
-                    <p class="text-2xl font-bold text-white">{{ uptime.formatted }}</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ t.system_uptime }}</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ uptime.formatted }}</p>
                 </div>
                 <div class="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center">
                     <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -59,11 +59,11 @@
         </div>
 
         <!-- Total Requests -->
-        <div class="bg-gray-800 rounded-xl border border-gray-700 p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-400">{% if lang == 'fa' %}کل درخواست‌ها{% else %}Total Requests{% endif %}</p>
-                    <p class="text-2xl font-bold text-white">{{ metrics.total_requests|default(0) }}</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}کل درخواست‌ها{% else %}Total Requests{% endif %}</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ metrics.total_requests|default(0) }}</p>
                     <p class="text-xs text-gray-500">{{ metrics.requests_per_minute|default(0)|round(1) }} req/min</p>
                 </div>
                 <div class="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center">
@@ -75,10 +75,10 @@
         </div>
 
         <!-- Error Rate -->
-        <div class="bg-gray-800 rounded-xl border border-gray-700 p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-400">{% if lang == 'fa' %}نرخ خطا{% else %}Error Rate{% endif %}</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}نرخ خطا{% else %}Error Rate{% endif %}</p>
                     <p class="text-2xl font-bold {% if (metrics.error_rate_percent|default(0)) > 10 %}text-red-400{% elif (metrics.error_rate_percent|default(0)) > 5 %}text-yellow-400{% else %}text-green-400{% endif %}">
                         {{ metrics.error_rate_percent|default(0)|round(2) }}%
                     </p>
@@ -113,8 +113,8 @@
     <!-- Response Time & Throughput -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Response Time -->
-        <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
-            <h3 class="text-lg font-semibold text-white mb-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 {% if lang == 'fa' %}زمان پاسخ{% else %}Response Time{% endif %}
             </h3>
             <div class="grid grid-cols-3 gap-4">
@@ -134,22 +134,22 @@
         </div>
 
         <!-- Request Summary -->
-        <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
-            <h3 class="text-lg font-semibold text-white mb-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 {% if lang == 'fa' %}خلاصه درخواست‌ها{% else %}Request Summary{% endif %}
             </h3>
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <p class="text-sm text-gray-400">{% if lang == 'fa' %}موفق{% else %}Successful{% endif %}</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}موفق{% else %}Successful{% endif %}</p>
                     <p class="text-2xl font-bold text-green-400">{{ metrics.successful_requests|default(0) }}</p>
                 </div>
                 <div>
-                    <p class="text-sm text-gray-400">{% if lang == 'fa' %}ناموفق{% else %}Failed{% endif %}</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}ناموفق{% else %}Failed{% endif %}</p>
                     <p class="text-2xl font-bold text-red-400">{{ metrics.failed_requests|default(0) }}</p>
                 </div>
             </div>
             <div class="mt-4">
-                <div class="w-full bg-gray-700 rounded-full h-2">
+                <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                     {% set total = metrics.total_requests|default(0) %}
                     {% set successful = metrics.successful_requests|default(0) %}
                     {% set success_rate = ((successful / total) * 100) if total > 0 else 100 %}
@@ -164,12 +164,12 @@
     <div id="alerts-container"></div>
 
     <!-- Projects Health -->
-    <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-700 flex items-center justify-between">
-            <h3 class="text-lg font-semibold text-white">
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
                 {% if lang == 'fa' %}سلامت پروژه‌ها{% else %}Project Health{% endif %}
             </h3>
-            <span id="projects-summary" class="text-sm text-gray-400">
+            <span id="projects-summary" class="text-sm text-gray-500 dark:text-gray-400">
                 {% if async_load %}
                 {% if lang == 'fa' %}در حال بارگذاری...{% else %}Loading...{% endif %}
                 {% else %}
@@ -180,21 +180,21 @@
 
         <div class="overflow-x-auto">
             <table class="w-full">
-                <thead class="bg-gray-700/50">
+                <thead class="bg-gray-50 dark:bg-gray-700/50">
                     <tr>
-                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-300">
+                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-700 dark:text-gray-300">
                             {% if lang == 'fa' %}پروژه{% else %}Project{% endif %}
                         </th>
-                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-300">
+                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-700 dark:text-gray-300">
                             {% if lang == 'fa' %}وضعیت{% else %}Status{% endif %}
                         </th>
-                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-300">
+                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-700 dark:text-gray-300">
                             {% if lang == 'fa' %}زمان پاسخ{% else %}Response Time{% endif %}
                         </th>
-                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-300">
+                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-700 dark:text-gray-300">
                             {% if lang == 'fa' %}نرخ خطا{% else %}Error Rate{% endif %}
                         </th>
-                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-300">
+                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-700 dark:text-gray-300">
                             {% if lang == 'fa' %}آخرین بررسی{% else %}Last Check{% endif %}
                         </th>
                     </tr>
@@ -203,7 +203,7 @@
                 <!-- HTMX async loading - wraps tbody for proper swap -->
                 <tbody
                     id="projects-health-body"
-                    class="divide-y divide-gray-700"
+                    class="divide-y divide-gray-200 dark:divide-gray-700"
                     hx-get="/api/dashboard/health/projects{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}"
                     hx-trigger="load"
                     hx-swap="innerHTML"
@@ -215,7 +215,7 @@
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
-                                <p class="text-gray-400">
+                                <p class="text-gray-500 dark:text-gray-400">
                                     {% if lang == 'fa' %}در حال بررسی سلامت پروژه‌ها...{% else %}Checking projects health...{% endif %}
                                 </p>
                             </div>
@@ -223,12 +223,12 @@
                     </tr>
                 </tbody>
                 {% else %}
-                <tbody class="divide-y divide-gray-700">
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                     {% if projects_health %}
                         {% for project_id, project in projects_health.items() %}
-                        <tr class="hover:bg-gray-700/30 transition-colors">
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                             <td class="px-6 py-4">
-                                <span class="text-white font-medium">{{ project_id }}</span>
+                                <span class="text-gray-900 dark:text-white font-medium">{{ project_id }}</span>
                             </td>
                             <td class="px-6 py-4">
                                 {% if project.healthy or project.status == 'healthy' %}
@@ -244,7 +244,7 @@
                                 {% endif %}
                             </td>
                             <td class="px-6 py-4">
-                                <span class="text-gray-300">{{ project.response_time_ms|round(2) }} ms</span>
+                                <span class="text-gray-700 dark:text-gray-300">{{ project.response_time_ms|round(2) }} ms</span>
                             </td>
                             <td class="px-6 py-4">
                                 <span class="{% if project.error_rate_percent > 10 %}text-red-400{% elif project.error_rate_percent > 5 %}text-yellow-400{% else %}text-green-400{% endif %}">
@@ -252,14 +252,14 @@
                                 </span>
                             </td>
                             <td class="px-6 py-4">
-                                <span class="text-sm text-gray-400">{{ project.last_check[:19] if project.last_check else '-' }}</span>
+                                <span class="text-sm text-gray-500 dark:text-gray-400">{{ project.last_check[:19] if project.last_check else '-' }}</span>
                             </td>
                         </tr>
                         {% endfor %}
                     {% else %}
                         <tr>
                             <td colspan="5" class="px-6 py-12 text-center">
-                                <p class="text-gray-400">
+                                <p class="text-gray-500 dark:text-gray-400">
                                     {% if lang == 'fa' %}هیچ پروژه‌ای برای بررسی یافت نشد{% else %}No projects found for health check{% endif %}
                                 </p>
                             </td>
@@ -272,26 +272,26 @@
     </div>
 
     <!-- System Information -->
-    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
-        <h3 class="text-lg font-semibold text-white mb-4">
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             {% if lang == 'fa' %}اطلاعات سیستم{% else %}System Information{% endif %}
         </h3>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
-                <p class="text-sm text-gray-400">{% if lang == 'fa' %}زمان شروع{% else %}Start Time{% endif %}</p>
-                <p class="text-white font-mono text-sm">{{ uptime.start_time[:19] if uptime.start_time else '-' }}</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}زمان شروع{% else %}Start Time{% endif %}</p>
+                <p class="text-gray-900 dark:text-white font-mono text-sm">{{ uptime.start_time[:19] if uptime.start_time else '-' }}</p>
             </div>
             <div>
-                <p class="text-sm text-gray-400">{% if lang == 'fa' %}آپتایم (روز){% else %}Uptime (Days){% endif %}</p>
-                <p class="text-white font-mono text-sm">{{ uptime.days|default(0)|round(2) }}</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}آپتایم (روز){% else %}Uptime (Days){% endif %}</p>
+                <p class="text-gray-900 dark:text-white font-mono text-sm">{{ uptime.days|default(0)|round(2) }}</p>
             </div>
             <div>
-                <p class="text-sm text-gray-400">{% if lang == 'fa' %}آپتایم (ساعت){% else %}Uptime (Hours){% endif %}</p>
-                <p class="text-white font-mono text-sm">{{ uptime.hours|default(0)|round(2) }}</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}آپتایم (ساعت){% else %}Uptime (Hours){% endif %}</p>
+                <p class="text-gray-900 dark:text-white font-mono text-sm">{{ uptime.hours|default(0)|round(2) }}</p>
             </div>
             <div>
-                <p class="text-sm text-gray-400">{% if lang == 'fa' %}زمان فعلی{% else %}Current Time{% endif %}</p>
-                <p class="text-white font-mono text-sm">{{ uptime.current_time[:19] if uptime.current_time else '-' }}</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}زمان فعلی{% else %}Current Time{% endif %}</p>
+                <p class="text-gray-900 dark:text-white font-mono text-sm">{{ uptime.current_time[:19] if uptime.current_time else '-' }}</p>
             </div>
         </div>
     </div>
@@ -299,7 +299,7 @@
     <!-- Refresh Buttons -->
     <div class="flex justify-between items-center">
         {% if is_cached %}
-        <p class="text-sm text-gray-400">
+        <p class="text-sm text-gray-500 dark:text-gray-400">
             <svg class="w-4 h-4 inline-block {% if lang == 'fa' %}ml-1{% else %}mr-1{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
@@ -316,7 +316,7 @@
 
         <div class="flex gap-2">
             <a href="/dashboard/health{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}"
-               class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white text-sm transition-colors">
+               class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-white text-sm transition-colors">
                 {{ t.refresh }}
             </a>
             <a href="/dashboard/health?refresh=true{% if lang and lang != 'en' %}&lang={{ lang }}{% endif %}"

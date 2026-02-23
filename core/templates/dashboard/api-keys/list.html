@@ -8,7 +8,7 @@
     <!-- Header with Create Button -->
     <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
-            <p class="text-gray-400 text-sm">
+            <p class="text-gray-500 dark:text-gray-400 text-sm">
                 {% if lang == 'fa' %}مدیریت کلیدهای API برای دسترسی به ابزارها{% else %}Manage API keys for tool access{% endif %}
             </p>
         </div>
@@ -24,16 +24,16 @@
     </div>
 
     <!-- Filters -->
-    <div class="bg-gray-800 rounded-xl border border-gray-700 p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
         <form method="GET" class="flex flex-wrap items-center gap-4">
             {% if lang and lang != 'en' %}<input type="hidden" name="lang" value="{{ lang }}">{% endif %}
 
             <!-- Project Filter -->
             <div class="flex items-center gap-2">
-                <label class="text-sm text-gray-400">{{ t.filter }}:</label>
+                <label class="text-sm text-gray-500 dark:text-gray-400">{{ t.filter }}:</label>
                 <select
                     name="project"
-                    class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    class="bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     onchange="this.form.submit()"
                 >
                     <option value="">{% if lang == 'fa' %}همه پروژه‌ها{% else %}All Projects{% endif %}</option>
@@ -48,10 +48,10 @@
 
             <!-- Status Filter -->
             <div class="flex items-center gap-2">
-                <label class="text-sm text-gray-400">{% if lang == 'fa' %}وضعیت:{% else %}Status:{% endif %}</label>
+                <label class="text-sm text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}وضعیت:{% else %}Status:{% endif %}</label>
                 <select
                     name="status"
-                    class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    class="bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     onchange="this.form.submit()"
                 >
                     <option value="active" {% if selected_status == 'active' %}selected{% endif %}>{% if lang == 'fa' %}فعال{% else %}Active{% endif %}</option>
@@ -67,7 +67,7 @@
                     name="search"
                     value="{{ search_query }}"
                     placeholder="{% if lang == 'fa' %}جستجو در توضیحات...{% else %}Search description...{% endif %}"
-                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white text-sm placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 text-gray-900 dark:text-white text-sm placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
             </div>
 
@@ -76,7 +76,7 @@
             </button>
 
             {% if search_query or selected_project or selected_status != 'active' %}
-            <a href="/dashboard/api-keys{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white text-sm transition-colors">
+            <a href="/dashboard/api-keys{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-white text-sm transition-colors">
                 {{ t['clear'] }}
             </a>
             {% endif %}
@@ -84,42 +84,42 @@
     </div>
 
     <!-- API Keys Table -->
-    <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="w-full">
-                <thead class="bg-gray-700/50">
+                <thead class="bg-gray-50 dark:bg-gray-700/50">
                     <tr>
-                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-300">
+                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-700 dark:text-gray-300">
                             {% if lang == 'fa' %}شناسه کلید{% else %}Key ID{% endif %}
                         </th>
-                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-300">
+                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-700 dark:text-gray-300">
                             {% if lang == 'fa' %}پروژه{% else %}Project{% endif %}
                         </th>
-                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-300">
+                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-700 dark:text-gray-300">
                             {% if lang == 'fa' %}دسترسی{% else %}Scope{% endif %}
                         </th>
-                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-300">
+                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-700 dark:text-gray-300">
                             {% if lang == 'fa' %}توضیحات{% else %}Description{% endif %}
                         </th>
-                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-300">
+                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-700 dark:text-gray-300">
                             {% if lang == 'fa' %}وضعیت{% else %}Status{% endif %}
                         </th>
-                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-300">
+                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-700 dark:text-gray-300">
                             {% if lang == 'fa' %}استفاده{% else %}Usage{% endif %}
                         </th>
-                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-300">
+                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-700 dark:text-gray-300">
                             {% if lang == 'fa' %}عملیات{% else %}Actions{% endif %}
                         </th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-700">
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                     {% if api_keys %}
                         {% for key in api_keys %}
-                        <tr class="hover:bg-gray-700/30 transition-colors {% if key.revoked %}opacity-50{% endif %}">
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors {% if key.revoked %}opacity-50{% endif %}">
                             <!-- Key ID -->
                             <td class="px-6 py-4">
                                 <div class="flex items-center">
-                                    <span class="text-sm text-gray-300 font-mono">{{ key.key_id[:12] }}...</span>
+                                    <span class="text-sm text-gray-700 dark:text-gray-300 font-mono">{{ key.key_id[:12] }}...</span>
                                     <button
                                         onclick="copyToClipboard('{{ key.key_id }}')"
                                         class="{% if lang == 'fa' %}mr-2{% else %}ml-2{% endif %} text-gray-400 hover:text-white transition-colors"
@@ -139,7 +139,7 @@
                                     {% if lang == 'fa' %}همه پروژه‌ها{% else %}All Projects{% endif %}
                                 </span>
                                 {% else %}
-                                <span class="text-sm text-gray-300">{{ key.project_id }}</span>
+                                <span class="text-sm text-gray-700 dark:text-gray-300">{{ key.project_id }}</span>
                                 {% endif %}
                             </td>
 
@@ -156,7 +156,7 @@
 
                             <!-- Description -->
                             <td class="px-6 py-4">
-                                <span class="text-sm text-gray-400">{{ key.description or '-' }}</span>
+                                <span class="text-sm text-gray-500 dark:text-gray-400">{{ key.description or '-' }}</span>
                             </td>
 
                             <!-- Status -->
@@ -181,7 +181,7 @@
 
                             <!-- Usage -->
                             <td class="px-6 py-4">
-                                <span class="text-sm text-gray-300">{{ key.usage_count }}</span>
+                                <span class="text-sm text-gray-700 dark:text-gray-300">{{ key.usage_count }}</span>
                                 <span class="text-xs text-gray-500">{% if lang == 'fa' %}بار{% else %}calls{% endif %}</span>
                             </td>
 
@@ -201,7 +201,7 @@
                                     {% endif %}
                                     <button
                                         onclick="openDeleteModal('{{ key.key_id }}', '{{ key.description or key.key_id[:12] }}')"
-                                        class="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-gray-400 hover:text-white transition-colors"
+                                        class="p-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-gray-400 hover:text-white transition-colors"
                                         title="{% if lang == 'fa' %}حذف کلید{% else %}Delete Key{% endif %}"
                                     >
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -218,7 +218,7 @@
                                 <svg class="w-12 h-12 mx-auto mb-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
                                 </svg>
-                                <p class="text-gray-400">
+                                <p class="text-gray-500 dark:text-gray-400">
                                     {% if lang == 'fa' %}کلید API یافت نشد{% else %}No API keys found{% endif %}
                                 </p>
                                 <button
@@ -236,8 +236,8 @@
 
         <!-- Pagination -->
         {% if total_pages > 1 %}
-        <div class="px-6 py-4 border-t border-gray-700 flex items-center justify-between">
-            <p class="text-sm text-gray-400">
+        <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <p class="text-sm text-gray-500 dark:text-gray-400">
                 {% if lang == 'fa' %}
                 نمایش {{ ((page_number - 1) * per_page) + 1 }} تا {{ [page_number * per_page, total_count]|min }} از {{ total_count }} کلید
                 {% else %}
@@ -248,7 +248,7 @@
             <div class="flex items-center gap-2">
                 {% if page_number > 1 %}
                 <a href="?page={{ page_number - 1 }}{% if selected_project %}&project={{ selected_project }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if lang and lang != 'en' %}&lang={{ lang }}{% endif %}"
-                   class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm text-white transition-colors">
+                   class="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-sm text-white transition-colors">
                     {% if lang == 'fa' %}قبلی{% else %}Previous{% endif %}
                 </a>
                 {% endif %}
@@ -258,7 +258,7 @@
                     <span class="px-3 py-1.5 bg-primary-600 rounded-lg text-sm text-white">{{ page_num }}</span>
                     {% elif page_num == 1 or page_num == total_pages or (page_num >= page_number - 2 and page_num <= page_number + 2) %}
                     <a href="?page={{ page_num }}{% if selected_project %}&project={{ selected_project }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if lang and lang != 'en' %}&lang={{ lang }}{% endif %}"
-                       class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm text-white transition-colors">
+                       class="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-sm text-white transition-colors">
                         {{ page_num }}
                     </a>
                     {% elif page_num == page_number - 3 or page_num == page_number + 3 %}
@@ -268,7 +268,7 @@
 
                 {% if page_number < total_pages %}
                 <a href="?page={{ page_number + 1 }}{% if selected_project %}&project={{ selected_project }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if lang and lang != 'en' %}&lang={{ lang }}{% endif %}"
-                   class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm text-white transition-colors">
+                   class="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-sm text-white transition-colors">
                     {% if lang == 'fa' %}بعدی{% else %}Next{% endif %}
                 </a>
                 {% endif %}
@@ -280,9 +280,9 @@
 
 <!-- Create Key Modal -->
 <div id="createModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
-    <div class="bg-gray-800 rounded-xl border border-gray-700 w-full max-w-md mx-4">
-        <div class="p-6 border-b border-gray-700">
-            <h3 class="text-lg font-semibold text-white">
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 w-full max-w-md mx-4">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
                 {% if lang == 'fa' %}ایجاد کلید API جدید{% else %}Create New API Key{% endif %}
             </h3>
         </div>
@@ -291,13 +291,13 @@
 
             <!-- Project -->
             <div>
-                <label class="block text-sm font-medium text-gray-300 mb-2">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {% if lang == 'fa' %}پروژه{% else %}Project{% endif %}
                 </label>
                 <select
                     name="project_id"
                     required
-                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
                     <option value="*">{% if lang == 'fa' %}همه پروژه‌ها (*){% else %}All Projects (*){% endif %}</option>
                     {% for project in available_projects %}
@@ -308,46 +308,46 @@
 
             <!-- Scope -->
             <div>
-                <label class="block text-sm font-medium text-gray-300 mb-2">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {% if lang == 'fa' %}سطح دسترسی{% else %}Scope{% endif %}
                 </label>
                 <div class="space-y-2">
                     <label class="flex items-center">
                         <input type="checkbox" name="scope_read" value="read" checked class="bg-gray-700 border-gray-600 rounded text-primary-600 focus:ring-primary-500">
-                        <span class="{% if lang == 'fa' %}mr-2{% else %}ml-2{% endif %} text-sm text-gray-300">read - {% if lang == 'fa' %}خواندن داده‌ها{% else %}Read data{% endif %}</span>
+                        <span class="{% if lang == 'fa' %}mr-2{% else %}ml-2{% endif %} text-sm text-gray-700 dark:text-gray-300">read - {% if lang == 'fa' %}خواندن داده‌ها{% else %}Read data{% endif %}</span>
                     </label>
                     <label class="flex items-center">
                         <input type="checkbox" name="scope_write" value="write" class="bg-gray-700 border-gray-600 rounded text-primary-600 focus:ring-primary-500">
-                        <span class="{% if lang == 'fa' %}mr-2{% else %}ml-2{% endif %} text-sm text-gray-300">write - {% if lang == 'fa' %}نوشتن داده‌ها{% else %}Write data{% endif %}</span>
+                        <span class="{% if lang == 'fa' %}mr-2{% else %}ml-2{% endif %} text-sm text-gray-700 dark:text-gray-300">write - {% if lang == 'fa' %}نوشتن داده‌ها{% else %}Write data{% endif %}</span>
                     </label>
                     <label class="flex items-center">
                         <input type="checkbox" name="scope_admin" value="admin" class="bg-gray-700 border-gray-600 rounded text-primary-600 focus:ring-primary-500">
-                        <span class="{% if lang == 'fa' %}mr-2{% else %}ml-2{% endif %} text-sm text-gray-300">admin - {% if lang == 'fa' %}مدیریت کامل{% else %}Full admin{% endif %}</span>
+                        <span class="{% if lang == 'fa' %}mr-2{% else %}ml-2{% endif %} text-sm text-gray-700 dark:text-gray-300">admin - {% if lang == 'fa' %}مدیریت کامل{% else %}Full admin{% endif %}</span>
                     </label>
                 </div>
             </div>
 
             <!-- Description -->
             <div>
-                <label class="block text-sm font-medium text-gray-300 mb-2">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {% if lang == 'fa' %}توضیحات (اختیاری){% else %}Description (optional){% endif %}
                 </label>
                 <input
                     type="text"
                     name="description"
                     placeholder="{% if lang == 'fa' %}مثال: کلید برای CI/CD{% else %}e.g., Key for CI/CD{% endif %}"
-                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
             </div>
 
             <!-- Expiration -->
             <div>
-                <label class="block text-sm font-medium text-gray-300 mb-2">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {% if lang == 'fa' %}انقضا (اختیاری){% else %}Expiration (optional){% endif %}
                 </label>
                 <select
                     name="expires_in_days"
-                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
                     <option value="">{% if lang == 'fa' %}بدون انقضا{% else %}Never expires{% endif %}</option>
                     <option value="7">{% if lang == 'fa' %}7 روز{% else %}7 days{% endif %}</option>
@@ -357,10 +357,10 @@
                 </select>
             </div>
         </form>
-        <div class="p-6 border-t border-gray-700 flex justify-end gap-3">
+        <div class="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
             <button
                 onclick="closeCreateModal()"
-                class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white text-sm transition-colors"
+                class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-white text-sm transition-colors"
             >
                 {% if lang == 'fa' %}انصراف{% else %}Cancel{% endif %}
             </button>
@@ -376,9 +376,9 @@
 
 <!-- New Key Modal (shows the actual key) -->
 <div id="newKeyModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
-    <div class="bg-gray-800 rounded-xl border border-gray-700 w-full max-w-lg mx-4">
-        <div class="p-6 border-b border-gray-700">
-            <h3 class="text-lg font-semibold text-white flex items-center">
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 w-full max-w-lg mx-4">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
                 <svg class="w-6 h-6 text-green-400 {% if lang == 'fa' %}ml-2{% else %}mr-2{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
@@ -403,7 +403,7 @@
                         type="text"
                         id="newKeyValue"
                         readonly
-                        class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white font-mono text-sm"
+                        class="flex-1 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 text-gray-900 dark:text-white font-mono text-sm"
                     >
                     <button
                         onclick="copyNewKey()"
@@ -414,7 +414,7 @@
                 </div>
             </div>
         </div>
-        <div class="p-6 border-t border-gray-700 flex justify-end">
+        <div class="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end">
             <button
                 onclick="closeNewKeyModal()"
                 class="px-4 py-2 bg-primary-600 hover:bg-primary-700 rounded-lg text-white text-sm transition-colors"
@@ -427,14 +427,14 @@
 
 <!-- Revoke Modal -->
 <div id="revokeModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
-    <div class="bg-gray-800 rounded-xl border border-gray-700 w-full max-w-md mx-4">
-        <div class="p-6 border-b border-gray-700">
-            <h3 class="text-lg font-semibold text-white">
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 w-full max-w-md mx-4">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
                 {% if lang == 'fa' %}لغو کلید API{% else %}Revoke API Key{% endif %}
             </h3>
         </div>
         <div class="p-6">
-            <p class="text-gray-300">
+            <p class="text-gray-700 dark:text-gray-300">
                 {% if lang == 'fa' %}
                 آیا مطمئن هستید که می‌خواهید کلید <span id="revokeKeyName" class="font-mono text-white"></span> را لغو کنید؟
                 {% else %}
@@ -445,10 +445,10 @@
                 {% if lang == 'fa' %}این عمل غیرقابل برگشت است و کلید دیگر کار نخواهد کرد.{% else %}This action cannot be undone and the key will stop working immediately.{% endif %}
             </p>
         </div>
-        <div class="p-6 border-t border-gray-700 flex justify-end gap-3">
+        <div class="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
             <button
                 onclick="closeRevokeModal()"
-                class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white text-sm transition-colors"
+                class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-white text-sm transition-colors"
             >
                 {% if lang == 'fa' %}انصراف{% else %}Cancel{% endif %}
             </button>
@@ -464,14 +464,14 @@
 
 <!-- Delete Modal -->
 <div id="deleteModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
-    <div class="bg-gray-800 rounded-xl border border-gray-700 w-full max-w-md mx-4">
-        <div class="p-6 border-b border-gray-700">
-            <h3 class="text-lg font-semibold text-white">
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 w-full max-w-md mx-4">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
                 {% if lang == 'fa' %}حذف کلید API{% else %}Delete API Key{% endif %}
             </h3>
         </div>
         <div class="p-6">
-            <p class="text-gray-300">
+            <p class="text-gray-700 dark:text-gray-300">
                 {% if lang == 'fa' %}
                 آیا مطمئن هستید که می‌خواهید کلید <span id="deleteKeyName" class="font-mono text-white"></span> را حذف کنید؟
                 {% else %}
@@ -482,10 +482,10 @@
                 {% if lang == 'fa' %}این عمل غیرقابل برگشت است و تمام سوابق استفاده از این کلید حذف خواهد شد.{% else %}This action cannot be undone and all usage records will be deleted.{% endif %}
             </p>
         </div>
-        <div class="p-6 border-t border-gray-700 flex justify-end gap-3">
+        <div class="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
             <button
                 onclick="closeDeleteModal()"
-                class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white text-sm transition-colors"
+                class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-white text-sm transition-colors"
             >
                 {% if lang == 'fa' %}انصراف{% else %}Cancel{% endif %}
             </button>

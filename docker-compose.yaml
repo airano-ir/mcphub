@@ -1,16 +1,14 @@
 # ===================================
-# MCP Hub — Docker Compose Configuration
+# MCP Hub — Docker Compose (Standalone)
 # ===================================
 #
-# After starting:
+# Usage:
+#   cp env.example .env              # edit with your values
 #   docker compose up -d
-#   curl http://localhost:8000/health    # verify server is running
-#   open http://localhost:8000/dashboard  # web dashboard
+#   curl http://localhost:8000/health
+#   open http://localhost:8000/dashboard
 #
-# Port mapping:
-#   - Standalone Docker: ports "8000:8000" works out-of-the-box.
-#   - Coolify: Comment out or remove the 'ports' section below.
-#     Coolify's reverse proxy handles routing — 'expose' is sufficient.
+# For Coolify deployment, use docker-compose.coolify.yaml instead.
 # ===================================
 
 services:
@@ -18,90 +16,40 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: airano/mcphub:latest
     container_name: mcphub
     restart: unless-stopped
 
     ports:
       - "8000:8000"
 
-    # Coolify users: Remove the 'ports' section above.
-    # Coolify's reverse proxy routes traffic to the container's exposed port.
-    
-    # Environment variables
-    environment:
-      # Master API key
-      - MASTER_API_KEY=${MASTER_API_KEY}
+    env_file:
+      - .env
 
-      # Logging
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    environment:
       - PYTHONUNBUFFERED=1
 
-      # === OAuth 2.1 (OPTIONAL) ===
-      # Only needed for ChatGPT auto-registration or third-party OAuth clients.
-      # For Claude Desktop/Code/Cursor with Bearer token auth, skip these entirely.
-      # - OAUTH_JWT_SECRET_KEY=${OAUTH_JWT_SECRET_KEY}
-      # - OAUTH_BASE_URL=${OAUTH_BASE_URL}
-      # - OAUTH_JWT_ALGORITHM=${OAUTH_JWT_ALGORITHM:-HS256}
-      # - OAUTH_ACCESS_TOKEN_TTL=${OAUTH_ACCESS_TOKEN_TTL:-3600}
-      # - OAUTH_REFRESH_TOKEN_TTL=${OAUTH_REFRESH_TOKEN_TTL:-604800}
-      - OAUTH_STORAGE_TYPE=${OAUTH_STORAGE_TYPE:-json}
-      - OAUTH_STORAGE_PATH=${OAUTH_STORAGE_PATH:-/app/data}
-
-      # === WordPress Projects ===
-      # Configure WordPress sites in Coolify environment variables
-      # Format: WORDPRESS_{SITE_ID}_{CONFIG_KEY}
-      #
-      # Required variables for each site:
-      #   WORDPRESS_SITE1_URL=https://your-site.com
-      #   WORDPRESS_SITE1_USERNAME=admin
-      #   WORDPRESS_SITE1_APP_PASSWORD=xxxx xxxx xxxx xxxx
-      #
-      # Optional (for WP-CLI tools):
-      #   WORDPRESS_SITE1_CONTAINER=wordpress_container_name
-      #   WORDPRESS_SITE1_ALIAS=myblog
-      #
-      # ⚠️ DO NOT add example values here - configure in Coolify!
-      # The server will auto-discover all WORDPRESS_* variables at startup.
-      
-      # === Other Plugins ===
-      # Gitea, n8n, Supabase, OpenPanel, Appwrite, and Directus plugins
-      # auto-discover their environment variables at startup.
-      # Format: {PLUGIN_TYPE}_{SITE_ID}_{CONFIG_KEY}
-      # No need to pre-define them here.
-    
-    # Health check
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
-    
-    # Docker socket access for WP-CLI tools
-    # Required for: wp_cache_flush, wp_cache_type, wp_transient_*, etc.
+
     volumes:
+      - mcp-data:/app/data          # SQLite DB, API keys, OAuth data
+      - mcp-logs:/app/logs          # Audit logs, health reports
+      # Docker socket — only needed for WP-CLI tools (WordPress Advanced plugin)
+      # Remove if you don't use wp_cache_flush, wp_transient_*, etc.
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - mcp-data:/app/data          # Persistent storage for API keys
-      - mcp-logs:/app/logs          # Persistent logs (audit, health)
 
-    # Grant access to Docker socket by adding user to docker group
-    # The GID varies by host (988, 999, 133 are common)
-    # Coolify typically uses 988
+    # Docker socket GID — adjust to match your host's docker group
+    # Check with: getent group docker | cut -d: -f3
     group_add:
-      - "988"  # Docker group GID (adjust if needed)
+      - "999"
 
-    # Network - Coolify will handle this
-    # networks:
-    #   - coolify
-
-# Named volumes for persistent data
 volumes:
   mcp-data:
     driver: local
   mcp-logs:
     driver: local
-
-# Networks managed by Coolify
-# networks:
-#   coolify:
-#     external: true

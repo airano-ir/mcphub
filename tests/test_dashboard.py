@@ -371,3 +371,37 @@ class TestDashboardCookieManagement:
                 break
         assert cookie_header is not None
         assert "mcp_dashboard_session=" in cookie_header
+
+
+def test_dashboard_connect_page(monkeypatch):
+    """Test that the /dashboard/connect page renders successfully without 500 errors."""
+    from server import create_multi_endpoint_app
+    from starlette.testclient import TestClient
+    import core.dashboard.routes
+    import core.site_api
+    import core.user_keys
+
+    app = create_multi_endpoint_app()
+    client = TestClient(app)
+
+    def mock_req(*args):
+        return {'user_id': 'abc', 'type': 'user'}, None
+
+    monkeypatch.setattr(core.dashboard.routes, '_require_user_session', mock_req)
+
+    async def mock_sites(*args):
+        return [{'alias': 'Test', 'plugin_type': 'dummy'}]
+
+    monkeypatch.setattr(core.site_api, 'get_user_sites', mock_sites)
+
+    class MockKeyMgr:
+        async def list_keys(self, *a):
+            return [{'id': '1', 'name': 'Key', 'key_prefix': 'prefix', 'scopes': 'all', 'use_count': 0}]
+
+    monkeypatch.setattr(core.user_keys, 'get_user_key_manager', lambda: MockKeyMgr())
+    
+    resp = client.get('/dashboard/connect')
+    
+    assert resp.status_code == 200
+    assert "Test" in resp.text
+    assert "Key" in resp.text

@@ -89,8 +89,9 @@ class DashboardAuth:
         if not api_key:
             return False, "", None
 
+        api_key_clean = api_key.strip()
         # Check master API key (from env var)
-        if self.master_api_key and secrets.compare_digest(api_key, self.master_api_key):
+        if self.master_api_key and secrets.compare_digest(api_key_clean, self.master_api_key.strip()):
             return True, "master", None
 
         # Check AuthManager's master key (covers auto-generated temp keys)
@@ -202,6 +203,9 @@ class DashboardAuth:
                 user_type=payload["type"],
                 key_id=payload.get("kid"),
             )
+        except KeyError as e:
+            logger.debug(f"Invalid dashboard session payload (missing key): {e}")
+            return None
         except jwt.ExpiredSignatureError:
             logger.debug("Dashboard session expired")
             return None
@@ -223,6 +227,27 @@ class DashboardAuth:
         if not token:
             return None
         return self.validate_session(token)
+
+    def get_user_session_from_request(self, request: Request) -> dict | None:
+        """Extract and validate an OAuth user session from request.
+
+        Args:
+            request: Starlette request object.
+
+        Returns:
+            User session dict (user_id, email, name, role, type)
+            or None.
+        """
+        token = request.cookies.get(self.COOKIE_NAME)
+        if not token:
+            return None
+        try:
+            from core.user_auth import get_user_auth
+
+            user_auth = get_user_auth()
+            return user_auth.validate_user_session(token)
+        except (RuntimeError, Exception):
+            return None
 
     def set_session_cookie(self, response: Response, token: str) -> Response:
         """
@@ -273,13 +298,15 @@ class DashboardAuth:
             RedirectResponse to login page if not authenticated, None if OK.
         """
         session = self.get_session_from_request(request)
-        if not session:
+        user_session = self.get_user_session_from_request(request)
+
+        if not session and not user_session:
             # Store original URL for redirect after login
             next_url = str(request.url.path)
             if request.url.query:
                 next_url += f"?{request.url.query}"
             return RedirectResponse(
-                url=f"/dashboard/login?next={next_url}",
+                url=f"/auth/login?next={next_url}",
                 status_code=303,
             )
         return None
@@ -291,3 +318,57 @@ def get_dashboard_auth() -> DashboardAuth:
     if _dashboard_auth is None:
         _dashboard_auth = DashboardAuth()
     return _dashboard_auth
+
+
+# ── Role-checking helpers ──────────────────────────────────────
+
+
+def is_admin_session(session) -> bool:
+    """Check if session is admin (master key or API key with admin scope).
+
+    Args:
+        session: DashboardSession or OAuth user dict.
+
+    Returns:
+        True if admin session.
+    """
+    if isinstance(session, DashboardSession):
+        return session.user_type in ("master", "api_key")
+    if isinstance(session, dict):
+        return session.get("type") == "master" or session.get("role") == "admin"
+    return False
+
+
+def get_session_display_info(session) -> dict:
+    """Get display info for header/UI.
+
+    Args:
+        session: DashboardSession or OAuth user dict.
+
+    Returns:
+        Dict with name, type, email, avatar keys.
+    """
+    if isinstance(session, DashboardSession):
+        return {"name": "Admin", "type": "admin", "email": None, "avatar": None}
+    if isinstance(session, dict):
+        return {
+            "name": session.get("name") or session.get("email", "User"),
+            "type": "user",
+            "email": session.get("email"),
+            "avatar": None,
+        }
+    return {"name": "Unknown", "type": "unknown", "email": None, "avatar": None}
+
+
+def get_session_user_id(session) -> str | None:
+    """Get user_id for OAuth sessions, None for admin.
+
+    Args:
+        session: DashboardSession or OAuth user dict.
+
+    Returns:
+        User UUID string or None.
+    """
+    if isinstance(session, dict):
+        return session.get("user_id")
+    return None

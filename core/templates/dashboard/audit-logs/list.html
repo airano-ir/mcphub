@@ -6,16 +6,16 @@
 {% block content %}
 <div class="space-y-6">
     <!-- Filters -->
-    <div class="bg-gray-800 rounded-xl border border-gray-700 p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
         <form method="GET" class="flex flex-wrap items-center gap-4">
             {% if lang and lang != 'en' %}<input type="hidden" name="lang" value="{{ lang }}">{% endif %}
 
             <!-- Project Filter -->
             <div class="flex items-center gap-2">
-                <label class="text-sm text-gray-400">{% if lang == 'fa' %}پروژه:{% else %}Project:{% endif %}</label>
+                <label class="text-sm text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}پروژه:{% else %}Project:{% endif %}</label>
                 <select
                     name="project"
-                    class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    class="bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     onchange="this.form.submit()"
                 >
                     <option value="">{% if lang == 'fa' %}همه پروژه‌ها{% else %}All Projects{% endif %}</option>
@@ -29,10 +29,10 @@
 
             <!-- Event Type Filter -->
             <div class="flex items-center gap-2">
-                <label class="text-sm text-gray-400">{{ t.filter }}:</label>
+                <label class="text-sm text-gray-500 dark:text-gray-400">{{ t.filter }}:</label>
                 <select
                     name="event_type"
-                    class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    class="bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     onchange="this.form.submit()"
                 >
                     <option value="">{% if lang == 'fa' %}همه رویدادها{% else %}All Events{% endif %}</option>
@@ -45,10 +45,10 @@
 
             <!-- Level Filter -->
             <div class="flex items-center gap-2">
-                <label class="text-sm text-gray-400">{% if lang == 'fa' %}سطح:{% else %}Level:{% endif %}</label>
+                <label class="text-sm text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}سطح:{% else %}Level:{% endif %}</label>
                 <select
                     name="level"
-                    class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    class="bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     onchange="this.form.submit()"
                 >
                     <option value="">{% if lang == 'fa' %}همه{% else %}All{% endif %}</option>
@@ -60,12 +60,12 @@
 
             <!-- Date Filter -->
             <div class="flex items-center gap-2">
-                <label class="text-sm text-gray-400">{% if lang == 'fa' %}تاریخ:{% else %}Date:{% endif %}</label>
+                <label class="text-sm text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}تاریخ:{% else %}Date:{% endif %}</label>
                 <input
                     type="date"
                     name="date"
                     value="{{ selected_date }}"
-                    class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    class="bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     onchange="this.form.submit()"
                 >
             </div>
@@ -77,7 +77,7 @@
                     name="search"
                     value="{{ search_query }}"
                     placeholder="{% if lang == 'fa' %}جستجو...{% else %}Search...{% endif %}"
-                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white text-sm placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 text-gray-900 dark:text-white text-sm placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
             </div>
 
@@ -86,7 +86,7 @@
             </button>
 
             {% if search_query or selected_event_type or selected_level or selected_date or selected_project %}
-            <a href="/dashboard/audit-logs{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white text-sm transition-colors">
+            <a href="/dashboard/audit-logs{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-white text-sm transition-colors">
                 {{ t['clear'] }}
             </a>
             {% endif %}
@@ -95,11 +95,11 @@
 
     <!-- Stats Summary -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div class="bg-gray-800 rounded-xl border border-gray-700 p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-400">{% if lang == 'fa' %}کل رویدادها{% else %}Total Events{% endif %}</p>
-                    <p class="text-2xl font-bold text-white">{{ stats.total }}</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}کل رویدادها{% else %}Total Events{% endif %}</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ stats.total }}</p>
                 </div>
                 <div class="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
                     <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -108,11 +108,11 @@
                 </div>
             </div>
         </div>
-        <div class="bg-gray-800 rounded-xl border border-gray-700 p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-400">{% if lang == 'fa' %}فراخوانی ابزار{% else %}Tool Calls{% endif %}</p>
-                    <p class="text-2xl font-bold text-white">{{ stats.tool_calls }}</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}فراخوانی ابزار{% else %}Tool Calls{% endif %}</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ stats.tool_calls }}</p>
                 </div>
                 <div class="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
                     <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -121,11 +121,11 @@
                 </div>
             </div>
         </div>
-        <div class="bg-gray-800 rounded-xl border border-gray-700 p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-400">{% if lang == 'fa' %}احراز هویت{% else %}Auth Events{% endif %}</p>
-                    <p class="text-2xl font-bold text-white">{{ stats.auth_events }}</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}احراز هویت{% else %}Auth Events{% endif %}</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ stats.auth_events }}</p>
                 </div>
                 <div class="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center">
                     <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -134,11 +134,11 @@
                 </div>
             </div>
         </div>
-        <div class="bg-gray-800 rounded-xl border border-gray-700 p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-400">{% if lang == 'fa' %}خطاها{% else %}Errors{% endif %}</p>
-                    <p class="text-2xl font-bold text-white">{{ stats.errors }}</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}خطاها{% else %}Errors{% endif %}</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ stats.errors }}</p>
                 </div>
                 <div class="w-10 h-10 bg-red-500/20 rounded-lg flex items-center justify-center">
                     <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -150,35 +150,35 @@
     </div>
 
     <!-- Logs Table -->
-    <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="w-full">
-                <thead class="bg-gray-700/50">
+                <thead class="bg-gray-50 dark:bg-gray-700/50">
                     <tr>
-                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-300">
+                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-700 dark:text-gray-300">
                             {% if lang == 'fa' %}زمان{% else %}Timestamp{% endif %}
                         </th>
-                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-300">
+                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-700 dark:text-gray-300">
                             {% if lang == 'fa' %}نوع{% else %}Type{% endif %}
                         </th>
-                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-300">
+                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-700 dark:text-gray-300">
                             {% if lang == 'fa' %}سطح{% else %}Level{% endif %}
                         </th>
-                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-300">
+                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-700 dark:text-gray-300">
                             {% if lang == 'fa' %}رویداد{% else %}Event{% endif %}
                         </th>
-                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-300">
+                        <th class="px-6 py-4 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-sm font-medium text-gray-700 dark:text-gray-300">
                             {% if lang == 'fa' %}جزئیات{% else %}Details{% endif %}
                         </th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-700">
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                     {% if logs %}
                         {% for log in logs %}
-                        <tr class="hover:bg-gray-700/30 transition-colors">
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                             <!-- Timestamp -->
                             <td class="px-6 py-4">
-                                <span class="text-sm text-gray-300 font-mono">{{ log.timestamp[:19] }}</span>
+                                <span class="text-sm text-gray-700 dark:text-gray-300 font-mono">{{ log.timestamp[:19] }}</span>
                             </td>
 
                             <!-- Event Type -->
@@ -207,7 +207,7 @@
 
                             <!-- Event/Message -->
                             <td class="px-6 py-4">
-                                <span class="text-sm text-white">{{ log.event or log.message or log.tool_name or '-' }}</span>
+                                <span class="text-sm text-gray-900 dark:text-white">{{ log.event or log.message or log.tool_name or '-' }}</span>
                                 {% if log.project_id %}
                                 <span class="text-xs text-gray-500 block">{{ log.project_id }}</span>
                                 {% endif %}
@@ -237,7 +237,7 @@
                                 <svg class="w-12 h-12 mx-auto mb-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                                 </svg>
-                                <p class="text-gray-400">
+                                <p class="text-gray-500 dark:text-gray-400">
                                     {% if lang == 'fa' %}لاگی یافت نشد{% else %}No logs found{% endif %}
                                 </p>
                             </td>
@@ -249,8 +249,8 @@
 
         <!-- Pagination -->
         {% if total_pages > 1 %}
-        <div class="px-6 py-4 border-t border-gray-700 flex items-center justify-between">
-            <p class="text-sm text-gray-400">
+        <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <p class="text-sm text-gray-500 dark:text-gray-400">
                 {% if lang == 'fa' %}
                 نمایش {{ ((page_number - 1) * per_page) + 1 }} تا {{ [page_number * per_page, total_count]|min }} از {{ total_count }} لاگ
                 {% else %}
@@ -261,17 +261,17 @@
             <div class="flex items-center gap-2">
                 {% if page_number > 1 %}
                 <a href="?page={{ page_number - 1 }}{% if selected_project %}&project={{ selected_project }}{% endif %}{% if selected_event_type %}&event_type={{ selected_event_type }}{% endif %}{% if selected_level %}&level={{ selected_level }}{% endif %}{% if selected_date %}&date={{ selected_date }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if lang and lang != 'en' %}&lang={{ lang }}{% endif %}"
-                   class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm text-white transition-colors">
+                   class="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-sm text-gray-900 dark:text-white transition-colors">
                     {% if lang == 'fa' %}قبلی{% else %}Previous{% endif %}
                 </a>
                 {% endif %}
 
                 {% for page_num in range(1, total_pages + 1) %}
                     {% if page_num == page_number %}
-                    <span class="px-3 py-1.5 bg-primary-600 rounded-lg text-sm text-white">{{ page_num }}</span>
+                    <span class="px-3 py-1.5 bg-primary-600 rounded-lg text-sm text-gray-900 dark:text-white">{{ page_num }}</span>
                     {% elif page_num == 1 or page_num == total_pages or (page_num >= page_number - 2 and page_num <= page_number + 2) %}
                     <a href="?page={{ page_num }}{% if selected_project %}&project={{ selected_project }}{% endif %}{% if selected_event_type %}&event_type={{ selected_event_type }}{% endif %}{% if selected_level %}&level={{ selected_level }}{% endif %}{% if selected_date %}&date={{ selected_date }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if lang and lang != 'en' %}&lang={{ lang }}{% endif %}"
-                       class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm text-white transition-colors">
+                       class="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-sm text-gray-900 dark:text-white transition-colors">
                         {{ page_num }}
                     </a>
                     {% elif page_num == page_number - 3 or page_num == page_number + 3 %}
@@ -281,7 +281,7 @@
 
                 {% if page_number < total_pages %}
                 <a href="?page={{ page_number + 1 }}{% if selected_project %}&project={{ selected_project }}{% endif %}{% if selected_event_type %}&event_type={{ selected_event_type }}{% endif %}{% if selected_level %}&level={{ selected_level }}{% endif %}{% if selected_date %}&date={{ selected_date }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if lang and lang != 'en' %}&lang={{ lang }}{% endif %}"
-                   class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm text-white transition-colors">
+                   class="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-sm text-gray-900 dark:text-white transition-colors">
                     {% if lang == 'fa' %}بعدی{% else %}Next{% endif %}
                 </a>
                 {% endif %}

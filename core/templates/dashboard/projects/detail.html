@@ -3,7 +3,7 @@
 {% block title %}{{ project.alias or project.site_id }} - {{ t.projects }}{% endblock %}
 {% block page_title %}
 <div class="flex items-center">
-    <a href="/dashboard/projects{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="text-gray-400 hover:text-white {% if lang == 'fa' %}ml-3{% else %}mr-3{% endif %} transition-colors">
+    <a href="/dashboard/projects{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white {% if lang == 'fa' %}ml-3{% else %}mr-3{% endif %} transition-colors">
         <svg class="w-5 h-5 {% if lang == 'fa' %}rotate-180{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
         </svg>
@@ -17,10 +17,10 @@
     <!-- Stats Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <!-- Status Card -->
-        <div class="card-hover bg-gray-800 rounded-xl p-6 border border-gray-700">
+        <div class="card-hover bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm font-medium text-gray-400">{% if lang == 'fa' %}وضعیت{% else %}Status{% endif %}</p>
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}وضعیت{% else %}Status{% endif %}</p>
                     <div class="flex items-center mt-2">
                         {% if project.health.status == 'healthy' %}
                         <span class="w-3 h-3 bg-green-500 rounded-full status-pulse {% if lang == 'fa' %}ml-2{% else %}mr-2{% endif %}"></span>
@@ -50,18 +50,18 @@
                 </div>
             </div>
             {% if project.health.error_rate and project.health.error_rate > 0 %}
-            <p class="mt-2 text-sm text-gray-400">{% if lang == 'fa' %}نرخ خطا:{% else %}Error rate:{% endif %} {{ project.health.error_rate|round(1) }}%</p>
+            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}نرخ خطا:{% else %}Error rate:{% endif %} {{ project.health.error_rate|round(1) }}%</p>
             {% elif project.health.last_check %}
-            <p class="mt-2 text-sm text-gray-400">{% if lang == 'fa' %}آخرین بررسی:{% else %}Last check:{% endif %} {{ project.health.last_check[:19] }}</p>
+            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}آخرین بررسی:{% else %}Last check:{% endif %} {{ project.health.last_check[:19] }}</p>
             {% endif %}
         </div>
 
         <!-- Tools Card -->
-        <div class="card-hover bg-gray-800 rounded-xl p-6 border border-gray-700">
+        <div class="card-hover bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm font-medium text-gray-400">{% if lang == 'fa' %}ابزارها{% else %}Tools{% endif %}</p>
-                    <p class="text-3xl font-bold text-white mt-1">{{ project.tools_count }}</p>
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}ابزارها{% else %}Tools{% endif %}</p>
+                    <p class="text-3xl font-bold text-gray-900 dark:text-white mt-1">{{ project.tools_count }}</p>
                 </div>
                 <div class="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center">
                     <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -69,15 +69,15 @@
                     </svg>
                 </div>
             </div>
-            <p class="mt-2 text-sm text-gray-400">{% if lang == 'fa' %}ابزار موجود{% else %}available{% endif %}</p>
+            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}ابزار موجود{% else %}available{% endif %}</p>
         </div>
 
         <!-- API Keys Card -->
-        <div class="card-hover bg-gray-800 rounded-xl p-6 border border-gray-700">
+        <div class="card-hover bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm font-medium text-gray-400">{% if lang == 'fa' %}کلیدهای API{% else %}API Keys{% endif %}</p>
-                    <p class="text-3xl font-bold text-white mt-1">{{ project.api_keys_count }}</p>
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}کلیدهای API{% else %}API Keys{% endif %}</p>
+                    <p class="text-3xl font-bold text-gray-900 dark:text-white mt-1">{{ project.api_keys_count }}</p>
                 </div>
                 <div class="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
                     <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -91,11 +91,11 @@
         </div>
 
         <!-- Requests Card -->
-        <div class="card-hover bg-gray-800 rounded-xl p-6 border border-gray-700">
+        <div class="card-hover bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm font-medium text-gray-400">{% if lang == 'fa' %}درخواست‌ها{% else %}Requests{% endif %}</p>
-                    <p class="text-3xl font-bold text-white mt-1">{{ project.requests_24h }}</p>
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}درخواست‌ها{% else %}Requests{% endif %}</p>
+                    <p class="text-3xl font-bold text-gray-900 dark:text-white mt-1">{{ project.requests_24h }}</p>
                 </div>
                 <div class="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center">
                     <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -103,7 +103,7 @@
                     </svg>
                 </div>
             </div>
-            <p class="mt-2 text-sm text-gray-400">{% if lang == 'fa' %}در 24 ساعت{% else %}/24h{% endif %}</p>
+            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}در 24 ساعت{% else %}/24h{% endif %}</p>
         </div>
     </div>
 
@@ -112,33 +112,33 @@
         <!-- Configuration -->
         <div class="lg:col-span-2 space-y-6">
             <!-- Config Section -->
-            <div class="bg-gray-800 rounded-xl border border-gray-700">
-                <div class="p-6 border-b border-gray-700">
-                    <h2 class="text-lg font-semibold text-white">{% if lang == 'fa' %}تنظیمات{% else %}Configuration{% endif %}</h2>
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+                <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{% if lang == 'fa' %}تنظیمات{% else %}Configuration{% endif %}</h2>
                 </div>
                 <div class="p-6">
                     <dl class="space-y-4">
-                        <div class="flex justify-between py-2 border-b border-gray-700">
-                            <dt class="text-gray-400">{% if lang == 'fa' %}شناسه کامل{% else %}Full ID{% endif %}</dt>
-                            <dd class="text-white font-mono">{{ project.full_id }}</dd>
+                        <div class="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+                            <dt class="text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}شناسه کامل{% else %}Full ID{% endif %}</dt>
+                            <dd class="text-gray-900 dark:text-white font-mono">{{ project.full_id }}</dd>
                         </div>
-                        <div class="flex justify-between py-2 border-b border-gray-700">
-                            <dt class="text-gray-400">{% if lang == 'fa' %}نوع پلاگین{% else %}Plugin Type{% endif %}</dt>
-                            <dd class="text-white">{{ project.plugin_type|plugin_name }}</dd>
+                        <div class="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+                            <dt class="text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}نوع پلاگین{% else %}Plugin Type{% endif %}</dt>
+                            <dd class="text-gray-900 dark:text-white">{{ project.plugin_type|plugin_name }}</dd>
                         </div>
-                        <div class="flex justify-between py-2 border-b border-gray-700">
-                            <dt class="text-gray-400">{% if lang == 'fa' %}شناسه سایت{% else %}Site ID{% endif %}</dt>
-                            <dd class="text-white font-mono">{{ project.site_id }}</dd>
+                        <div class="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+                            <dt class="text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}شناسه سایت{% else %}Site ID{% endif %}</dt>
+                            <dd class="text-gray-900 dark:text-white font-mono">{{ project.site_id }}</dd>
                         </div>
                         {% if project.alias %}
-                        <div class="flex justify-between py-2 border-b border-gray-700">
-                            <dt class="text-gray-400">{% if lang == 'fa' %}نام مستعار{% else %}Alias{% endif %}</dt>
+                        <div class="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+                            <dt class="text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}نام مستعار{% else %}Alias{% endif %}</dt>
                             <dd class="text-primary-400 font-medium">{{ project.alias }}</dd>
                         </div>
                         {% endif %}
                         {% if project.url %}
-                        <div class="flex justify-between py-2 border-b border-gray-700">
-                            <dt class="text-gray-400">URL</dt>
+                        <div class="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+                            <dt class="text-gray-500 dark:text-gray-400">URL</dt>
                             <dd>
                                 <a href="{{ project.url }}" target="_blank" class="text-blue-400 hover:text-blue-300">
                                     {{ project.url }}
@@ -150,22 +150,22 @@
                         </div>
                         {% endif %}
                         <div class="flex justify-between py-2">
-                            <dt class="text-gray-400">{% if lang == 'fa' %}اندپوینت MCP{% else %}MCP Endpoint{% endif %}</dt>
-                            <dd class="text-white font-mono text-sm">/project/{{ project.alias or project.full_id }}/mcp</dd>
+                            <dt class="text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}اندپوینت MCP{% else %}MCP Endpoint{% endif %}</dt>
+                            <dd class="text-gray-900 dark:text-white font-mono text-sm">/project/{{ project.alias or project.full_id }}/mcp</dd>
                         </div>
                     </dl>
                 </div>
             </div>
 
             <!-- Available Tools -->
-            <div class="bg-gray-800 rounded-xl border border-gray-700">
-                <div class="p-6 border-b border-gray-700 flex items-center justify-between">
-                    <h2 class="text-lg font-semibold text-white">{% if lang == 'fa' %}ابزارهای موجود{% else %}Available Tools{% endif %}</h2>
-                    <span class="px-2 py-1 bg-gray-700 rounded-lg text-sm text-gray-300">{{ project.tools|length }} {% if lang == 'fa' %}ابزار{% else %}tools{% endif %}</span>
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+                <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{% if lang == 'fa' %}ابزارهای موجود{% else %}Available Tools{% endif %}</h2>
+                    <span class="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded-lg text-sm text-gray-700 dark:text-gray-300">{{ project.tools|length }} {% if lang == 'fa' %}ابزار{% else %}tools{% endif %}</span>
                 </div>
                 <div class="max-h-96 overflow-y-auto">
                     <table class="w-full">
-                        <thead class="bg-gray-700/50 sticky top-0">
+                        <thead class="bg-gray-50 dark:bg-gray-700/50 sticky top-0">
                             <tr>
                                 <th class="px-4 py-2 text-{% if lang == 'fa' %}right{% else %}left{% endif %} text-xs font-medium text-gray-400 uppercase">
                                     {% if lang == 'fa' %}نام{% else %}Name{% endif %}
@@ -178,14 +178,14 @@
                                 </th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-700">
+                        <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                             {% for tool in project.tools[:50] %}
-                            <tr class="hover:bg-gray-700/30">
+                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
                                 <td class="px-4 py-2">
-                                    <span class="text-sm text-white font-mono">{{ tool.name }}</span>
+                                    <span class="text-sm text-gray-900 dark:text-white font-mono">{{ tool.name }}</span>
                                 </td>
                                 <td class="px-4 py-2">
-                                    <span class="text-sm text-gray-400 truncate block max-w-xs" title="{{ tool.description }}">
+                                    <span class="text-sm text-gray-500 dark:text-gray-400 truncate block max-w-xs" title="{{ tool.description }}">
                                         {{ tool.description[:60] }}{% if tool.description|length > 60 %}...{% endif %}
                                     </span>
                                 </td>
@@ -213,9 +213,9 @@
         <!-- Right Column -->
         <div class="space-y-6">
             <!-- Quick Actions -->
-            <div class="bg-gray-800 rounded-xl border border-gray-700">
-                <div class="p-6 border-b border-gray-700">
-                    <h2 class="text-lg font-semibold text-white">{% if lang == 'fa' %}عملیات سریع{% else %}Quick Actions{% endif %}</h2>
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+                <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{% if lang == 'fa' %}عملیات سریع{% else %}Quick Actions{% endif %}</h2>
                 </div>
                 <!-- Health Check Result Display -->
                 <div id="health-check-result" class="hidden p-4 rounded-lg mb-2"></div>
@@ -227,7 +227,7 @@
                         hx-swap="none"
                         hx-on::before-request="showHealthCheckLoading()"
                         hx-on::after-request="handleHealthCheckResponse(event)"
-                        class="w-full flex items-center justify-between px-4 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg text-white transition-colors"
+                        class="w-full flex items-center justify-between px-4 py-3 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-white transition-colors"
                     >
                         <span id="health-check-text">{% if lang == 'fa' %}بررسی سلامت{% else %}Check Health{% endif %}</span>
                         <svg id="health-check-icon" class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -241,7 +241,7 @@
 
                     <a
                         href="/dashboard/api-keys?project={{ project.full_id }}{% if lang and lang != 'en' %}&lang={{ lang }}{% endif %}"
-                        class="w-full flex items-center justify-between px-4 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg text-white transition-colors"
+                        class="w-full flex items-center justify-between px-4 py-3 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-white transition-colors"
                     >
                         <span>{% if lang == 'fa' %}مدیریت کلیدها{% else %}Manage API Keys{% endif %}</span>
                         <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -251,7 +251,7 @@
 
                     <a
                         href="/dashboard/audit-logs?project={{ project.full_id }}{% if lang and lang != 'en' %}&lang={{ lang }}{% endif %}"
-                        class="w-full flex items-center justify-between px-4 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg text-white transition-colors"
+                        class="w-full flex items-center justify-between px-4 py-3 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-white transition-colors"
                     >
                         <span>{% if lang == 'fa' %}مشاهده لاگ‌ها{% else %}View Logs{% endif %}</span>
                         <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -262,14 +262,14 @@
             </div>
 
             <!-- Recent Activity -->
-            <div class="bg-gray-800 rounded-xl border border-gray-700">
-                <div class="p-6 border-b border-gray-700">
-                    <h2 class="text-lg font-semibold text-white">{{ t.recent_activity }}</h2>
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+                <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t.recent_activity }}</h2>
                 </div>
-                <div class="divide-y divide-gray-700">
+                <div class="divide-y divide-gray-200 dark:divide-gray-700">
                     {% if project.recent_activity %}
                         {% for activity in project.recent_activity[:5] %}
-                        <div class="p-4 hover:bg-gray-700/30">
+                        <div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30">
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center">
                                     {% if activity.level == 'ERROR' %}
@@ -277,7 +277,7 @@
                                     {% else %}
                                     <span class="w-2 h-2 bg-green-500 rounded-full {% if lang == 'fa' %}ml-2{% else %}mr-2{% endif %}"></span>
                                     {% endif %}
-                                    <span class="text-sm text-white">{{ activity.message }}</span>
+                                    <span class="text-sm text-gray-900 dark:text-white">{{ activity.message }}</span>
                                 </div>
                                 <span class="text-xs text-gray-500">{{ activity.timestamp[:16] }}</span>
                             </div>
@@ -343,19 +343,19 @@
                 resultDiv.classList.add('bg-green-500/20');
                 resultDiv.innerHTML = '<p class="text-green-400 font-medium">' +
                     (lang === 'fa' ? '✓ سالم' : '✓ Healthy') +
-                    '</p><p class="text-sm text-gray-400">' +
+                    '</p><p class="text-sm text-gray-500 dark:text-gray-400">' +
                     (lang === 'fa' ? 'زمان پاسخ: ' : 'Response time: ') +
                     (response.response_time_ms || 0).toFixed(2) + ' ms</p>';
             } else if (response.status === 'unhealthy') {
                 resultDiv.classList.add('bg-red-500/20');
                 resultDiv.innerHTML = '<p class="text-red-400 font-medium">' +
                     (lang === 'fa' ? '✗ ناسالم' : '✗ Unhealthy') +
-                    '</p><p class="text-sm text-gray-400">' + (response.message || '') + '</p>';
+                    '</p><p class="text-sm text-gray-500 dark:text-gray-400">' + (response.message || '') + '</p>';
             } else {
                 resultDiv.classList.add('bg-yellow-500/20');
                 resultDiv.innerHTML = '<p class="text-yellow-400 font-medium">' +
                     (lang === 'fa' ? '⚠ خطا' : '⚠ Error') +
-                    '</p><p class="text-sm text-gray-400">' + (response.message || 'Unknown error') + '</p>';
+                    '</p><p class="text-sm text-gray-500 dark:text-gray-400">' + (response.message || 'Unknown error') + '</p>';
             }
 
             // Auto-hide after 5 seconds

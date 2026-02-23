@@ -45,12 +45,10 @@ from core.rate_limiter import RateLimitConfig, RateLimiter, get_rate_limiter
 from core.site_manager import SiteConfig, SiteManager, get_site_manager
 
 # Legacy (kept for backward compatibility, will be removed in v2.0)
-from core.site_registry import SiteInfo, SiteRegistry, get_site_registry
 from core.tool_generator import ToolGenerator
 
 # Tool Management (Option B architecture)
 from core.tool_registry import ToolDefinition, ToolRegistry, get_tool_registry
-from core.unified_tools import UnifiedToolGenerator
 
 __all__ = [
     # Authentication
@@ -64,11 +62,6 @@ __all__ = [
     "SiteManager",
     "SiteConfig",
     "get_site_manager",
-    # Legacy (deprecated)
-    "SiteRegistry",
-    "SiteInfo",
-    "get_site_registry",
-    "UnifiedToolGenerator",
     # Tool Management
     "ToolRegistry",
     "ToolDefinition",
