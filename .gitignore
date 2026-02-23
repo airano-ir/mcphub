@@ -28,6 +28,7 @@ ENV/
 .coverage.*
 htmlcov/
 .tox/
+pytest-out.txt
 .nox/
 coverage.xml
 *.cover
