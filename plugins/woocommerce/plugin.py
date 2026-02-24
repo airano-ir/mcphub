@@ -47,7 +47,7 @@ class WooCommercePlugin(BasePlugin):
     @staticmethod
     def get_required_config_keys() -> list[str]:
         """Return required configuration keys"""
-        return ["url", "username", "app_password"]
+        return ["url"]
 
     def __init__(self, config: dict[str, Any], project_id: str | None = None):
         """
@@ -55,16 +55,30 @@ class WooCommercePlugin(BasePlugin):
 
         Args:
             config: Configuration dictionary containing:
-                - url: WordPress site URL
-                - username: WordPress username
-                - app_password: WordPress application password
+                - url: WordPress/WooCommerce site URL
+                - consumer_key/consumer_secret: WooCommerce REST API keys (preferred)
+                - username/app_password: WordPress application password (fallback)
             project_id: Optional project ID (auto-generated if not provided)
         """
         super().__init__(config, project_id=project_id)
 
-        # Create WordPress API client (WooCommerce uses WordPress REST API)
+        # WooCommerce supports two credential formats:
+        # 1. consumer_key/consumer_secret (WooCommerce REST API keys — preferred)
+        # 2. username/app_password (WordPress Application Passwords — legacy fallback)
+        username = config.get("consumer_key") or config.get("username")
+        password = config.get("consumer_secret") or config.get("app_password")
+
+        if not username or not password:
+            from plugins.wordpress.client import ConfigurationError
+
+            raise ConfigurationError(
+                "WooCommerce credentials not configured. "
+                "Please set either CONSUMER_KEY/CONSUMER_SECRET or USERNAME/APP_PASSWORD."
+            )
+
+        # Create WordPress API client
         self.client = WordPressClient(
-            site_url=config["url"], username=config["username"], app_password=config["app_password"]
+            site_url=config["url"], username=username, app_password=password
         )
 
         # Initialize WooCommerce handlers

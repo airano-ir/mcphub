@@ -563,13 +563,26 @@ class HealthMonitor:
             try:
                 import aiohttp
 
-                auth = aiohttp.BasicAuth(
-                    config.username or "",
-                    config.app_password or "",
-                )
+                if plugin_type == "woocommerce":
+                    # WooCommerce uses consumer_key/consumer_secret
+                    ck = getattr(config, "consumer_key", None) or ""
+                    cs = getattr(config, "consumer_secret", None) or ""
+                    # consumer_key/consumer_secret may be in model_extra
+                    if not ck and hasattr(config, "model_extra"):
+                        ck = (config.model_extra or {}).get("consumer_key", "")
+                        cs = (config.model_extra or {}).get("consumer_secret", "")
+                    auth = aiohttp.BasicAuth(ck, cs)
+                    auth_check_url = f"{config.url}/wp-json/wc/v3/system_status"
+                else:
+                    auth = aiohttp.BasicAuth(
+                        config.username or "",
+                        config.app_password or "",
+                    )
+                    auth_check_url = f"{config.url}/wp-json/wp/v2/users/me"
+
                 async with aiohttp.ClientSession(auth=auth) as session:
                     async with session.get(
-                        f"{config.url}/wp-json/wp/v2/users/me",
+                        auth_check_url,
                         timeout=aiohttp.ClientTimeout(total=10),
                         ssl=False,
                     ) as resp:

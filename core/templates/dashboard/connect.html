@@ -28,14 +28,35 @@
         </div>
         {% endif %}
 
-        <!-- New key display (JS-created) -->
-        <div id="new-key-display" class="hidden bg-yellow-50 dark:bg-yellow-500/20 border border-yellow-200 dark:border-yellow-500/50 text-yellow-800 dark:text-yellow-300 px-4 py-3 rounded-lg mb-4">
-            <p class="font-medium mb-1">{{ t.your_api_key }}</p>
-            <div class="flex items-center gap-2">
-                <code id="new-key-value" class="bg-gray-100 dark:bg-gray-900 px-3 py-1 rounded text-sm flex-1 overflow-x-auto text-gray-800 dark:text-gray-200"></code>
-                <button onclick="copyNewKey()" class="text-sm text-yellow-700 dark:text-yellow-300 hover:text-yellow-600 dark:hover:text-yellow-200">{{ t['copy'] }}</button>
+        <!-- New Key Modal (stays open until user clicks Done) -->
+        <div id="new-key-display" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 w-full max-w-lg mx-4">
+                <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                        <svg class="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        {{ t.your_api_key }}
+                    </h3>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div class="bg-yellow-50 dark:bg-yellow-500/10 border border-yellow-200 dark:border-yellow-500/30 rounded-lg p-4">
+                        <p class="text-sm text-yellow-700 dark:text-yellow-400">{{ t.key_shown_once }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">API Key</label>
+                        <div class="flex items-center gap-2">
+                            <code id="new-key-value" class="flex-1 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2 text-sm font-mono text-gray-800 dark:text-gray-200 overflow-x-auto"></code>
+                            <button onclick="copyNewKey()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white text-sm transition-colors">{{ t['copy'] }}</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+                    <button onclick="closeNewKeyModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white text-sm transition-colors">
+                        {% if lang == 'fa' %}تأیید{% else %}Done{% endif %}
+                    </button>
+                </div>
             </div>
-            <p class="text-xs text-yellow-600 dark:text-yellow-400 mt-1">{{ t.key_shown_once }}</p>
         </div>
 
         {% if api_keys %}
@@ -132,8 +153,8 @@ async function createKey() {
         if (resp.ok && data.key) {
             document.getElementById('new-key-value').textContent = data.key.key;
             document.getElementById('new-key-display').classList.remove('hidden');
-            // Reload to show in table
-            setTimeout(() => location.reload(), 500);
+            document.getElementById('new-key-display').classList.add('flex');
+            // Modal stays open — user clicks "Done" to dismiss
         } else {
             alert(data.error || 'Failed to create key');
         }
@@ -178,6 +199,12 @@ function copyText(text) {
 function copyNewKey() {
     const key = document.getElementById('new-key-value').textContent;
     navigator.clipboard.writeText(key);
+}
+
+function closeNewKeyModal() {
+    document.getElementById('new-key-display').classList.add('hidden');
+    document.getElementById('new-key-display').classList.remove('flex');
+    location.reload();
 }
 
 function copyConfig() {

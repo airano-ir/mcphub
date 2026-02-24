@@ -44,11 +44,10 @@ class TestWooCommercePluginInit:
         assert WooCommercePlugin.get_plugin_name() == "woocommerce"
 
     def test_required_config_keys(self):
-        """Should require url, username, app_password."""
+        """Should require url only (credentials checked at init)."""
         keys = WooCommercePlugin.get_required_config_keys()
         assert "url" in keys
-        assert "username" in keys
-        assert "app_password" in keys
+        assert len(keys) == 1
 
     def test_missing_url_raises(self):
         """Should raise ValueError for missing URL."""
@@ -57,9 +56,11 @@ class TestWooCommercePluginInit:
             WooCommercePlugin(config)
 
     def test_missing_credentials_raises(self):
-        """Should raise ValueError for missing credentials."""
+        """Should raise ConfigurationError for missing credentials."""
+        from plugins.wordpress.client import ConfigurationError
+
         config = {"url": "https://shop.example.com"}
-        with pytest.raises(ValueError, match="Missing required configuration"):
+        with pytest.raises(ConfigurationError, match="credentials not configured"):
             WooCommercePlugin(config)
 
     def test_custom_project_id(self):

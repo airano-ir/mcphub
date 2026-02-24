@@ -918,12 +918,15 @@ async def get_project_detail(project_id: str) -> dict | None:
 
         # Get recent activity for this project
         audit_logger = get_audit_logger()
-        recent_entries = audit_logger.get_recent_entries(limit=20)
+        recent_entries = audit_logger.get_recent_entries(limit=60)
         project_activity = [
             e
             for e in recent_entries
-            if e.get("metadata", {}).get("project_id") == project_id
-            or e.get("metadata", {}).get("site") == site_id
+            if (
+                e.get("metadata", {}).get("project_id") == project_id
+                or e.get("metadata", {}).get("site") == site_id
+            )
+            and e.get("event_type", "") not in ("health_metric_recorded", "health_check")
         ][:5]
 
         # Get cached health status
