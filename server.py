@@ -18,6 +18,7 @@ Environment Variables:
     LOG_LEVEL: Logging level (DEBUG, INFO, WARNING, ERROR)
 """
 
+import base64
 import copy
 import logging
 import os
@@ -2018,6 +2019,7 @@ async def oauth_metadata(request: Request) -> JSONResponse:
         "authorization_endpoint": f"{base_url}/oauth/authorize",
         "token_endpoint": f"{base_url}/oauth/token",
         "registration_endpoint": f"{base_url}/oauth/register",  # RFC 7591 (requires auth)
+        "revocation_endpoint": f"{base_url}/oauth/revoke",
         # Supported Features
         "response_types_supported": ["code"],
         "grant_types_supported": ["authorization_code", "refresh_token", "client_credentials"],
@@ -2025,7 +2027,7 @@ async def oauth_metadata(request: Request) -> JSONResponse:
         "scopes_supported": ["read", "write", "admin"],
         "token_endpoint_auth_methods_supported": ["client_secret_post", "client_secret_basic"],
         # Token Configuration
-        "revocation_endpoint_auth_methods_supported": ["client_secret_post"],
+        "revocation_endpoint_auth_methods_supported": ["client_secret_post", "client_secret_basic"],
         "introspection_endpoint_auth_methods_supported": ["client_secret_post"],
         # Additional OAuth 2.1 Features
         "response_modes_supported": ["query"],
@@ -2380,6 +2382,15 @@ async def oauth_authorize(request: Request):
             state=params.get("state"),
         )
 
+        # RFC 8707: Accept resource parameter
+        resource = params.get("resource")
+        if resource:
+            expected_resource = get_oauth_base_url(request)
+            if resource.rstrip("/") != expected_resource.rstrip("/"):
+                logger.warning(
+                    f"OAuth resource mismatch: got {resource}, expected {expected_resource}"
+                )
+
         # Generate CSRF token
         csrf_token = csrf_manager.generate_token()
 
@@ -2417,6 +2428,7 @@ async def oauth_authorize(request: Request):
                 "scope": validated["scope"],
                 "scopes": scopes,
                 "state": validated.get("state", ""),
+                "resource": resource or "",
                 "csrf_token": csrf_token,
                 "lang": lang,  # Language code (en/fa)
                 "t": translations,  # All translations for this language
@@ -2493,6 +2505,7 @@ async def oauth_authorize_confirm(request: Request):
         # Parse form data
         form = await request.form()
         params = dict(form)
+        resource = params.get("resource", "")
 
         # Validate action
         action = params.get("action")
@@ -2616,6 +2629,7 @@ async def oauth_authorize_confirm(request: Request):
             api_key_id=api_key_id,
             api_key_project_id=api_key_project_id,
             api_key_scope=api_key_scope,
+            resource=resource,
         )
 
         # Redirect back with authorization code
@@ -2708,9 +2722,27 @@ async def oauth_token(request: Request) -> JSONResponse:
                 error="invalid_request", error_description="Missing grant_type parameter"
             )
 
+        # Support client_secret_basic: extract client credentials from Authorization header
+        # RFC 6749 Section 2.3.1 — client_id:client_secret as HTTP Basic Auth
+        if "client_id" not in body or "client_secret" not in body:
+            auth_header = request.headers.get("authorization", "")
+            if auth_header.startswith("Basic "):
+                try:
+                    decoded = base64.b64decode(auth_header[6:]).decode("utf-8")
+                    basic_client_id, basic_client_secret = decoded.split(":", 1)
+                    body.setdefault("client_id", basic_client_id)
+                    body.setdefault("client_secret", basic_client_secret)
+                except Exception:
+                    raise OAuthError(
+                        error="invalid_client",
+                        error_description="Invalid Basic authentication header",
+                        status_code=401,
+                    )
+
         if "client_id" not in body or "client_secret" not in body:
             raise OAuthError(
-                error="invalid_request", error_description="Missing client_id or client_secret"
+                error="invalid_request",
+                error_description="Missing client_id or client_secret",
             )
 
         grant_type = body["grant_type"]
@@ -2771,6 +2803,79 @@ async def oauth_token(request: Request) -> JSONResponse:
     except Exception as e:
         logger.error(f"OAuth token error: {e}", exc_info=True)
         return JSONResponse({"error": "server_error", "error_description": str(e)}, status_code=500)
+
+
+@mcp.custom_route("/oauth/revoke", methods=["POST"])
+async def oauth_revoke(request: Request) -> JSONResponse:
+    """OAuth 2.0 Token Revocation (RFC 7009)."""
+    try:
+        content_type = request.headers.get("content-type", "")
+        if "application/json" in content_type:
+            body = await request.json()
+        else:
+            form = await request.form()
+            body = dict(form)
+
+        # Support client_secret_basic
+        if "client_id" not in body or "client_secret" not in body:
+            auth_header = request.headers.get("authorization", "")
+            if auth_header.startswith("Basic "):
+                try:
+                    decoded = base64.b64decode(auth_header[6:]).decode("utf-8")
+                    basic_client_id, basic_client_secret = decoded.split(":", 1)
+                    body.setdefault("client_id", basic_client_id)
+                    body.setdefault("client_secret", basic_client_secret)
+                except Exception:
+                    pass  # Per RFC 7009, don't error on this
+
+        # Validate client credentials
+        client_id = body.get("client_id")
+        client_secret = body.get("client_secret")
+
+        if not client_id or not client_secret:
+            raise OAuthError(
+                error="invalid_client",
+                error_description="Client authentication required",
+                status_code=401,
+            )
+
+        from core.oauth import get_client_registry
+
+        client_registry = get_client_registry()
+        if not client_registry.validate_client_secret(client_id, client_secret):
+            raise OAuthError(
+                error="invalid_client",
+                error_description="Invalid client credentials",
+                status_code=401,
+            )
+
+        # Get token to revoke
+        token = body.get("token")
+        if not token:
+            return JSONResponse({}, status_code=200)
+
+        token_type_hint = body.get("token_type_hint", "")
+
+        # Revoke the token
+        from core.oauth import get_token_manager
+
+        token_manager = get_token_manager()
+
+        # Try revoking as refresh token (access tokens are JWT/stateless, can't be revoked)
+        token_manager.revoke_token(token, token_type="refresh")
+
+        logger.info(f"OAuth token revoked: client_id={client_id}, hint={token_type_hint}")
+
+        return JSONResponse({}, status_code=200)
+
+    except OAuthError as e:
+        return JSONResponse(
+            {"error": e.error, "error_description": e.error_description},
+            status_code=e.status_code,
+        )
+    except Exception as e:
+        logger.error(f"Token revocation error: {e}")
+        return JSONResponse({}, status_code=200)
 
 
 # === OAUTH CLIENT MANAGEMENT TOOLS ===
@@ -4661,6 +4766,7 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
         Route("/oauth/authorize", oauth_authorize, methods=["GET"]),
         Route("/oauth/authorize/confirm", oauth_authorize_confirm, methods=["POST"]),
         Route("/oauth/token", oauth_token, methods=["POST"]),
+        Route("/oauth/revoke", oauth_revoke, methods=["POST"]),
         # Multi-Endpoint MCP (Phase X + D.1 + X.3 + F + G + H + I + J)
         # Mount each FastMCP app - they handle their own /mcp path internally
         Mount("/system", app=system_app, name="mcp_system"),  # Phase X.3

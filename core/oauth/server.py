@@ -143,6 +143,7 @@ class OAuthServer:
         api_key_id: str | None = None,
         api_key_project_id: str | None = None,
         api_key_scope: str | None = None,
+        resource: str | None = None,
     ) -> str:
         """
         Create authorization code (Step 2 of Authorization Code flow)
@@ -157,6 +158,7 @@ class OAuthServer:
             api_key_id: Optional API Key ID for scope/project inheritance
             api_key_project_id: Optional project ID from API Key
             api_key_scope: Optional scope from API Key
+            resource: Optional resource indicator (RFC 8707)
 
         Returns:
             Authorization code (valid for 5 minutes)
@@ -178,6 +180,7 @@ class OAuthServer:
             api_key_id=api_key_id,
             api_key_project_id=api_key_project_id,
             api_key_scope=api_key_scope,
+            resource=resource,
         )
 
         # Save to storage
@@ -257,12 +260,14 @@ class OAuthServer:
         # If authorization code has API Key metadata, use it for scoping
         project_id = auth_code.api_key_project_id or "*"
         token_scope = auth_code.api_key_scope or auth_code.scope
+        resource = auth_code.resource
 
         access_token = self.token_manager.generate_access_token(
             client_id=client_id,
             scope=token_scope,
             user_id=auth_code.user_id or auth_code.api_key_id,
             project_id=project_id,
+            resource=resource,
         )
 
         refresh_token = self.token_manager.generate_refresh_token(

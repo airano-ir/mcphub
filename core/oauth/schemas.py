@@ -63,6 +63,7 @@ class AuthorizationCode(BaseModel):
     api_key_id: str | None = None  # API Key ID for scope/project inheritance
     api_key_project_id: str | None = None  # Project ID from API Key
     api_key_scope: str | None = None  # Scope from API Key
+    resource: str | None = None  # RFC 8707: Resource indicator
 
     def is_expired(self) -> bool:
         """Check if code is expired"""

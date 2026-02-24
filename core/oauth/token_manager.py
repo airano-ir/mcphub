@@ -54,7 +54,12 @@ class TokenManager:
         self.refresh_token_ttl = int(os.getenv("OAUTH_REFRESH_TOKEN_TTL", "604800"))  # 7 days
 
     def generate_access_token(
-        self, client_id: str, scope: str, user_id: str | None = None, project_id: str = "*"
+        self,
+        client_id: str,
+        scope: str,
+        user_id: str | None = None,
+        project_id: str = "*",
+        resource: str | None = None,
     ) -> str:
         """
         Generate JWT access token.
@@ -64,6 +69,7 @@ class TokenManager:
             scope: Granted scopes (space-separated)
             user_id: User ID (optional, for user-based auth)
             project_id: Project ID for scoping (default: "*" for global)
+            resource: Resource indicator for aud claim (RFC 8707)
 
         Returns:
             JWT access token
@@ -86,6 +92,9 @@ class TokenManager:
 
         if user_id:
             payload["sub"] = user_id  # Subject (user ID)
+
+        if resource:
+            payload["aud"] = resource
 
         # Encode JWT
         token = jwt.encode(payload, self.jwt_secret, algorithm=self.jwt_algorithm)

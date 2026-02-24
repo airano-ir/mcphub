@@ -68,6 +68,9 @@
             {% if state %}
             <input type="hidden" name="state" value="{{ state }}">
             {% endif %}
+            {% if resource %}
+            <input type="hidden" name="resource" value="{{ resource }}">
+            {% endif %}
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
             <!-- API Key Input -->
