@@ -2394,6 +2394,37 @@ async def oauth_authorize(request: Request):
         # Generate CSRF token
         csrf_token = csrf_manager.generate_token()
 
+        # Detect existing dashboard session for session-based consent
+        session_user = None
+        try:
+            from core.dashboard.auth import get_dashboard_auth
+
+            dashboard_auth = get_dashboard_auth()
+
+            # Try OAuth user session first (GitHub/Google login)
+            user_session = dashboard_auth.get_user_session_from_request(request)
+            if user_session and user_session.get("user_id"):
+                session_user = {
+                    "user_id": user_session["user_id"],
+                    "email": user_session.get("email", ""),
+                    "name": user_session.get("name", ""),
+                    "role": user_session.get("role", "user"),
+                    "type": "oauth_user",
+                }
+            else:
+                # Try admin session
+                admin_session = dashboard_auth.get_session_from_request(request)
+                if admin_session:
+                    session_user = {
+                        "user_id": "admin",
+                        "email": "",
+                        "name": "Admin",
+                        "role": "admin",
+                        "type": admin_session.user_type,
+                    }
+        except Exception as e:
+            logger.debug(f"No dashboard session detected for OAuth consent: {e}")
+
         # Get client info
         from core.oauth import get_client_registry
 
@@ -2432,6 +2463,8 @@ async def oauth_authorize(request: Request):
                 "csrf_token": csrf_token,
                 "lang": lang,  # Language code (en/fa)
                 "t": translations,  # All translations for this language
+                "session_user": session_user,
+                "return_url": str(request.url),
             },
         )
 
@@ -2556,10 +2589,12 @@ async def oauth_authorize_confirm(request: Request):
             state=params.get("state"),
         )
 
-        # Validate API Key
-        api_key = params.get("api_key")
+        # Validate authentication (API Key or dashboard session)
+        api_key = params.get("api_key", "")
         if not api_key:
-            raise OAuthError(error="invalid_request", error_description="API Key is required")
+            raise OAuthError(
+                error="invalid_request", error_description="Authentication is required"
+            )
 
         api_key_id = None
         api_key_project_id = None
@@ -2567,13 +2602,12 @@ async def oauth_authorize_confirm(request: Request):
         granted_scope = validated["scope"]
 
         try:
-            # Try as regular API key first
+            # Path 1: Project API key (cmp_)
             if api_key.startswith("cmp_"):
-                # Validate without project/scope check (we'll use its values)
                 key_id = api_key_manager.validate_key(
                     api_key,
-                    project_id="*",  # Skip project check
-                    required_scope="read",  # Skip scope check
+                    project_id="*",
+                    required_scope="read",
                     skip_project_check=True,
                 )
                 api_key_info = api_key_manager.keys.get(key_id)
@@ -2581,9 +2615,67 @@ async def oauth_authorize_confirm(request: Request):
                 api_key_project_id = api_key_info.project_id
                 api_key_scope = api_key_info.scope
 
-            # Try as Master API Key
+            # Path 2: User API key (mhu_)
+            elif api_key.startswith("mhu_"):
+                from core.user_keys import get_user_key_manager
+
+                user_key_mgr = get_user_key_manager()
+                key_info = await user_key_mgr.validate_key(api_key)
+                if key_info:
+                    api_key_id = f"user:{key_info['user_id']}"
+                    api_key_project_id = "*"
+                    api_key_scope = key_info.get("scopes", "read write")
+                    logger.info(
+                        f"OAuth authorization: User API key validated - "
+                        f"user_id={key_info['user_id']}, scope={api_key_scope}"
+                    )
+                else:
+                    raise OAuthError(
+                        error="access_denied",
+                        error_description="Invalid or expired User API Key.",
+                    )
+
+            # Path 3: Dashboard session (social login)
+            elif api_key == "__session__":
+                from core.dashboard.auth import get_dashboard_auth
+
+                dashboard_auth = get_dashboard_auth()
+
+                # Try OAuth user session (GitHub/Google)
+                user_session = dashboard_auth.get_user_session_from_request(request)
+                if user_session and user_session.get("user_id"):
+                    user_role = user_session.get("role", "user")
+                    api_key_id = f"user:{user_session['user_id']}"
+                    api_key_project_id = "*"
+                    if user_role == "admin":
+                        api_key_scope = "read write admin"
+                    else:
+                        api_key_scope = "read write"
+                    logger.info(
+                        f"OAuth authorization: Session-based consent - "
+                        f"user_id={user_session['user_id']}, "
+                        f"email={user_session.get('email', '')}, "
+                        f"role={user_role}, scope={api_key_scope}"
+                    )
+                else:
+                    # Try admin session
+                    admin_session = dashboard_auth.get_session_from_request(request)
+                    if admin_session:
+                        api_key_id = f"admin:{admin_session.session_id}"
+                        api_key_project_id = "*"
+                        api_key_scope = "read write admin"
+                        logger.info(
+                            f"OAuth authorization: Admin session consent - "
+                            f"type={admin_session.user_type}"
+                        )
+                    else:
+                        raise OAuthError(
+                            error="access_denied",
+                            error_description="Session expired. Please log in again.",
+                        )
+
+            # Path 4: Master API Key
             elif auth_manager.validate_master_key(api_key):
-                # Master key → Full access
                 api_key_id = "master"
                 api_key_project_id = "*"
                 api_key_scope = "read write admin"

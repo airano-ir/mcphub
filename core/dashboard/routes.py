@@ -2334,6 +2334,20 @@ async def auth_provider_redirect(request: Request) -> Response:
             secure=os.environ.get("DASHBOARD_SECURE_COOKIE", "true").lower() == "true",
             samesite="lax",
         )
+
+        # Save return URL if provided (for OAuth consent flow redirect-back)
+        next_url = request.query_params.get("next", "")
+        if next_url:
+            response.set_cookie(
+                key="mcp_auth_next",
+                value=next_url,
+                max_age=600,
+                httponly=True,
+                secure=os.environ.get("DASHBOARD_SECURE_COOKIE", "true").lower() == "true",
+                samesite="lax",
+                path="/",
+            )
+
         return response
     except (RuntimeError, ValueError) as e:
         logger.error("OAuth redirect failed for %s: %s", provider, e)
@@ -2445,15 +2459,25 @@ async def auth_callback(request: Request) -> Response:
             role=user.get("role", "user"),
         )
 
-        response = RedirectResponse(url="/dashboard", status_code=303)
+        # Check for return URL (OAuth consent flow redirect-back)
+        next_url = request.cookies.get("mcp_auth_next", "")
+        # Validate: must be relative URL or same-origin to prevent open redirect
+        if next_url and next_url.startswith("/"):
+            redirect_to = next_url
+        else:
+            redirect_to = "/dashboard"
+
+        response = RedirectResponse(url=redirect_to, status_code=303)
         dashboard_auth = get_dashboard_auth()
         dashboard_auth.set_session_cookie(response, token)
         response.delete_cookie(key="oauth_state")
+        response.delete_cookie(key="mcp_auth_next", path="/")
 
         logger.info(
-            "OAuth login successful: %s via %s",
+            "OAuth login successful: %s via %s (redirect=%s)",
             user["email"],
             provider,
+            redirect_to,
         )
         return response
 
