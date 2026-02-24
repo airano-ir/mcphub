@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.2.0] - 2026-02-24
+
+### claude.ai Protocol Compatibility & Social Login Consent
+
+Adds full MCP Authorization Specification compliance for claude.ai Connectors, social login on the OAuth consent screen, and 15 bug fixes from comprehensive testing.
+
+#### Added
+- **`client_secret_basic` Authentication** (RFC 6749 §2.3.1): Token endpoint now accepts client credentials via `Authorization: Basic` header in addition to `client_secret_post`
+- **Token Revocation Endpoint** (RFC 7009): `POST /oauth/revoke` for revoking access and refresh tokens, with `client_secret_basic` support
+- **`resource` Parameter** (RFC 8707): Authorization and token requests accept the `resource` parameter; JWT access tokens include the `aud` claim binding tokens to the MCP server URL
+- **Social Login on OAuth Consent**: OAuth authorize page detects dashboard sessions, allowing users logged in via GitHub/Google to authorize MCP clients without re-entering API keys
+- **Session-Based Consent**: `__session__` consent mode creates JWT tokens with `sub: "admin:..."` or `sub: "user:..."` claims based on session identity
+- **Social Login Return URL**: `mcp_auth_next` cookie preserves OAuth flow state across social login redirects, with open redirect protection
+
+#### Fixed
+- `get_system_info` returned hardcoded version `v2.6.0` instead of actual version
+- Internal `"phase": "X.3"` debug field exposed in system info
+- `/dashboard/audit-logs` caused redirect loop (removed from nav)
+- Settings page used wrong sidebar layout
+- Server mode displayed `sse` instead of `streamable-http`
+- Plugin descriptions showed "No description" when description existed
+- 404 page was unstyled plain text (now styled standalone page)
+- OAuth flows failed without `PUBLIC_URL` env var
+- Endpoint page showed wrong example tools per project
+- Health check timestamps showed "None" for new projects
+- Health checks missing `auth_valid` field causing dashboard errors
+- `ENCRYPTION_KEY` not validated on startup (now fails fast with clear error)
+- Stale JWT tokens caused 500 errors instead of 401
+- Per-user MCP endpoint returned 500 `ImportError` on first request
+- Copy button displayed Python `repr()` instead of clean JSON
+
+#### Improved
+- API key modal stays open until user clicks "Done" (was 0.5s auto-close)
+- `health_metric_recorded` events filtered from project activity feed
+- WooCommerce health checks use `consumer_key`/`consumer_secret` authentication
+
+#### Tests
+- Test suite expanded from 290 to 442 tests (+152)
+- Added 23 Phase B OAuth protocol tests
+- Added Phase C social login consent tests
+
+---
+
 ## [3.1.0] - 2026-02-23
 
 ### Live Platform Foundation (Track E.1 - E.3)

@@ -126,7 +126,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Server version — read from pyproject.toml, fallback to importlib.metadata
-SERVER_VERSION = "3.1.0"
+SERVER_VERSION = "3.2.0"
 try:
     _pyproject = os.path.join(os.path.dirname(__file__), "pyproject.toml")
     with open(_pyproject) as _f:
