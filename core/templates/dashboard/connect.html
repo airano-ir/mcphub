@@ -22,7 +22,7 @@
             <p class="font-medium mb-1">{{ t.your_api_key }}</p>
             <div class="flex items-center gap-2">
                 <code class="bg-gray-100 dark:bg-gray-900 px-3 py-1 rounded text-sm flex-1 overflow-x-auto text-gray-800 dark:text-gray-200">{{ new_key }}</code>
-                <button onclick="copyText('{{ new_key }}')" class="text-sm text-yellow-700 dark:text-yellow-300 hover:text-yellow-600 dark:hover:text-yellow-200">{{ t.copy }}</button>
+                <button onclick="copyText('{{ new_key }}')" class="text-sm text-yellow-700 dark:text-yellow-300 hover:text-yellow-600 dark:hover:text-yellow-200">{{ t['copy'] }}</button>
             </div>
             <p class="text-xs text-yellow-600 dark:text-yellow-400 mt-1">{{ t.key_shown_once }}</p>
         </div>
@@ -33,7 +33,7 @@
             <p class="font-medium mb-1">{{ t.your_api_key }}</p>
             <div class="flex items-center gap-2">
                 <code id="new-key-value" class="bg-gray-100 dark:bg-gray-900 px-3 py-1 rounded text-sm flex-1 overflow-x-auto text-gray-800 dark:text-gray-200"></code>
-                <button onclick="copyNewKey()" class="text-sm text-yellow-700 dark:text-yellow-300 hover:text-yellow-600 dark:hover:text-yellow-200">{{ t.copy }}</button>
+                <button onclick="copyNewKey()" class="text-sm text-yellow-700 dark:text-yellow-300 hover:text-yellow-600 dark:hover:text-yellow-200">{{ t['copy'] }}</button>
             </div>
             <p class="text-xs text-yellow-600 dark:text-yellow-400 mt-1">{{ t.key_shown_once }}</p>
         </div>
@@ -104,7 +104,7 @@
 
         <div class="relative">
             <pre id="config-output" class="bg-gray-100 dark:bg-gray-900 rounded-lg p-4 text-sm text-gray-700 dark:text-gray-300 overflow-x-auto border border-gray-200 dark:border-gray-700 min-h-[120px]">Select a site and client to generate configuration...</pre>
-            <button onclick="copyConfig()" class="absolute top-2 {{ 'left-2' if lang == 'fa' else 'right-2' }} text-xs bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 px-3 py-1 rounded transition-colors" id="copy-config-btn">{{ t.copy }}</button>
+            <button onclick="copyConfig()" class="absolute top-2 {{ 'left-2' if lang == 'fa' else 'right-2' }} text-xs bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 px-3 py-1 rounded transition-colors" id="copy-config-btn">{{ t['copy'] }}</button>
         </div>
         {% else %}
         <p class="text-gray-500 dark:text-gray-400 text-sm">{{ t.no_sites }}. <a href="/dashboard/sites/add{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300">{{ t.add_site }}</a></p>
@@ -185,7 +185,7 @@ function copyConfig() {
     navigator.clipboard.writeText(text);
     const btn = document.getElementById('copy-config-btn');
     btn.textContent = '{{ t.copied }}';
-    setTimeout(() => btn.textContent = '{{ t.copy }}', 2000);
+    setTimeout(() => btn.textContent = '{{ t['copy'] }}', 2000);
 }
 
 // Load config on page load

@@ -104,6 +104,12 @@ class UserAuth:
         self._registration_records: dict[str, list[float]] = {}
 
         providers = self.available_providers()
+        if providers and not self._public_url:
+            logger.warning(
+                "OAuth providers configured (%s) but PUBLIC_URL is not set. "
+                "OAuth login will fail until PUBLIC_URL is configured.",
+                providers,
+            )
         logger.info(
             "UserAuth initialized: providers=%s, session_expiry=%dh",
             providers,
@@ -139,6 +145,12 @@ class UserAuth:
         Raises:
             ValueError: If provider is unsupported or not configured.
         """
+        if not self._public_url:
+            raise ValueError(
+                "PUBLIC_URL environment variable must be set for OAuth login to work. "
+                "Example: PUBLIC_URL=https://mcp.example.com"
+            )
+
         state = secrets.token_hex(32)
         self._pending_states[state] = time.time()
         self._cleanup_expired_states()

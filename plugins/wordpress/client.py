@@ -540,7 +540,7 @@ class WordPressClient:
                 async with session.get(f"{self.site_url}/wp-json") as response:
                     if response.status == 200:
                         data = await response.json()
-                        return {
+                        result = {
                             "healthy": True,
                             "accessible": True,
                             "name": data.get("name", "Unknown"),
@@ -548,6 +548,18 @@ class WordPressClient:
                             "url": data.get("url", self.site_url),
                             "routes": len(data.get("routes", {})),
                         }
+
+                        # Test authentication with an authenticated request
+                        try:
+                            await self.get("users/me")
+                            result["auth_valid"] = True
+                        except Exception:
+                            result["auth_valid"] = False
+                            result["auth_warning"] = (
+                                "Site accessible but credentials may be invalid"
+                            )
+
+                        return result
 
                     # Detect REST API disabled (common with security plugins)
                     if response.status in (403, 404):

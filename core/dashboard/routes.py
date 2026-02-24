@@ -399,13 +399,18 @@ async def get_recent_activity(limit: int = 10) -> list:
         entries = audit_logger.get_recent_entries(limit=limit)
 
         for entry in entries:
+            # Skip internal/noise events
+            evt = entry.get("event_type", "")
+            if evt in ("health_metric_recorded", "health_check"):
+                continue
+
             activity.append(
                 {
-                    "timestamp": entry.get("timestamp", ""),
-                    "type": entry.get("event_type", "unknown"),
-                    "message": entry.get("message", ""),
-                    "project": entry.get("metadata", {}).get("project_id", "-"),
-                    "level": entry.get("level", "INFO"),
+                    "timestamp": entry.get("timestamp") or "",
+                    "type": evt or "unknown",
+                    "message": entry.get("message") or "",
+                    "project": (entry.get("metadata") or {}).get("project_id", "-"),
+                    "level": entry.get("level") or "INFO",
                 }
             )
 
@@ -2117,7 +2122,7 @@ def get_system_config() -> dict:
     """Get system configuration for display."""
 
     return {
-        "server_mode": os.environ.get("MCP_SERVER_MODE", "sse"),
+        "server_mode": os.environ.get("MCP_SERVER_MODE", "streamable-http"),
         "port": os.environ.get("PORT", "8000"),
         "log_level": os.environ.get("LOG_LEVEL", "INFO"),
         "oauth_auth_mode": os.environ.get("OAUTH_AUTH_MODE", "trusted_domains"),
@@ -2129,6 +2134,19 @@ def get_system_config() -> dict:
         "oauth_trusted_domains": os.environ.get("OAUTH_TRUSTED_DOMAINS", "localhost"),
         "dashboard_session_expiry": os.environ.get("DASHBOARD_SESSION_EXPIRY_HOURS", "24"),
     }
+
+
+_PLUGIN_DESCRIPTIONS = {
+    "wordpress": "WordPress REST API management (posts, pages, media, users)",
+    "woocommerce": "WooCommerce store management (products, orders, customers)",
+    "wordpress_advanced": "WordPress Advanced operations (WP-CLI, database, bulk ops)",
+    "gitea": "Gitea self-hosted Git management (repos, issues, PRs)",
+    "n8n": "n8n workflow automation management",
+    "supabase": "Supabase self-hosted backend (database, auth, storage)",
+    "openpanel": "OpenPanel analytics and event tracking",
+    "appwrite": "Appwrite backend services (databases, users, functions)",
+    "directus": "Directus headless CMS management",
+}
 
 
 def get_registered_plugins() -> list:
@@ -2145,7 +2163,7 @@ def get_registered_plugins() -> list:
                 plugins.append(
                     {
                         "name": name,
-                        "description": getattr(plugin_cls, "description", "No description"),
+                        "description": _PLUGIN_DESCRIPTIONS.get(name, "Plugin"),
                     }
                 )
     except Exception as e:
@@ -2210,15 +2228,15 @@ async def dashboard_settings_page(request: Request) -> Response:
     plugins = get_registered_plugins()
     about = get_about_info()
 
-    # Format session info
+    # Format session display info (for Session Information section)
     if isinstance(session, dict):
-        session_info = {
+        session_display = {
             "user_type": session.get("type", "oauth_user"),
             "created_at": "",
             "expires_at": "",
         }
     else:
-        session_info = {
+        session_display = {
             "user_type": session.user_type if session else "unknown",
             "created_at": session.created_at.isoformat() if session and session.created_at else "",
             "expires_at": session.expires_at.isoformat() if session and session.expires_at else "",
@@ -2230,7 +2248,8 @@ async def dashboard_settings_page(request: Request) -> Response:
             "request": request,
             "lang": lang,
             "t": t,
-            "session": session_info,
+            "session": session,  # Original session for RBAC sidebar
+            "session_display": session_display,  # Formatted for display
             "config": config,
             "plugins": plugins,
             "about": about,
@@ -2659,6 +2678,21 @@ async def api_create_site(request: Request) -> Response:
     if redirect:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
+    # Verify user exists in DB (guards against stale JWT from old container)
+    try:
+        from core.database import get_database
+
+        db = get_database()
+        user = await db.get_user_by_id(user_session["user_id"])
+        if user is None:
+            response = JSONResponse(
+                {"error": "Session expired. Please log in again."}, status_code=401
+            )
+            response.delete_cookie("mcp_user_session")
+            return response
+    except RuntimeError:
+        pass  # Database not initialized — will fail later with clear error
+
     try:
         body = await request.json()
     except Exception:
@@ -2685,6 +2719,14 @@ async def api_create_site(request: Request) -> Response:
             status_code=503,
         )
     except Exception as e:
+        error_msg = str(e)
+        if "FOREIGN KEY constraint failed" in error_msg:
+            logger.warning("Stale session — user %s not in DB", user_session["user_id"])
+            response = JSONResponse(
+                {"error": "Session expired. Please log in again."}, status_code=401
+            )
+            response.delete_cookie("mcp_user_session")
+            return response
         logger.error("Failed to create site: %s", e, exc_info=True)
         return JSONResponse({"error": "Internal error"}, status_code=500)
 

@@ -132,6 +132,15 @@ class WordPressAdvancedPlugin(BasePlugin):
             except Exception as e:
                 self.logger.warning(f"REST API check failed: {e}")
 
+            # Test authentication with an authenticated request
+            auth_valid = False
+            if rest_api_available:
+                try:
+                    await self.client.get("users/me")
+                    auth_valid = True
+                except Exception:
+                    pass
+
             # Test WP-CLI access (optional — only needed for database/system tools)
             wp_cli_available = False
             try:
@@ -140,16 +149,20 @@ class WordPressAdvancedPlugin(BasePlugin):
             except Exception:
                 pass
 
-            return {
+            result = {
                 "healthy": rest_api_available,
                 "wp_cli_available": wp_cli_available,
                 "rest_api_available": rest_api_available,
+                "auth_valid": auth_valid,
                 "features": {
                     "database_operations": wp_cli_available,
                     "bulk_operations": rest_api_available,
                     "system_operations": wp_cli_available,
                 },
             }
+            if not auth_valid and rest_api_available:
+                result["auth_warning"] = "Site accessible but credentials may be invalid"
+            return result
         except Exception as e:
             return {
                 "healthy": False,

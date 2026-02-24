@@ -188,15 +188,15 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
                 <p class="text-sm text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}نوع کاربر{% else %}User Type{% endif %}</p>
-                <p class="text-gray-900 dark:text-white font-mono">{{ session.user_type }}</p>
+                <p class="text-gray-900 dark:text-white font-mono">{{ session_display.user_type }}</p>
             </div>
             <div>
                 <p class="text-sm text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}ایجاد شده در{% else %}Created At{% endif %}</p>
-                <p class="text-gray-900 dark:text-white font-mono text-sm">{{ session.created_at[:19] if session.created_at else '-' }}</p>
+                <p class="text-gray-900 dark:text-white font-mono text-sm">{{ session_display.created_at[:19] if session_display.created_at else '-' }}</p>
             </div>
             <div>
                 <p class="text-sm text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}انقضا در{% else %}Expires At{% endif %}</p>
-                <p class="text-gray-900 dark:text-white font-mono text-sm">{{ session.expires_at[:19] if session.expires_at else '-' }}</p>
+                <p class="text-gray-900 dark:text-white font-mono text-sm">{{ session_display.expires_at[:19] if session_display.expires_at else '-' }}</p>
             </div>
         </div>
         <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">

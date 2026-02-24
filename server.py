@@ -124,6 +124,23 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+# Server version — read from pyproject.toml, fallback to importlib.metadata
+SERVER_VERSION = "3.1.0"
+try:
+    _pyproject = os.path.join(os.path.dirname(__file__), "pyproject.toml")
+    with open(_pyproject) as _f:
+        for _line in _f:
+            if _line.strip().startswith("version"):
+                SERVER_VERSION = _line.split("=")[1].strip().strip('"').strip("'")
+                break
+except Exception:
+    try:
+        from importlib.metadata import version as _pkg_version
+
+        SERVER_VERSION = _pkg_version("mcphub-server")
+    except Exception:
+        pass
+
 # OAuth Authorization Configuration
 OAUTH_AUTH_MODE = os.getenv("OAUTH_AUTH_MODE", "trusted_domains").lower()
 OAUTH_TRUSTED_DOMAINS = os.getenv(
@@ -319,6 +336,22 @@ logger.info("=" * 60)
 # === MCP INSTRUCTIONS HELPER ===
 # Phase K.2: Auto-discovery of available sites for AI assistants
 
+# Example tool names per plugin type for instructions
+_PLUGIN_EXAMPLE_TOOLS = {
+    "wordpress": ("wordpress_list_posts(per_page=10)", "wordpress_get_post(post_id=123)"),
+    "woocommerce": ("woocommerce_list_products(per_page=10)", "woocommerce_get_order(order_id=1)"),
+    "wordpress_advanced": (
+        "wordpress_advanced_system_info()",
+        "wordpress_advanced_wp_db_check()",
+    ),
+    "gitea": ("gitea_list_repositories()", "gitea_get_repository(owner='user', repo='name')"),
+    "n8n": ("n8n_list_workflows()", "n8n_get_workflow(workflow_id=1)"),
+    "supabase": ("supabase_list_tables()", "supabase_query_table(table='users')"),
+    "openpanel": ("openpanel_get_event_count()", "openpanel_list_events()"),
+    "appwrite": ("appwrite_list_databases()", "appwrite_list_collections(database_id='db')"),
+    "directus": ("directus_list_collections()", "directus_get_items(collection='posts')"),
+}
+
 
 def generate_mcp_instructions(plugin_type: str = None, site_locked: str = None) -> str:
     """
@@ -387,15 +420,18 @@ For export/read operations (get_event_count, export_events, etc.), you need to a
 The user can find it in OpenPanel Dashboard → Project Settings.
 Track API operations (identify_user, track_event, etc.) work without project_id."""
 
+            ex1, _ = _PLUGIN_EXAMPLE_TOOLS.get(
+                plugin_type, ("wordpress_list_posts(per_page=10)", "")
+            )
             return f"""🔗 SINGLE SITE MODE - Connected to: {site_name}
 URL: {site_url}
 
 You are connected to exactly ONE site. The 'site' parameter is OPTIONAL - you can omit it or use any value.
 
 Examples (all equivalent):
-- wordpress_list_posts(per_page=10)
-- wordpress_list_posts(site="{site_name}", per_page=10)
-- wordpress_list_posts(site="default", per_page=10)
+- {ex1}
+- {plugin_type}_list_posts(site="{site_name}", per_page=10)
+- {plugin_type}_list_posts(site="default", per_page=10)
 
 Just use the tools directly without asking which site to use.{openpanel_note}"""
 
@@ -411,12 +447,18 @@ Just use the tools directly without asking which site to use.{openpanel_note}"""
 
             sites_text = "\n".join(site_list)
 
+            ex1, _ = _PLUGIN_EXAMPLE_TOOLS.get(
+                plugin_type, ("wordpress_list_posts(per_page=10)", "")
+            )
+            # Replace per_page with site param for multi-site example
+            multi_ex = ex1.replace("(", '(site="site1", ', 1) if "(" in ex1 else ex1
+
             return f"""📋 MULTI-SITE MODE - {len(sites)} sites available:
 
 {sites_text}
 
 When using tools, pass the 'site' parameter with either the site_id or alias.
-Example: wordpress_list_posts(site="site1", per_page=10)
+Example: {multi_ex}
 
 Use list_sites() to see all available sites."""
 
@@ -1181,6 +1223,31 @@ try:
     logger.info("User authentication (OAuth Social Login) initialized")
 except Exception as e:
     logger.info("User auth not initialized (OAuth not configured): %s", e)
+
+
+# === ENCRYPTION KEY VALIDATION (E.1: Credential Encryption) ===
+
+_encryption_key_raw = os.getenv("ENCRYPTION_KEY", "")
+if _encryption_key_raw:
+    try:
+        import base64 as _b64
+
+        _key_bytes = _b64.b64decode(_encryption_key_raw)
+        if len(_key_bytes) != 32:
+            logger.error(
+                "Invalid ENCRYPTION_KEY: must decode to 32 bytes, got %d. "
+                "User site management will not work.",
+                len(_key_bytes),
+            )
+        else:
+            from core.encryption import initialize_credential_encryption
+
+            initialize_credential_encryption(_encryption_key_raw)
+            logger.info("Credential encryption initialized")
+    except Exception as e:
+        logger.error("Invalid ENCRYPTION_KEY: %s. User site management will not work.", e)
+else:
+    logger.info("ENCRYPTION_KEY not set — user site management disabled")
 
 
 # === USER API KEY MANAGER (E.3: Site Management) ===
@@ -3014,8 +3081,8 @@ async def _get_system_info_impl() -> dict:
             "success": True,
             "server": {
                 "name": "MCP Hub",
-                "version": "v2.6.0",
-                "phase": "X.3 (System Endpoint)",
+                "version": SERVER_VERSION,
+                "endpoint_type": "system",
             },
             "uptime": {
                 "seconds": uptime_seconds,
@@ -4639,7 +4706,28 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
         StarletteMiddleware(DashboardCSRFMiddleware),
     ]
 
-    app = Starlette(routes=routes, lifespan=combined_lifespan, middleware=middleware)
+    # Custom 404 handler — styled HTML instead of plain text
+    async def not_found_handler(request: Request, exc):
+        _404_path = os.path.join(
+            os.path.dirname(__file__), "core", "templates", "dashboard", "404.html"
+        )
+        try:
+            with open(_404_path, encoding="utf-8") as f:
+                content = f.read()
+            from starlette.responses import HTMLResponse
+
+            return HTMLResponse(content, status_code=404)
+        except Exception:
+            from starlette.responses import PlainTextResponse
+
+            return PlainTextResponse("404 Not Found", status_code=404)
+
+    app = Starlette(
+        routes=routes,
+        lifespan=combined_lifespan,
+        middleware=middleware,
+        exception_handlers={404: not_found_handler},
+    )
 
     logger.info("=" * 60)
     logger.info("Multi-Endpoint Architecture Active")

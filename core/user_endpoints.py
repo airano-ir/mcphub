@@ -116,7 +116,7 @@ async def _execute_tool(
 
     Uses the same pattern as unified_handler in tool_generator.py.
     """
-    from plugins import plugin_registry
+    from plugins import registry as plugin_registry
 
     if not plugin_registry.is_registered(plugin_type):
         return {"type": "text", "text": f"Error: Unknown plugin type '{plugin_type}'"}

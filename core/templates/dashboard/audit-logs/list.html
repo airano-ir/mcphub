@@ -178,7 +178,7 @@
                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                             <!-- Timestamp -->
                             <td class="px-6 py-4">
-                                <span class="text-sm text-gray-700 dark:text-gray-300 font-mono">{{ log.timestamp[:19] }}</span>
+                                <span class="text-sm text-gray-700 dark:text-gray-300 font-mono">{{ log.timestamp[:19] if log.timestamp else '-' }}</span>
                             </td>
 
                             <!-- Event Type -->
