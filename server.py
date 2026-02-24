@@ -1234,18 +1234,26 @@ if _encryption_key_raw:
 
         _key_bytes = _b64.b64decode(_encryption_key_raw)
         if len(_key_bytes) != 32:
-            logger.error(
-                "Invalid ENCRYPTION_KEY: must decode to 32 bytes, got %d. "
-                "User site management will not work.",
+            logger.critical(
+                "FATAL: ENCRYPTION_KEY must decode to exactly 32 bytes, got %d. "
+                'Generate a valid key with: python -c "import os,base64; '
+                'print(base64.b64encode(os.urandom(32)).decode())"',
                 len(_key_bytes),
             )
+            sys.exit(1)
         else:
             from core.encryption import initialize_credential_encryption
 
             initialize_credential_encryption(_encryption_key_raw)
             logger.info("Credential encryption initialized")
     except Exception as e:
-        logger.error("Invalid ENCRYPTION_KEY: %s. User site management will not work.", e)
+        logger.critical(
+            "FATAL: Invalid ENCRYPTION_KEY: %s. "
+            'Generate a valid key with: python -c "import os,base64; '
+            'print(base64.b64encode(os.urandom(32)).decode())"',
+            e,
+        )
+        sys.exit(1)
 else:
     logger.info("ENCRYPTION_KEY not set — user site management disabled")
 
@@ -4697,17 +4705,8 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
 
         routes.append(Mount("/static", app=StaticFiles(directory=_static_dir), name="static"))
 
-    # Main admin endpoint (must be last - catches all remaining routes)
-    routes.append(Mount("/", app=main_app, name="mcp_admin"))
-
-    # Add middlewares
-    middleware = [
-        StarletteMiddleware(OAuthRequiredMiddleware),
-        StarletteMiddleware(DashboardCSRFMiddleware),
-    ]
-
-    # Custom 404 handler — styled HTML instead of plain text
-    async def not_found_handler(request: Request, exc):
+    # Catch-all for unmatched GET requests — serves styled 404 page
+    async def catch_all_404(request):
         _404_path = os.path.join(
             os.path.dirname(__file__), "core", "templates", "dashboard", "404.html"
         )
@@ -4722,11 +4721,21 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
 
             return PlainTextResponse("404 Not Found", status_code=404)
 
+    routes.append(Route("/{path:path}", catch_all_404, methods=["GET"]))
+
+    # Main admin endpoint (must be last - catches all remaining non-GET routes)
+    routes.append(Mount("/", app=main_app, name="mcp_admin"))
+
+    # Add middlewares
+    middleware = [
+        StarletteMiddleware(OAuthRequiredMiddleware),
+        StarletteMiddleware(DashboardCSRFMiddleware),
+    ]
+
     app = Starlette(
         routes=routes,
         lifespan=combined_lifespan,
         middleware=middleware,
-        exception_handlers={404: not_found_handler},
     )
 
     logger.info("=" * 60)

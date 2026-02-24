@@ -553,12 +553,36 @@ class HealthMonitor:
             plugin_instance = plugin_registry.create_instance(plugin_type, site_id, config_dict)
             return await plugin_instance.health_check()
         except Exception as e:
-            logger.debug(
+            logger.warning(
                 f"Could not create plugin instance for {project_id}, "
-                f"falling back to basic HTTP check: {e}"
+                f"falling back to authenticated HTTP check: {e}"
             )
 
-        # Fallback: basic HTTP check if plugin instantiation fails
+        # Fallback: authenticated health check for WordPress-based plugins
+        if plugin_type in ("wordpress", "wordpress_advanced", "woocommerce"):
+            try:
+                import aiohttp
+
+                auth = aiohttp.BasicAuth(
+                    config.username or "",
+                    config.app_password or "",
+                )
+                async with aiohttp.ClientSession(auth=auth) as session:
+                    async with session.get(
+                        f"{config.url}/wp-json/wp/v2/users/me",
+                        timeout=aiohttp.ClientTimeout(total=10),
+                        ssl=False,
+                    ) as resp:
+                        auth_valid = resp.status == 200
+                basic_result = await self._basic_http_health_check(config.url, project_id)
+                basic_result["auth_valid"] = auth_valid
+                if not auth_valid:
+                    basic_result["auth_warning"] = "Site accessible but credentials may be invalid"
+                return basic_result
+            except Exception:
+                pass
+
+        # Last resort: basic HTTP check
         return await self._basic_http_health_check(config.url, project_id)
 
     async def _basic_http_health_check(self, url: str | None, project_id: str) -> dict[str, Any]:

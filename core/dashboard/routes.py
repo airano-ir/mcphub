@@ -395,8 +395,8 @@ async def get_recent_activity(limit: int = 10) -> list:
 
         audit_logger = get_audit_logger()
 
-        # Read recent entries from audit log
-        entries = audit_logger.get_recent_entries(limit=limit)
+        # Fetch extra entries because we filter some out
+        entries = audit_logger.get_recent_entries(limit=limit * 3)
 
         for entry in entries:
             # Skip internal/noise events
@@ -404,15 +404,21 @@ async def get_recent_activity(limit: int = 10) -> list:
             if evt in ("health_metric_recorded", "health_check"):
                 continue
 
+            project = (entry.get("metadata") or {}).get("project_id") or "-"
+
             activity.append(
                 {
                     "timestamp": entry.get("timestamp") or "",
                     "type": evt or "unknown",
                     "message": entry.get("message") or "",
-                    "project": (entry.get("metadata") or {}).get("project_id", "-"),
+                    "project": project if project != "None" else "-",
                     "level": entry.get("level") or "INFO",
                 }
             )
+
+            # Stop once we have enough
+            if len(activity) >= limit:
+                break
 
     except Exception as e:
         logger.warning(f"Error getting recent activity: {e}")

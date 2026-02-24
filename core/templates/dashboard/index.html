@@ -137,7 +137,7 @@
 
                                 <div>
                                     <p class="text-sm font-medium text-gray-900 dark:text-white">{{ activity.message }}</p>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ activity.project }}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ activity.project if activity.project and activity.project != 'None' else '-' }}</p>
                                 </div>
                             </div>
                             <span class="text-xs text-gray-400 dark:text-gray-500">{{ activity.timestamp[:19] if activity.timestamp else '-' }}</span>
