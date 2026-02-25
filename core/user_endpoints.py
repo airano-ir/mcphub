@@ -210,6 +210,9 @@ async def user_mcp_handler(request: Request) -> Response:
 
     api_key = auth_header[7:]  # Strip "Bearer "
 
+    # Shared scope tracking — set by whichever auth path succeeds
+    key_scopes: list[str] = []
+
     # Try mhu_ API key first, then fall back to OAuth JWT token
     if api_key.startswith("mhu_"):
         try:
@@ -234,6 +237,7 @@ async def user_mcp_handler(request: Request) -> Response:
                 _jsonrpc_error(None, -32600, "API key does not match user"),
                 status_code=403,
             )
+        key_scopes = key_info.get("scopes", "read").split()
     else:
         # Try OAuth JWT token (issued after consent flow via GitHub/Google login)
         try:
@@ -258,6 +262,7 @@ async def user_mcp_handler(request: Request) -> Response:
                     _jsonrpc_error(None, -32600, "Token user mismatch"),
                     status_code=403,
                 )
+            key_scopes = jwt_payload.get("scope", "read").split()
         except pyjwt.ExpiredSignatureError:
             return JSONResponse(
                 _jsonrpc_error(None, -32600, "Token expired"),
@@ -360,7 +365,7 @@ async def user_mcp_handler(request: Request) -> Response:
             return JSONResponse(_jsonrpc_error(req_id, -32601, f"Tool '{tool_name}' not found"))
 
         required_scope = tool_def.required_scope
-        key_scopes = key_info.get("scopes", "").split()
+        # key_scopes is set during authentication (both mhu_ and JWT paths)
 
         scope_hierarchy = {"read": 1, "write": 2, "admin": 3}
         required_level = scope_hierarchy.get(required_scope, 0)

@@ -139,6 +139,7 @@ class TokenManager:
                     "verify_signature": True,
                     "verify_exp": True,
                     "verify_nbf": True,
+                    "verify_aud": False,  # Server is the resource server; no external aud check needed
                 },
             )
 

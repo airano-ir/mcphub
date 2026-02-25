@@ -2946,7 +2946,7 @@ async def dashboard_user_oauth_clients_create(request: Request) -> Response:
 
     client_name = body.get("client_name", "").strip()
     redirect_uris_raw = body.get("redirect_uris", "")
-    scopes = body.get("scopes", ["read", "write"])
+    scopes = body.get("scopes", ["read", "write", "admin"])
 
     if not client_name:
         return JSONResponse({"error": "Client name required"}, status_code=400)
