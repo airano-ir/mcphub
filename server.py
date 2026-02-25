@@ -108,6 +108,10 @@ from core.dashboard.routes import (
     # E.3: Site Management pages
     dashboard_sites_add,
     dashboard_sites_list,
+    # Bug C: User OAuth client routes
+    dashboard_user_oauth_clients_create,
+    dashboard_user_oauth_clients_delete,
+    dashboard_user_oauth_clients_list,
 )
 from core.database import get_database, initialize_database
 from core.i18n import detect_language, get_all_translations
@@ -4789,6 +4793,12 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
         Route("/dashboard/profile", dashboard_profile_page, methods=["GET"]),
         Route("/dashboard/sites/add", dashboard_sites_add, methods=["GET"]),
         Route("/dashboard/sites", dashboard_sites_list, methods=["GET"]),
+        # Bug C: User OAuth client routes (must be before /dashboard/connect)
+        Route(
+            "/dashboard/connect/oauth-clients",
+            dashboard_user_oauth_clients_list,
+            methods=["GET"],
+        ),
         Route("/dashboard/connect", dashboard_connect_page, methods=["GET"]),
         Route("/dashboard", dashboard_home, methods=["GET"]),
         Route("/dashboard/", dashboard_home, methods=["GET"]),
@@ -4823,6 +4833,17 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
         Route(
             "/api/dashboard/oauth-clients/{client_id}",
             dashboard_oauth_clients_delete,
+            methods=["DELETE"],
+        ),
+        # Bug C: User OAuth client API routes
+        Route(
+            "/api/dashboard/user-oauth-clients/create",
+            dashboard_user_oauth_clients_create,
+            methods=["POST"],
+        ),
+        Route(
+            "/api/dashboard/user-oauth-clients/{client_id}",
+            dashboard_user_oauth_clients_delete,
             methods=["DELETE"],
         ),
         # Dashboard Audit Logs routes (Phase K.4)
