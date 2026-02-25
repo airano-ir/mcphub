@@ -2696,6 +2696,7 @@ async def dashboard_connect_page(request: Request) -> Response:
             "clients": get_supported_clients(),
             "current_page": "connect",
             "new_key": new_key,
+            "public_url": os.environ.get("PUBLIC_URL", "http://localhost:8000"),
         },
     )
 
@@ -2902,6 +2903,110 @@ async def api_get_config(request: Request) -> Response:
         return JSONResponse({"error": str(e)}, status_code=400)
 
 
+async def dashboard_user_oauth_clients_list(request: Request) -> Response:
+    """GET /dashboard/connect/oauth-clients — OAuth user's own OAuth clients."""
+    user_session, redirect = _require_user_session(request)
+    if redirect:
+        return redirect
+
+    accept_language = request.headers.get("accept-language")
+    query_lang = request.query_params.get("lang")
+    lang = detect_language(accept_language, query_lang)
+    t = get_translations(lang)
+
+    from core.oauth import get_client_registry as _get_client_registry
+
+    registry = _get_client_registry()
+    user_id = user_session["user_id"]
+    user_clients = [c for c in registry.list_clients() if c.owner_user_id == user_id]
+
+    return templates.TemplateResponse(
+        "dashboard/user-oauth-clients.html",
+        {
+            "request": request,
+            "lang": lang,
+            "t": t,
+            "session": user_session,
+            "clients": user_clients,
+            "current_page": "connect",
+        },
+    )
+
+
+async def dashboard_user_oauth_clients_create(request: Request) -> Response:
+    """POST /api/dashboard/user-oauth-clients/create — Create OAuth client for OAuth user."""
+    user_session, redirect = _require_user_session(request)
+    if redirect:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
+
+    client_name = body.get("client_name", "").strip()
+    redirect_uris_raw = body.get("redirect_uris", "")
+    scopes = body.get("scopes", ["read", "write"])
+
+    if not client_name:
+        return JSONResponse({"error": "Client name required"}, status_code=400)
+
+    if isinstance(redirect_uris_raw, str):
+        redirect_uris = [u.strip() for u in redirect_uris_raw.splitlines() if u.strip()]
+    else:
+        redirect_uris = [u.strip() for u in redirect_uris_raw if u.strip()]
+
+    if not redirect_uris:
+        return JSONResponse({"error": "At least one redirect URI required"}, status_code=400)
+
+    scope_str = " ".join(scopes) if isinstance(scopes, list) else scopes
+
+    from core.oauth import get_client_registry as _get_client_registry
+
+    registry = _get_client_registry()
+    client_id, client_secret = registry.create_client(
+        client_name=client_name,
+        redirect_uris=redirect_uris,
+        allowed_scopes=scope_str.split() if isinstance(scope_str, str) else scopes,
+        owner_user_id=user_session["user_id"],
+    )
+    client = registry.get_client(client_id)
+
+    return JSONResponse(
+        {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "client_name": client.client_name,
+            "redirect_uris": client.redirect_uris,
+            "scope": client.scope,
+        }
+    )
+
+
+async def dashboard_user_oauth_clients_delete(request: Request) -> Response:
+    """DELETE /api/dashboard/user-oauth-clients/{client_id} — Delete user's own OAuth client."""
+    user_session, redirect = _require_user_session(request)
+    if redirect:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    client_id = request.path_params.get("client_id", "")
+
+    from core.oauth import get_client_registry as _get_client_registry
+
+    registry = _get_client_registry()
+    client = registry.get_client(client_id)
+
+    if not client:
+        return JSONResponse({"error": "Client not found"}, status_code=404)
+
+    # Only allow deleting own clients
+    if client.owner_user_id != user_session["user_id"]:
+        return JSONResponse({"error": "Access denied"}, status_code=403)
+
+    registry.delete_client(client_id)
+    return JSONResponse({"success": True})
+
+
 def register_dashboard_routes(mcp):
     """
     Register dashboard routes with the MCP server.
@@ -2910,6 +3015,9 @@ def register_dashboard_routes(mcp):
         mcp: FastMCP instance to register routes with.
     """
     logger.info("Registering dashboard routes...")
+
+    # Set template globals (available in all templates without passing explicitly)
+    templates.env.globals["project_version"] = _get_project_version()
 
     # Auth routes (E.2: OAuth Social Login)
     mcp.custom_route("/auth/login", methods=["GET"])(auth_login_page)
@@ -2997,5 +3105,16 @@ def register_dashboard_routes(mcp):
 
     # Config snippet API (E.3)
     mcp.custom_route("/api/config/{alias}", methods=["GET"])(api_get_config)
+
+    # User OAuth Client routes (Bug C fix)
+    mcp.custom_route("/dashboard/connect/oauth-clients", methods=["GET"])(
+        dashboard_user_oauth_clients_list
+    )
+    mcp.custom_route("/api/dashboard/user-oauth-clients/create", methods=["POST"])(
+        dashboard_user_oauth_clients_create
+    )
+    mcp.custom_route("/api/dashboard/user-oauth-clients/{client_id}", methods=["DELETE"])(
+        dashboard_user_oauth_clients_delete
+    )
 
     logger.info("Dashboard routes registered successfully")

@@ -76,6 +76,7 @@ class ClientRegistry:
         grant_types: list[str] | None = None,
         allowed_scopes: list[str] | None = None,
         metadata: dict | None = None,
+        owner_user_id: str | None = None,
     ) -> tuple[str, str]:
         """
         Create new OAuth client.
@@ -99,6 +100,7 @@ class ClientRegistry:
             grant_types=grant_types or ["authorization_code", "refresh_token"],
             allowed_scopes=allowed_scopes or ["read", "write"],
             metadata=metadata or {},
+            owner_user_id=owner_user_id,
         )
 
         # Save

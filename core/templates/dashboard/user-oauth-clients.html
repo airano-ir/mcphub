@@ -1,0 +1,241 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}{% if lang == 'fa' %}کلاینت‌های OAuth{% else %}My OAuth Clients{% endif %} - MCP Hub{% endblock %}
+{% block page_title %}{% if lang == 'fa' %}کلاینت‌های OAuth من{% else %}My OAuth Clients{% endif %}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Back link -->
+    <div>
+        <a href="/dashboard/connect{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}"
+           class="inline-flex items-center text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+            <svg class="w-4 h-4 {% if lang == 'fa' %}ml-1 rotate-180{% else %}mr-1{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+            {% if lang == 'fa' %}بازگشت به اتصال{% else %}Back to Connect{% endif %}
+        </a>
+    </div>
+
+    <!-- Info Banner -->
+    <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+        <p class="text-sm text-blue-800 dark:text-blue-300">
+            {% if lang == 'fa' %}
+            برای اتصال Claude.ai Connectors به MCP Hub، یک OAuth Client بسازید. Client ID و Client Secret را در Claude.ai وارد کنید.
+            {% else %}
+            Create an OAuth Client to connect Claude.ai Connectors to your MCP Hub sites. Enter the Client ID and Client Secret in Claude.ai → Settings → Connectors.
+            {% endif %}
+        </p>
+    </div>
+
+    <!-- Clients List -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                {% if lang == 'fa' %}کلاینت‌های OAuth{% else %}OAuth Clients{% endif %}
+            </h3>
+            <button onclick="openCreateModal()"
+                    class="btn-primary px-4 py-2 rounded-lg text-white text-sm font-medium">
+                + {% if lang == 'fa' %}کلاینت جدید{% else %}New Client{% endif %}
+            </button>
+        </div>
+
+        {% if clients %}
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 dark:bg-gray-700/50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-300">
+                            {% if lang == 'fa' %}نام{% else %}Name{% endif %}
+                        </th>
+                        <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-300">
+                            Client ID
+                        </th>
+                        <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-300">
+                            {% if lang == 'fa' %}Redirect URIs{% else %}Redirect URIs{% endif %}
+                        </th>
+                        <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-300">
+                            {% if lang == 'fa' %}عملیات{% else %}Actions{% endif %}
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                    {% for client in clients %}
+                    <tr id="client-{{ client.client_id }}">
+                        <td class="px-4 py-3 text-gray-900 dark:text-white font-medium">{{ client.client_name }}</td>
+                        <td class="px-4 py-3 text-gray-500 dark:text-gray-400 font-mono text-xs">{{ client.client_id }}</td>
+                        <td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">
+                            {% for uri in client.redirect_uris %}
+                            <div class="truncate max-w-xs" title="{{ uri }}">{{ uri }}</div>
+                            {% endfor %}
+                        </td>
+                        <td class="px-4 py-3">
+                            <button onclick="deleteClient('{{ client.client_id }}')"
+                                    class="text-sm text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300">
+                                {% if lang == 'fa' %}حذف{% else %}Delete{% endif %}
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-gray-500 dark:text-gray-400 text-sm">
+            {% if lang == 'fa' %}هنوز کلاینت OAuth ندارید. یکی بسازید.{% else %}No OAuth clients yet. Create one to connect Claude.ai.{% endif %}
+        </p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Create Client Modal -->
+<div id="create-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 w-full max-w-lg mx-4">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                {% if lang == 'fa' %}کلاینت OAuth جدید{% else %}New OAuth Client{% endif %}
+            </h3>
+        </div>
+        <div class="p-6 space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    {% if lang == 'fa' %}نام کلاینت{% else %}Client Name{% endif %}
+                </label>
+                <input type="text" id="client-name"
+                       placeholder="{% if lang == 'fa' %}مثال: Claude.ai{% else %}e.g. Claude.ai Desktop{% endif %}"
+                       class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    {% if lang == 'fa' %}Redirect URIs (هر URI در یک خط){% else %}Redirect URIs (one per line){% endif %}
+                </label>
+                <textarea id="redirect-uris" rows="3"
+                          placeholder="https://claude.ai/oauth/callback"
+                          class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 font-mono text-sm"></textarea>
+            </div>
+        </div>
+        <div class="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+            <button onclick="closeCreateModal()"
+                    class="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg text-sm transition-colors">
+                {% if lang == 'fa' %}لغو{% else %}Cancel{% endif %}
+            </button>
+            <button onclick="createClient()"
+                    class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors">
+                {% if lang == 'fa' %}ایجاد{% else %}Create{% endif %}
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Success Modal (shown once after create) -->
+<div id="success-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 w-full max-w-lg mx-4">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <svg class="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+                {% if lang == 'fa' %}کلاینت ساخته شد{% else %}Client Created{% endif %}
+            </h3>
+        </div>
+        <div class="p-6 space-y-4">
+            <div class="bg-yellow-50 dark:bg-yellow-500/10 border border-yellow-200 dark:border-yellow-500/30 rounded-lg p-3">
+                <p class="text-sm text-yellow-700 dark:text-yellow-400">
+                    {% if lang == 'fa' %}Client Secret فقط یک‌بار نمایش داده می‌شود. الان کپی کنید.{% else %}Client Secret is shown only once. Copy it now.{% endif %}
+                </p>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Client ID</label>
+                <div class="flex items-center gap-2">
+                    <code id="new-client-id" class="flex-1 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded px-3 py-1.5 text-sm font-mono text-gray-800 dark:text-gray-200 overflow-x-auto"></code>
+                    <button onclick="copyText('new-client-id')" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-white text-xs transition-colors">{% if lang == 'fa' %}کپی{% else %}Copy{% endif %}</button>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Client Secret</label>
+                <div class="flex items-center gap-2">
+                    <code id="new-client-secret" class="flex-1 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded px-3 py-1.5 text-sm font-mono text-gray-800 dark:text-gray-200 overflow-x-auto"></code>
+                    <button onclick="copyText('new-client-secret')" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-white text-xs transition-colors">{% if lang == 'fa' %}کپی{% else %}Copy{% endif %}</button>
+                </div>
+            </div>
+        </div>
+        <div class="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+            <button onclick="closeSuccessModal()"
+                    class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors">
+                {% if lang == 'fa' %}متوجه شدم{% else %}Done{% endif %}
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openCreateModal() {
+    document.getElementById('create-modal').classList.remove('hidden');
+    document.getElementById('create-modal').classList.add('flex');
+    document.getElementById('client-name').focus();
+}
+
+function closeCreateModal() {
+    document.getElementById('create-modal').classList.add('hidden');
+    document.getElementById('create-modal').classList.remove('flex');
+    document.getElementById('client-name').value = '';
+    document.getElementById('redirect-uris').value = '';
+}
+
+function closeSuccessModal() {
+    document.getElementById('success-modal').classList.add('hidden');
+    document.getElementById('success-modal').classList.remove('flex');
+    location.reload();
+}
+
+function copyText(elementId) {
+    const text = document.getElementById(elementId).textContent;
+    navigator.clipboard.writeText(text);
+}
+
+async function createClient() {
+    const name = document.getElementById('client-name').value.trim();
+    const uris = document.getElementById('redirect-uris').value.trim();
+    if (!name || !uris) {
+        alert('{% if lang == "fa" %}نام و Redirect URI الزامی است{% else %}Name and Redirect URI are required{% endif %}');
+        return;
+    }
+    try {
+        const resp = await fetch('/api/dashboard/user-oauth-clients/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ client_name: name, redirect_uris: uris }),
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            closeCreateModal();
+            document.getElementById('new-client-id').textContent = data.client_id;
+            document.getElementById('new-client-secret').textContent = data.client_secret;
+            document.getElementById('success-modal').classList.remove('hidden');
+            document.getElementById('success-modal').classList.add('flex');
+        } else {
+            alert(data.error || '{% if lang == "fa" %}خطا در ایجاد کلاینت{% else %}Failed to create client{% endif %}');
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+async function deleteClient(clientId) {
+    if (!confirm('{% if lang == "fa" %}این کلاینت حذف شود؟{% else %}Delete this OAuth client?{% endif %}')) return;
+    try {
+        const resp = await fetch('/api/dashboard/user-oauth-clients/' + clientId, { method: 'DELETE' });
+        if (resp.ok) {
+            document.getElementById('client-' + clientId).remove();
+        } else {
+            const data = await resp.json();
+            alert(data.error || '{% if lang == "fa" %}خطا در حذف{% else %}Delete failed{% endif %}');
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+</script>
+{% endblock %}

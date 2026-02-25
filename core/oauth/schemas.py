@@ -27,6 +27,9 @@ class OAuthClient(BaseModel):
     )
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     metadata: dict = Field(default_factory=dict)
+    owner_user_id: str | None = Field(
+        default=None, description="ID of the OAuth user who created this client (None = admin)"
+    )
 
     @field_validator("redirect_uris")
     def validate_redirect_uris(cls, v):

@@ -13,7 +13,7 @@ Connect your sites, stores, repos, and databases — manage them all through Cla
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776ab.svg)](https://www.python.org/)
 [![PyPI](https://img.shields.io/pypi/v/mcphub-server.svg)](https://pypi.org/project/mcphub-server/)
 [![Docker](https://img.shields.io/docker/v/airano/mcphub?label=docker)](https://hub.docker.com/r/airano/mcphub)
-[![Tests: 442 passing](https://img.shields.io/badge/tests-442%20passing-brightgreen.svg)]()
+[![Tests: 290 passing](https://img.shields.io/badge/tests-290%20passing-brightgreen.svg)]()
 [![Tools: 596](https://img.shields.io/badge/tools-596-orange.svg)]()
 [![CI](https://github.com/airano-ir/mcphub/actions/workflows/ci.yml/badge.svg)](https://github.com/airano-ir/mcphub/actions/workflows/ci.yml)
 
@@ -363,7 +363,7 @@ Without Docker socket, WP-CLI tools return "not available" but all REST API tool
 # Install with dev dependencies
 pip install -e ".[dev]"
 
-# Run tests (442 tests)
+# Run tests (290 tests)
 pytest
 
 # Format and lint

@@ -210,29 +210,64 @@ async def user_mcp_handler(request: Request) -> Response:
 
     api_key = auth_header[7:]  # Strip "Bearer "
 
-    try:
-        from core.user_keys import get_user_key_manager
+    # Try mhu_ API key first, then fall back to OAuth JWT token
+    if api_key.startswith("mhu_"):
+        try:
+            from core.user_keys import get_user_key_manager
 
-        key_mgr = get_user_key_manager()
-        key_info = await key_mgr.validate_key(api_key)
-    except RuntimeError:
-        return JSONResponse(
-            _jsonrpc_error(None, -32600, "Authentication service unavailable"),
-            status_code=503,
-        )
+            key_mgr = get_user_key_manager()
+            key_info = await key_mgr.validate_key(api_key)
+        except RuntimeError:
+            return JSONResponse(
+                _jsonrpc_error(None, -32600, "Authentication service unavailable"),
+                status_code=503,
+            )
 
-    if key_info is None:
-        return JSONResponse(
-            _jsonrpc_error(None, -32600, "Invalid API key"),
-            status_code=401,
-        )
+        if key_info is None:
+            return JSONResponse(
+                _jsonrpc_error(None, -32600, "Invalid API key"),
+                status_code=401,
+            )
 
-    # Ensure the API key belongs to the user in the URL
-    if key_info["user_id"] != user_id:
-        return JSONResponse(
-            _jsonrpc_error(None, -32600, "API key does not match user"),
-            status_code=403,
-        )
+        if key_info["user_id"] != user_id:
+            return JSONResponse(
+                _jsonrpc_error(None, -32600, "API key does not match user"),
+                status_code=403,
+            )
+    else:
+        # Try OAuth JWT token (issued after consent flow via GitHub/Google login)
+        try:
+            import jwt as pyjwt
+
+            from core.oauth import get_token_manager
+
+            token_manager = get_token_manager()
+            jwt_payload = token_manager.validate_access_token(api_key)
+
+            # sub = "user:{uuid}" — extract actual user_id
+            sub = jwt_payload.get("sub", "")
+            if not sub.startswith("user:"):
+                return JSONResponse(
+                    _jsonrpc_error(None, -32600, "Token not authorized for user endpoint"),
+                    status_code=403,
+                )
+            jwt_user_id = sub[len("user:") :]
+
+            if jwt_user_id != user_id:
+                return JSONResponse(
+                    _jsonrpc_error(None, -32600, "Token user mismatch"),
+                    status_code=403,
+                )
+        except pyjwt.ExpiredSignatureError:
+            return JSONResponse(
+                _jsonrpc_error(None, -32600, "Token expired"),
+                status_code=401,
+            )
+        except Exception:
+            return JSONResponse(
+                _jsonrpc_error(None, -32600, "Invalid token"),
+                status_code=401,
+            )
 
     # --- Rate Limiting ---
     allowed, rate_msg = _check_user_rate_limit(user_id)

@@ -131,6 +131,58 @@
         <p class="text-gray-500 dark:text-gray-400 text-sm">{{ t.no_sites }}. <a href="/dashboard/sites/add{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300">{{ t.add_site }}</a></p>
         {% endif %}
     </div>
+
+    <!-- Claude.ai Connection Guide -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            {% if lang == 'fa' %}اتصال به Claude.ai{% else %}Connect to Claude.ai{% endif %}
+        </h3>
+        <ol class="space-y-3 text-sm text-gray-700 dark:text-gray-300 {% if lang == 'fa' %}list-decimal list-inside{% else %}list-decimal list-inside{% endif %}" {% if lang == 'fa' %}dir="rtl"{% endif %}>
+            <li>
+                {% if lang == 'fa' %}
+                در صفحه <strong>OAuth Clients</strong> یک کلاینت جدید بسازید
+                {% else %}
+                Create an OAuth Client on the <strong>OAuth Clients</strong> page
+                {% endif %}
+            </li>
+            <li>
+                {% if lang == 'fa' %}
+                در Claude.ai → Settings → Connectors → Add → Custom
+                {% else %}
+                Go to Claude.ai → Settings → Connectors → Add → Custom
+                {% endif %}
+            </li>
+            <li>
+                {% if lang == 'fa' %}
+                آدرس MCP Endpoint خود را وارد کنید:
+                {% else %}
+                Enter your MCP Endpoint URL:
+                {% endif %}
+                {% if sites %}
+                <code class="block mt-1 bg-gray-100 dark:bg-gray-900 px-3 py-1.5 rounded text-xs font-mono text-gray-800 dark:text-gray-200">
+                    {{ public_url }}/u/{{ session.user_id }}/{{ sites[0].alias }}/mcp
+                </code>
+                {% else %}
+                <code class="block mt-1 bg-gray-100 dark:bg-gray-900 px-3 py-1.5 rounded text-xs font-mono text-gray-800 dark:text-gray-200">
+                    {{ public_url }}/u/{{ session.user_id }}/YOUR-ALIAS/mcp
+                </code>
+                {% endif %}
+            </li>
+            <li>
+                {% if lang == 'fa' %}Client ID و Client Secret را از OAuth Clients وارد کنید{% else %}Enter Client ID and Client Secret from your OAuth Client{% endif %}
+            </li>
+            <li>
+                {% if lang == 'fa' %}با GitHub یا Google وارد شوید{% else %}Log in with GitHub or Google when prompted{% endif %}
+            </li>
+        </ol>
+        <a href="/dashboard/connect/oauth-clients{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}"
+           class="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+            {% if lang == 'fa' %}مدیریت OAuth Clients{% else %}Manage OAuth Clients{% endif %}
+        </a>
+    </div>
 </div>
 {% endblock %}
 

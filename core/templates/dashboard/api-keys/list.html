@@ -76,7 +76,7 @@
             </button>
 
             {% if search_query or selected_project or selected_status != 'active' %}
-            <a href="/dashboard/api-keys{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-white text-sm transition-colors">
+            <a href="/dashboard/api-keys{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-gray-800 dark:text-white text-sm transition-colors">
                 {{ t['clear'] }}
             </a>
             {% endif %}
@@ -248,7 +248,7 @@
             <div class="flex items-center gap-2">
                 {% if page_number > 1 %}
                 <a href="?page={{ page_number - 1 }}{% if selected_project %}&project={{ selected_project }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if lang and lang != 'en' %}&lang={{ lang }}{% endif %}"
-                   class="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-sm text-white transition-colors">
+                   class="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-sm text-gray-800 dark:text-white transition-colors">
                     {% if lang == 'fa' %}قبلی{% else %}Previous{% endif %}
                 </a>
                 {% endif %}
@@ -258,7 +258,7 @@
                     <span class="px-3 py-1.5 bg-primary-600 rounded-lg text-sm text-white">{{ page_num }}</span>
                     {% elif page_num == 1 or page_num == total_pages or (page_num >= page_number - 2 and page_num <= page_number + 2) %}
                     <a href="?page={{ page_num }}{% if selected_project %}&project={{ selected_project }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if lang and lang != 'en' %}&lang={{ lang }}{% endif %}"
-                       class="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-sm text-white transition-colors">
+                       class="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-sm text-gray-800 dark:text-white transition-colors">
                         {{ page_num }}
                     </a>
                     {% elif page_num == page_number - 3 or page_num == page_number + 3 %}
@@ -268,7 +268,7 @@
 
                 {% if page_number < total_pages %}
                 <a href="?page={{ page_number + 1 }}{% if selected_project %}&project={{ selected_project }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if lang and lang != 'en' %}&lang={{ lang }}{% endif %}"
-                   class="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-sm text-white transition-colors">
+                   class="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-sm text-gray-800 dark:text-white transition-colors">
                     {% if lang == 'fa' %}بعدی{% else %}Next{% endif %}
                 </a>
                 {% endif %}
@@ -360,7 +360,7 @@
         <div class="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
             <button
                 onclick="closeCreateModal()"
-                class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-white text-sm transition-colors"
+                class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-gray-800 dark:text-white text-sm transition-colors"
             >
                 {% if lang == 'fa' %}انصراف{% else %}Cancel{% endif %}
             </button>
@@ -448,7 +448,7 @@
         <div class="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
             <button
                 onclick="closeRevokeModal()"
-                class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-white text-sm transition-colors"
+                class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-gray-800 dark:text-white text-sm transition-colors"
             >
                 {% if lang == 'fa' %}انصراف{% else %}Cancel{% endif %}
             </button>
@@ -485,7 +485,7 @@
         <div class="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
             <button
                 onclick="closeDeleteModal()"
-                class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-white text-sm transition-colors"
+                class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-gray-800 dark:text-white text-sm transition-colors"
             >
                 {% if lang == 'fa' %}انصراف{% else %}Cancel{% endif %}
             </button>

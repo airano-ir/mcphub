@@ -444,12 +444,4 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-    // Auto-refresh dashboard every 30 seconds
-    htmx.config.defaultSwapStyle = 'outerHTML';
-
-    setInterval(function() {
-        htmx.ajax('GET', '/api/dashboard/stats', {target: '#stats-container', swap: 'none'});
-    }, 30000);
-</script>
 {% endblock %}
