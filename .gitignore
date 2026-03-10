@@ -29,6 +29,7 @@ ENV/
 htmlcov/
 .tox/
 pytest-out.txt
+scripts/community-build/BUILD_REPORT.md
 .nox/
 coverage.xml
 *.cover

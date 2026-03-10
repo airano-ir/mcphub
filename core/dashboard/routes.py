@@ -122,7 +122,11 @@ DASHBOARD_TRANSLATIONS = {
         "no_sites": "No sites added yet",
         "add_first_site": "Add your first site to get started",
         "site_added": "Site added successfully",
+        "site_updated": "Site updated successfully",
         "site_deleted": "Site deleted",
+        "edit_site": "Edit Site",
+        "updating_site": "Updating site...",
+        "keep_existing": "Leave blank to keep current value",
         "connection_ok": "Connection OK",
         "connection_failed": "Connection failed",
         "credentials": "Credentials",
@@ -218,7 +222,11 @@ DASHBOARD_TRANSLATIONS = {
         "no_sites": "هنوز سایتی اضافه نشده",
         "add_first_site": "اولین سایت خود را اضافه کنید",
         "site_added": "سایت با موفقیت اضافه شد",
+        "site_updated": "سایت با موفقیت بروزرسانی شد",
         "site_deleted": "سایت حذف شد",
+        "edit_site": "ویرایش سایت",
+        "updating_site": "در حال بروزرسانی...",
+        "keep_existing": "خالی بگذارید تا مقدار فعلی حفظ شود",
         "connection_ok": "اتصال برقرار",
         "connection_failed": "اتصال ناموفق",
         "credentials": "مشخصات دسترسی",
@@ -2811,6 +2819,82 @@ async def api_test_site(request: Request) -> Response:
         return JSONResponse({"error": "Internal error"}, status_code=500)
 
 
+async def dashboard_sites_edit(request: Request) -> Response:
+    """GET /dashboard/sites/{id}/edit — Render the Edit Site form."""
+    user_session, redirect = _require_user_session(request)
+    if redirect:
+        return redirect
+
+    site_id = request.path_params.get("id", "")
+
+    from core.site_api import get_user_credential_fields, get_user_plugin_names, get_user_site
+
+    site = await get_user_site(site_id, user_session["user_id"])
+    if site is None:
+        return RedirectResponse("/dashboard/sites?error=site_not_found", status_code=302)
+
+    accept_language = request.headers.get("accept-language")
+    query_lang = request.query_params.get("lang")
+    lang = detect_language(accept_language, query_lang)
+    t = get_translations(lang)
+
+    import json
+
+    plugin_fields = get_user_credential_fields()
+    plugin_names = get_user_plugin_names()
+
+    return templates.TemplateResponse(
+        "dashboard/sites/edit.html",
+        {
+            "request": request,
+            "lang": lang,
+            "t": t,
+            "session": user_session,
+            "site": site,
+            "plugin_fields": plugin_fields,
+            "plugin_fields_json": json.dumps(plugin_fields),
+            "plugin_names": plugin_names,
+            "current_page": "my_sites",
+        },
+    )
+
+
+async def api_update_site(request: Request) -> Response:
+    """PATCH /api/sites/{id} — Update site URL and credentials."""
+    user_session, redirect = _require_user_session(request)
+    if redirect:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    site_id = request.path_params.get("id", "")
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
+
+    from core.site_api import update_user_site
+
+    try:
+        site = await update_user_site(
+            site_id=site_id,
+            user_id=user_session["user_id"],
+            url=body.get("url", "").strip().rstrip("/"),
+            credentials=body.get("credentials", {}),
+        )
+        return JSONResponse({"site": site, "message": "Site updated"})
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    except RuntimeError as e:
+        logger.error("Site update failed (runtime): %s", e)
+        return JSONResponse(
+            {"error": "Site storage is not configured. Contact the administrator."},
+            status_code=503,
+        )
+    except Exception as e:
+        logger.error("Failed to update site: %s", e, exc_info=True)
+        return JSONResponse({"error": "Internal error"}, status_code=500)
+
+
 async def api_create_key(request: Request) -> Response:
     """POST /api/keys — Create a new user API key."""
     user_session, redirect = _require_user_session(request)
@@ -3090,6 +3174,7 @@ def register_dashboard_routes(mcp):
     # Site Management routes (E.3)
     mcp.custom_route("/dashboard/sites", methods=["GET"])(dashboard_sites_list)
     mcp.custom_route("/dashboard/sites/add", methods=["GET"])(dashboard_sites_add)
+    mcp.custom_route("/dashboard/sites/{id}/edit", methods=["GET"])(dashboard_sites_edit)
     mcp.custom_route("/dashboard/connect", methods=["GET"])(dashboard_connect_page)
 
     # Site Management API (E.3)
@@ -3097,6 +3182,7 @@ def register_dashboard_routes(mcp):
     mcp.custom_route("/api/sites", methods=["POST"])(api_create_site)
     mcp.custom_route("/api/sites/{id}/test", methods=["POST"])(api_test_site)
     mcp.custom_route("/api/sites/{id}", methods=["DELETE"])(api_delete_site)
+    mcp.custom_route("/api/sites/{id}", methods=["PATCH"])(api_update_site)
 
     # User API Key routes (E.3)
     mcp.custom_route("/api/keys", methods=["GET"])(api_list_keys)

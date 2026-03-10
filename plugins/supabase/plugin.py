@@ -41,8 +41,13 @@ class SupabasePlugin(BasePlugin):
 
     @staticmethod
     def get_required_config_keys() -> list[str]:
-        """Return required configuration keys"""
-        return ["url", "anon_key", "service_role_key"]
+        """Return required configuration keys.
+
+        anon_key is optional — if not provided, service_role_key is used for all
+        calls (including those that would normally use anon_key). This simplifies
+        configuration for admin/backend use cases where RLS enforcement is not needed.
+        """
+        return ["url", "service_role_key"]
 
     def __init__(self, config: dict[str, Any], project_id: str | None = None):
         """
@@ -50,9 +55,10 @@ class SupabasePlugin(BasePlugin):
 
         Args:
             config: Configuration dictionary containing:
-                - url: Supabase instance URL (Kong gateway)
-                - anon_key: Anonymous key (RLS protected)
-                - service_role_key: Service role key (bypasses RLS)
+                - url: Supabase instance URL (Kong gateway or supabase.co)
+                - service_role_key: Admin API key (bypasses RLS). Required.
+                - anon_key: Public API key (RLS protected). Optional.
+                - meta_url: Direct postgres-meta URL. Optional.
             project_id: Optional project ID (auto-generated if not provided)
         """
         super().__init__(config, project_id=project_id)
@@ -60,8 +66,9 @@ class SupabasePlugin(BasePlugin):
         # Create Supabase API client
         self.client = SupabaseClient(
             base_url=config["url"],
-            anon_key=config["anon_key"],
+            anon_key=config.get("anon_key", ""),
             service_role_key=config["service_role_key"],
+            meta_url=config.get("meta_url"),
         )
 
     @staticmethod

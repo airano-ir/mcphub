@@ -27,18 +27,30 @@ class SupabaseClient:
     Uses JWT-based authentication with anon_key or service_role_key.
     """
 
-    def __init__(self, base_url: str, anon_key: str, service_role_key: str):
+    def __init__(
+        self,
+        base_url: str,
+        anon_key: str,
+        service_role_key: str,
+        meta_url: str | None = None,
+    ):
         """
         Initialize Supabase API client.
 
         Args:
-            base_url: Supabase instance URL (Kong gateway)
-            anon_key: Public API key (RLS protected)
-            service_role_key: Admin API key (bypasses RLS)
+            base_url: Supabase instance URL (Kong gateway or supabase.co)
+            anon_key: Public API key (RLS protected). Optional — if empty,
+                service_role_key is used for all calls.
+            service_role_key: Admin API key (bypasses RLS). Required.
+            meta_url: Optional direct postgres-meta URL (e.g. http://localhost:5555).
+                When provided, postgres-meta calls hit this URL directly instead of
+                the Kong /pg/ route. Useful when /pg/ is not exposed through Kong.
         """
         self.base_url = base_url.rstrip("/")
         self.anon_key = anon_key
         self.service_role_key = service_role_key
+        # postgres-meta base: custom URL or Kong /pg/ prefix
+        self.meta_base_url = (meta_url or f"{self.base_url}/pg").rstrip("/")
 
         # Initialize logger
         self.logger = logging.getLogger(f"SupabaseClient.{base_url}")
@@ -56,7 +68,8 @@ class SupabaseClient:
         Returns:
             Dict: Headers with authentication
         """
-        key = self.service_role_key if use_service_role else self.anon_key
+        # If anon_key is not configured, fall back to service_role_key for all calls
+        key = self.service_role_key if (use_service_role or not self.anon_key) else self.anon_key
 
         headers = {
             "apikey": key,
@@ -70,15 +83,41 @@ class SupabaseClient:
 
         return headers
 
+    async def _head_request_headers(
+        self,
+        endpoint: str,
+        params: dict | None = None,
+        headers_override: dict | None = None,
+        use_service_role: bool = False,
+        base_url_override: str | None = None,
+    ) -> dict[str, str]:
+        """
+        Make HEAD request and return response headers.
+
+        Used for operations like count_rows where the result is in a response
+        header (Content-Range) rather than the body.
+        """
+        url = f"{base_url_override or self.base_url}{endpoint}"
+        headers = self._get_headers(use_service_role, headers_override)
+        if params:
+            params = {k: v for k, v in params.items() if v is not None}
+
+        async with aiohttp.ClientSession() as session:
+            async with session.head(url, params=params or None, headers=headers) as response:
+                # Normalise to lowercase so callers can use consistent keys
+                # (aiohttp CIMultiDictProxy is case-insensitive but dict() is not)
+                return {k.lower(): v for k, v in response.headers.items()}
+
     async def request(
         self,
         method: str,
         endpoint: str,
         params: dict | None = None,
-        json_data: dict | None = None,
+        json_data: Any = None,
         data: bytes | None = None,
         headers_override: dict | None = None,
         use_service_role: bool = False,
+        base_url_override: str | None = None,
     ) -> Any:
         """
         Make authenticated request to Supabase API.
@@ -87,10 +126,11 @@ class SupabaseClient:
             method: HTTP method
             endpoint: API endpoint (with leading /)
             params: Query parameters
-            json_data: JSON body data
+            json_data: JSON body data (dict or list)
             data: Raw binary data (for file uploads)
             headers_override: Override/add headers
             use_service_role: Use service_role_key
+            base_url_override: Override base URL (used for postgres-meta calls)
 
         Returns:
             API response
@@ -98,7 +138,7 @@ class SupabaseClient:
         Raises:
             Exception: On API errors
         """
-        url = f"{self.base_url}{endpoint}"
+        url = f"{base_url_override or self.base_url}{endpoint}"
 
         headers = self._get_headers(use_service_role, headers_override)
 
@@ -106,10 +146,10 @@ class SupabaseClient:
         if data is not None:
             headers.pop("Content-Type", None)
 
-        # Filter None values
+        # Filter None values from params and dict json bodies
         if params:
             params = {k: v for k, v in params.items() if v is not None}
-        if json_data:
+        if json_data and isinstance(json_data, dict):
             json_data = {k: v for k, v in json_data.items() if v is not None}
 
         self.logger.debug(f"{method} {url}")
@@ -167,17 +207,69 @@ class SupabaseClient:
     def _extract_error_message(self, response_data: Any) -> str:
         """Extract error message from various response formats."""
         if isinstance(response_data, dict):
-            # PostgREST error format
+            # PostgREST error format — includes code, details, hint
             if "message" in response_data:
-                return response_data["message"]
+                parts = [response_data["message"]]
+                if response_data.get("code"):
+                    parts.insert(0, f"[{response_data['code']}]")
+                if response_data.get("details"):
+                    parts.append(f"Details: {response_data['details']}")
+                if response_data.get("detail"):
+                    parts.append(f"Detail: {response_data['detail']}")
+                if response_data.get("hint"):
+                    parts.append(f"Hint: {response_data['hint']}")
+                return " | ".join(parts)
             # GoTrue error format
             if "error_description" in response_data:
                 return response_data["error_description"]
             if "msg" in response_data:
                 return response_data["msg"]
+            # postgres-meta error format — "error" key with optional PG fields
             if "error" in response_data:
-                return response_data["error"]
+                parts = [str(response_data["error"])]
+                if response_data.get("code"):
+                    parts.insert(0, f"[{response_data['code']}]")
+                if response_data.get("hint"):
+                    parts.append(f"Hint: {response_data['hint']}")
+                if response_data.get("detail"):
+                    parts.append(f"Detail: {response_data['detail']}")
+                if response_data.get("position"):
+                    parts.append(f"Position: {response_data['position']}")
+                return " | ".join(parts)
         return str(response_data)
+
+    def _build_filter_params(self, filters: list[dict]) -> dict[str, str]:
+        """
+        Convert a filter list to PostgREST query parameters.
+
+        Handles special cases:
+        - ``is`` operator with Python ``None`` → ``is.null``
+        - ``is`` operator with Python bool → ``is.true`` / ``is.false``
+        - ``in`` operator with a list → ``in.(a,b,c)``
+        - Any other operator with ``None`` value is skipped (prevents sending
+          a bare ``col=eq.None`` which PostgREST would reject).
+        """
+        params: dict[str, str] = {}
+        for f in filters:
+            col = f.get("column")
+            op = f.get("operator", "eq")
+            val = f.get("value")
+            if not col:
+                continue
+            if val is None:
+                # Only ``is`` / ``not.is`` accept null
+                if op in ("is", "not.is"):
+                    val = "null"
+                else:
+                    continue
+            elif isinstance(val, bool):
+                # Convert Python bool to lowercase string for PostgREST
+                val = "true" if val else "false"
+            elif op == "in" and isinstance(val, list):
+                # PostgREST ``in`` format: status=in.(active,inactive)
+                val = f"({','.join(str(v) for v in val)})"
+            params[col] = f"{op}.{val}"
+        return params
 
     # =====================
     # POSTGREST (Database)
@@ -204,20 +296,15 @@ class SupabaseClient:
             limit: Maximum rows
             offset: Offset for pagination
         """
-        params = {"select": select, "limit": limit, "offset": offset}
+        params: dict[str, Any] = {"select": select, "limit": limit, "offset": offset}
 
         if order:
             params["order"] = order
 
-        # Build filter query string
-        headers = {}
         if filters:
-            for f in filters:
-                col = f.get("column")
-                op = f.get("operator", "eq")
-                val = f.get("value")
-                if col and val is not None:
-                    params[col] = f"{op}.{val}"
+            params.update(self._build_filter_params(filters))
+
+        headers = {}
 
         # Request single objects as array
         headers["Accept"] = "application/json"
@@ -240,15 +327,18 @@ class SupabaseClient:
     ) -> list[dict]:
         """Insert rows into a table."""
         headers = {"Prefer": "return=representation"}
+        upsert_params: dict[str, str] = {}
 
         if upsert:
             headers["Prefer"] = "return=representation,resolution=merge-duplicates"
             if on_conflict:
-                headers["on-conflict"] = on_conflict
+                # PostgREST expects on_conflict as a query parameter, not a header
+                upsert_params["on_conflict"] = on_conflict
 
         return await self.request(
             "POST",
             f"/rest/v1/{table}",
+            params=upsert_params or None,
             json_data=rows if isinstance(rows, list) else [rows],
             headers_override=headers,
             use_service_role=use_service_role,
@@ -258,14 +348,7 @@ class SupabaseClient:
         self, table: str, data: dict, filters: list[dict], use_service_role: bool = False
     ) -> list[dict]:
         """Update rows matching filters."""
-        params = {}
-        for f in filters:
-            col = f.get("column")
-            op = f.get("operator", "eq")
-            val = f.get("value")
-            if col and val is not None:
-                params[col] = f"{op}.{val}"
-
+        params = self._build_filter_params(filters)
         headers = {"Prefer": "return=representation"}
 
         return await self.request(
@@ -281,14 +364,7 @@ class SupabaseClient:
         self, table: str, filters: list[dict], use_service_role: bool = False
     ) -> list[dict]:
         """Delete rows matching filters."""
-        params = {}
-        for f in filters:
-            col = f.get("column")
-            op = f.get("operator", "eq")
-            val = f.get("value")
-            if col and val is not None:
-                params[col] = f"{op}.{val}"
-
+        params = self._build_filter_params(filters)
         headers = {"Prefer": "return=representation"}
 
         return await self.request(
@@ -313,94 +389,133 @@ class SupabaseClient:
     async def count_rows(
         self, table: str, filters: list[dict] | None = None, use_service_role: bool = False
     ) -> int:
-        """Count rows in a table."""
-        params = {"select": "count"}
+        """Count rows in a table using HEAD + Content-Range header."""
+        filter_params = self._build_filter_params(filters) if filters else {}
 
-        if filters:
-            for f in filters:
-                col = f.get("column")
-                op = f.get("operator", "eq")
-                val = f.get("value")
-                if col and val is not None:
-                    params[col] = f"{op}.{val}"
-
-        headers = {"Accept": "application/json", "Prefer": "count=exact"}
-
-        result = await self.request(
-            "HEAD",
+        response_headers = await self._head_request_headers(
             f"/rest/v1/{table}",
-            params=params,
-            headers_override=headers,
-            use_service_role=use_service_role,
-        )
-
-        # Count is in Content-Range header for HEAD requests
-        # Fallback to query approach
-        result = await self.request(
-            "GET",
-            f"/rest/v1/{table}",
-            params={"select": "count", **{k: v for k, v in params.items() if k != "select"}},
+            params=filter_params or None,
             headers_override={"Prefer": "count=exact"},
             use_service_role=use_service_role,
         )
 
-        if isinstance(result, list) and len(result) > 0:
-            return result[0].get("count", 0)
+        # PostgREST returns count in Content-Range: 0-N/TOTAL or */TOTAL
+        content_range = response_headers.get("content-range", "")
+        if "/" in content_range:
+            try:
+                total = content_range.split("/")[-1]
+                if total != "*":
+                    return int(total)
+            except (ValueError, IndexError):
+                pass
         return 0
 
     # =====================
     # POSTGRES-META (Admin)
     # =====================
+    # All postgres-meta requests use self.meta_base_url (default: {base_url}/pg).
+    # Set META_URL env var for direct postgres-meta access (e.g., http://host:5555).
+    # Note: postgres-meta /columns, /policies, /triggers do NOT support filtering
+    # by table_name as a query param — we filter the results in Python instead.
 
     async def list_tables(self, schema: str = "public") -> list[dict]:
-        """List all tables in a schema."""
+        """List all tables via postgres-meta."""
         return await self.request(
-            "GET", "/pg/tables", params={"include_system_schemas": "false"}, use_service_role=True
+            "GET",
+            "/tables",
+            params={"include_system_schemas": "false"},
+            use_service_role=True,
+            base_url_override=self.meta_base_url,
         )
 
     async def get_table_schema(self, table: str, schema: str = "public") -> dict:
-        """Get table schema/columns."""
-        columns = await self.request(
-            "GET", "/pg/columns", params={"table_name": table}, use_service_role=True
+        """Get table schema/columns via postgres-meta, filtered by table+schema in Python."""
+        all_columns = await self.request(
+            "GET",
+            "/columns",
+            params={"include_system_schemas": "false"},
+            use_service_role=True,
+            base_url_override=self.meta_base_url,
         )
+        # postgres-meta /columns does not support table_name filtering — filter here
+        columns = [
+            col
+            for col in (all_columns if isinstance(all_columns, list) else [])
+            if col.get("table") == table and col.get("schema") == schema
+        ]
         return {"table": table, "schema": schema, "columns": columns}
 
     async def list_schemas(self) -> list[dict]:
-        """List all database schemas."""
-        return await self.request("GET", "/pg/schemas", use_service_role=True)
+        """List all database schemas via postgres-meta."""
+        return await self.request(
+            "GET",
+            "/schemas",
+            use_service_role=True,
+            base_url_override=self.meta_base_url,
+        )
 
     async def list_extensions(self) -> list[dict]:
-        """List installed extensions."""
-        return await self.request("GET", "/pg/extensions", use_service_role=True)
+        """List installed extensions via postgres-meta."""
+        return await self.request(
+            "GET",
+            "/extensions",
+            use_service_role=True,
+            base_url_override=self.meta_base_url,
+        )
 
     async def list_policies(self, table: str | None = None) -> list[dict]:
-        """List RLS policies."""
-        params = {}
-        if table:
-            params["table_name"] = table
-        return await self.request("GET", "/pg/policies", params=params, use_service_role=True)
+        """List RLS policies via postgres-meta, optionally filtered by table name."""
+        all_policies = await self.request(
+            "GET",
+            "/policies",
+            use_service_role=True,
+            base_url_override=self.meta_base_url,
+        )
+        # postgres-meta /policies does not support table_name filtering — filter here
+        if table and isinstance(all_policies, list):
+            return [p for p in all_policies if p.get("table") == table]
+        return all_policies
 
     async def list_roles(self) -> list[dict]:
-        """List database roles."""
-        return await self.request("GET", "/pg/roles", use_service_role=True)
+        """List database roles via postgres-meta."""
+        return await self.request(
+            "GET",
+            "/roles",
+            use_service_role=True,
+            base_url_override=self.meta_base_url,
+        )
 
     async def list_triggers(self, table: str | None = None) -> list[dict]:
-        """List triggers."""
-        params = {}
-        if table:
-            params["table_name"] = table
-        return await self.request("GET", "/pg/triggers", params=params, use_service_role=True)
+        """List triggers via postgres-meta, optionally filtered by table name."""
+        all_triggers = await self.request(
+            "GET",
+            "/triggers",
+            use_service_role=True,
+            base_url_override=self.meta_base_url,
+        )
+        # postgres-meta /triggers does not support table_name filtering — filter here
+        if table and isinstance(all_triggers, list):
+            return [t for t in all_triggers if t.get("table") == table]
+        return all_triggers
 
     async def list_functions(self, schema: str = "public") -> list[dict]:
-        """List database functions."""
+        """List database functions via postgres-meta."""
         return await self.request(
-            "GET", "/pg/functions", params={"schema": schema}, use_service_role=True
+            "GET",
+            "/functions",
+            params={"schema": schema},
+            use_service_role=True,
+            base_url_override=self.meta_base_url,
         )
 
     async def execute_sql(self, query: str) -> Any:
-        """Execute raw SQL query."""
+        """Execute raw SQL query via postgres-meta."""
         return await self.request(
-            "POST", "/pg/query", json_data={"query": query}, use_service_role=True
+            "POST",
+            "/query",
+            json_data={"query": query},
+            use_service_role=True,
+            base_url_override=self.meta_base_url,
         )
 
     # =====================
@@ -655,8 +770,13 @@ class SupabaseClient:
             await self.request("GET", "/rest/v1/", use_service_role=True)
             results["services"]["postgrest"] = "ok"
         except Exception as e:
-            results["services"]["postgrest"] = f"error: {str(e)}"
-            results["healthy"] = False
+            # A 404 on the PostgREST root still confirms connectivity — some versions
+            # return 404 for the root endpoint while working normally for table queries.
+            if "status 404" in str(e).lower() or "404" in str(e):
+                results["services"]["postgrest"] = "ok"
+            else:
+                results["services"]["postgrest"] = f"error: {str(e)}"
+                results["healthy"] = False
 
         # Check GoTrue
         try:

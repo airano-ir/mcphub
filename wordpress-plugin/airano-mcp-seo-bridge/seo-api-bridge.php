@@ -1,6 +1,6 @@
 <?php
 /**
- * Plugin Name: SEO API Bridge
+ * Plugin Name: Airano MCP SEO Meta Bridge
  * Plugin URI: https://github.com/airano-ir/mcphub
  * Description: Exposes Rank Math SEO and Yoast SEO meta fields via WordPress REST API for use with MCP servers and AI agents. Supports posts, pages, and WooCommerce products with full CRUD operations.
  * Version: 1.3.0
@@ -9,7 +9,7 @@
  * License: GPL-2.0-or-later
  * Requires at least: 5.0
  * Requires PHP: 7.4
- * Text Domain: seo-api-bridge
+ * Text Domain: airano-mcp-seo-bridge
  *
  * Changelog:
  * 1.3.0 - Added REST API endpoints for posts, pages, and products (GET/POST operations)
@@ -24,7 +24,7 @@ if (!defined('ABSPATH')) {
 }
 
 /**
- * SEO API Bridge Main Class
+ * Airano MCP SEO Meta Bridge Main Class
  */
 class SEO_API_Bridge {
 
@@ -57,7 +57,7 @@ class SEO_API_Bridge {
      */
     public function register_rest_routes() {
         // Status endpoint
-        register_rest_route('seo-api-bridge/v1', '/status', [
+        register_rest_route('airano-mcp-seo-bridge/v1', '/status', [
             'methods' => 'GET',
             'callback' => [$this, 'get_status'],
             'permission_callback' => function() {
@@ -66,7 +66,7 @@ class SEO_API_Bridge {
         ]);
 
         // Post SEO endpoints
-        register_rest_route('seo-api-bridge/v1', '/posts/(?P<id>\d+)/seo', [
+        register_rest_route('airano-mcp-seo-bridge/v1', '/posts/(?P<id>\d+)/seo', [
             [
                 'methods' => 'GET',
                 'callback' => [$this, 'get_post_seo'],
@@ -98,7 +98,7 @@ class SEO_API_Bridge {
         ]);
 
         // Page SEO endpoints
-        register_rest_route('seo-api-bridge/v1', '/pages/(?P<id>\d+)/seo', [
+        register_rest_route('airano-mcp-seo-bridge/v1', '/pages/(?P<id>\d+)/seo', [
             [
                 'methods' => 'GET',
                 'callback' => [$this, 'get_page_seo'],
@@ -130,7 +130,7 @@ class SEO_API_Bridge {
         ]);
 
         // Product SEO endpoints (WooCommerce)
-        register_rest_route('seo-api-bridge/v1', '/products/(?P<id>\d+)/seo', [
+        register_rest_route('airano-mcp-seo-bridge/v1', '/products/(?P<id>\d+)/seo', [
             [
                 'methods' => 'GET',
                 'callback' => [$this, 'get_product_seo'],
@@ -170,7 +170,7 @@ class SEO_API_Bridge {
         $yoast_active = $this->is_yoast_active();
 
         $response = [
-            'plugin' => 'SEO API Bridge',
+            'plugin' => 'Airano MCP SEO Meta Bridge',
             'version' => self::VERSION,
             'active' => true,
             'seo_plugins' => [
@@ -202,7 +202,7 @@ class SEO_API_Bridge {
         if ($rank_math_active) $active_plugins[] = 'Rank Math SEO';
         if ($yoast_active) $active_plugins[] = 'Yoast SEO';
 
-        return 'SEO API Bridge is active and working with ' . implode(' and ', $active_plugins) . '.';
+        return 'Airano MCP SEO Meta Bridge is active and working with ' . implode(' and ', $active_plugins) . '.';
     }
 
     /**
@@ -438,8 +438,12 @@ class SEO_API_Bridge {
     private function register_fields($fields) {
         foreach ($this->supported_post_types as $post_type) {
             foreach ($fields as $meta_key => $args) {
+                $show_in_rest = $args['type'] === 'array'
+                    ? [ 'schema' => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ] ]
+                    : true;
+
                 register_post_meta($post_type, $meta_key, [
-                    'show_in_rest' => true,
+                    'show_in_rest' => $show_in_rest,
                     'single' => $args['single'],
                     'type' => $args['type'],
                     'description' => $args['description'],
@@ -686,7 +690,7 @@ class SEO_API_Bridge {
 
         if (!$rank_math_active && !$yoast_active) {
             echo '<div class="notice notice-warning is-dismissible">';
-            echo '<p><strong>SEO API Bridge:</strong> ' . esc_html__( 'Neither Rank Math SEO nor Yoast SEO is detected. Please install and activate one of these plugins to enable SEO meta field access via REST API.', 'seo-api-bridge' ) . '</p>';
+            echo '<p><strong>Airano MCP SEO Meta Bridge:</strong> ' . esc_html__( 'Neither Rank Math SEO nor Yoast SEO is detected. Please install and activate one of these plugins to enable SEO meta field access via REST API.', 'airano-mcp-seo-bridge' ) . '</p>';
             echo '</div>';
         } else {
             $active_plugins = [];
@@ -696,11 +700,11 @@ class SEO_API_Bridge {
             $supported_types = implode(', ', $this->supported_post_types);
 
             echo '<div class="notice notice-success is-dismissible">';
-            echo '<p><strong>SEO API Bridge v' . esc_html( self::VERSION ) . ':</strong> ' . esc_html( sprintf( 'Successfully registered meta fields for %s.', implode( ' and ', $active_plugins ) ) ) . '</p>';
-            echo '<p><strong>' . esc_html__( 'Supported post types:', 'seo-api-bridge' ) . '</strong> ' . esc_html( $supported_types ) . '</p>';
+            echo '<p><strong>Airano MCP SEO Meta Bridge v' . esc_html( self::VERSION ) . ':</strong> ' . esc_html( sprintf( 'Successfully registered meta fields for %s.', implode( ' and ', $active_plugins ) ) ) . '</p>';
+            echo '<p><strong>' . esc_html__( 'Supported post types:', 'airano-mcp-seo-bridge' ) . '</strong> ' . esc_html( $supported_types ) . '</p>';
 
             if ($woocommerce_active) {
-                echo '<p><strong>WooCommerce:</strong> ' . esc_html__( 'Detected and supported. Product SEO fields are available via REST API.', 'seo-api-bridge' ) . '</p>';
+                echo '<p><strong>WooCommerce:</strong> ' . esc_html__( 'Detected and supported. Product SEO fields are available via REST API.', 'airano-mcp-seo-bridge' ) . '</p>';
             }
             echo '</div>';
         }

@@ -530,6 +530,30 @@ class Database:
                 (status, status_msg, site_id),
             )
 
+    async def update_site_credentials(
+        self,
+        site_id: str,
+        user_id: str,
+        url: str,
+        credentials: bytes,
+    ) -> bool:
+        """Update URL and credentials for an existing site.
+
+        Args:
+            site_id: Site UUID.
+            user_id: Owner's UUID (for tenant isolation).
+            url: New base URL for the site.
+            credentials: New AES-256-GCM encrypted credentials blob.
+
+        Returns:
+            True if a row was updated, False if site not found or not owned by user.
+        """
+        cursor = await self.execute(
+            "UPDATE sites SET url = ?, credentials = ?, status = 'pending' WHERE id = ? AND user_id = ?",
+            (url, credentials, site_id, user_id),
+        )
+        return cursor.rowcount > 0
+
     async def get_site_by_alias(self, user_id: str, alias: str) -> dict[str, Any] | None:
         """Get a site by user ID and alias.
 

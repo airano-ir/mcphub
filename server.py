@@ -67,6 +67,7 @@ from core.dashboard.routes import (
     api_list_keys,
     api_list_sites,
     api_test_site,
+    api_update_site,
     # E.2: OAuth Social Login routes
     auth_callback,
     auth_login_page,
@@ -107,6 +108,7 @@ from core.dashboard.routes import (
     dashboard_settings_page,
     # E.3: Site Management pages
     dashboard_sites_add,
+    dashboard_sites_edit,
     dashboard_sites_list,
     # Bug C: User OAuth client routes
     dashboard_user_oauth_clients_create,
@@ -4792,6 +4794,7 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
         Route("/dashboard/logout", dashboard_logout, methods=["GET", "POST"]),
         Route("/dashboard/profile", dashboard_profile_page, methods=["GET"]),
         Route("/dashboard/sites/add", dashboard_sites_add, methods=["GET"]),
+        Route("/dashboard/sites/{id}/edit", dashboard_sites_edit, methods=["GET"]),
         Route("/dashboard/sites", dashboard_sites_list, methods=["GET"]),
         # Bug C: User OAuth client routes (must be before /dashboard/connect)
         Route(
@@ -4860,6 +4863,7 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
         Route("/api/sites", api_create_site, methods=["POST"]),
         Route("/api/sites/{id}/test", api_test_site, methods=["POST"]),
         Route("/api/sites/{id}", api_delete_site, methods=["DELETE"]),
+        Route("/api/sites/{id}", api_update_site, methods=["PATCH"]),
         # User API Key routes (E.3)
         Route("/api/keys", api_list_keys, methods=["GET"]),
         Route("/api/keys", api_create_key, methods=["POST"]),

@@ -1,4 +1,4 @@
-=== SEO API Bridge ===
+=== Airano MCP SEO Meta Bridge ===
 Contributors: airano
 Tags: seo, rest-api, rank-math, yoast, mcp
 Requires at least: 5.0
@@ -12,7 +12,7 @@ Exposes Rank Math SEO and Yoast SEO meta fields via WordPress REST API for use w
 
 == Description ==
 
-SEO API Bridge is a WordPress plugin that exposes Rank Math SEO and Yoast SEO meta fields via dedicated REST API endpoints. This enables MCP servers, AI agents, and other applications to read and write SEO metadata programmatically for posts, pages, and WooCommerce products.
+Airano MCP SEO Bridge is a WordPress plugin that exposes Rank Math SEO and Yoast SEO meta fields via dedicated REST API endpoints. This enables MCP servers, AI agents, and other applications to read and write SEO metadata programmatically for posts, pages, and WooCommerce products.
 
 **Features:**
 
@@ -26,16 +26,16 @@ SEO API Bridge is a WordPress plugin that exposes Rank Math SEO and Yoast SEO me
 
 **REST API Endpoints:**
 
-* `GET/POST /wp-json/seo-api-bridge/v1/posts/{id}/seo` — Post SEO data
-* `GET/POST /wp-json/seo-api-bridge/v1/pages/{id}/seo` — Page SEO data
-* `GET/POST /wp-json/seo-api-bridge/v1/products/{id}/seo` — Product SEO data (WooCommerce)
-* `GET /wp-json/seo-api-bridge/v1/status` — Plugin status and SEO detection
+* `GET/POST /wp-json/airano-mcp-seo-bridge/v1/posts/{id}/seo` — Post SEO data
+* `GET/POST /wp-json/airano-mcp-seo-bridge/v1/pages/{id}/seo` — Page SEO data
+* `GET/POST /wp-json/airano-mcp-seo-bridge/v1/products/{id}/seo` — Product SEO data (WooCommerce)
+* `GET /wp-json/airano-mcp-seo-bridge/v1/status` — Plugin status and SEO detection
 
 **Designed for [MCP Hub](https://github.com/airano-ir/mcphub)** — the AI-native management hub for WordPress and self-hosted services.
 
 == Installation ==
 
-1. Upload the `seo-api-bridge` folder to `/wp-content/plugins/`
+1. Upload the `airano-mcp-seo-bridge` folder to `/wp-content/plugins/`
 2. Activate the plugin through the 'Plugins' menu in WordPress
 3. Ensure either Rank Math SEO or Yoast SEO is active
 4. The REST API endpoints are now available

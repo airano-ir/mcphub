@@ -468,11 +468,15 @@ async def query_table(
             use_service_role=use_service_role,
         )
 
+        row_count = len(result) if isinstance(result, list) else 1
         return json.dumps(
             {
                 "success": True,
                 "table": table,
-                "count": len(result) if isinstance(result, list) else 1,
+                # "returned" = rows in this page; use count_rows tool for total
+                "returned": row_count,
+                # True when returned == limit, meaning there are likely more rows
+                "has_more": row_count == limit,
                 "data": result,
             },
             indent=2,
@@ -500,16 +504,20 @@ async def insert_rows(
             use_service_role=use_service_role,
         )
 
-        return json.dumps(
-            {
-                "success": True,
-                "table": table,
-                "inserted": len(result) if isinstance(result, list) else 1,
-                "data": result,
-            },
-            indent=2,
-            ensure_ascii=False,
-        )
+        affected = len(result) if isinstance(result, list) else 1
+        response: dict = {
+            "success": True,
+            "table": table,
+            "inserted" if not upsert else "affected": affected,
+            "data": result,
+        }
+        if upsert:
+            response["operation"] = "upsert"
+            response["note"] = (
+                "PostgREST does not distinguish inserted vs updated rows in upsert mode. "
+                "'affected' = total rows processed (inserted + updated)."
+            )
+        return json.dumps(response, indent=2, ensure_ascii=False)
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
@@ -827,7 +835,16 @@ async def execute_sql(client: SupabaseClient, query: str) -> str:
             ensure_ascii=False,
         )
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+        error_str = str(e)
+        # Provide an actionable hint when postgres-meta is unreachable
+        if "status 404" in error_str or "status 502" in error_str or "Cannot connect" in error_str:
+            error_str = (
+                f"postgres-meta unreachable at {client.meta_base_url}. "
+                "If /pg/ is not exposed via Kong, set META_URL env var to the direct "
+                "postgres-meta container URL (e.g., http://supabase-meta:8080). "
+                f"Original: {error_str[:300]}"
+            )
+        return json.dumps({"success": False, "error": error_str}, indent=2, ensure_ascii=False)
 
 
 async def get_table_indexes(client: SupabaseClient, table: str, schema: str = "public") -> str:

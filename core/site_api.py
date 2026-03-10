@@ -108,14 +108,34 @@ PLUGIN_CREDENTIAL_FIELDS: dict[str, list[dict[str, Any]]] = {
             "label": "Service Role Key",
             "type": "password",
             "required": True,
-            "hint": "Supabase Dashboard → Settings → API → service_role key",
+            "hint": (
+                "Supabase Dashboard → Settings → API → service_role key. "
+                "Note: On supabase.com cloud, postgres-meta tools "
+                "(list_tables, execute_sql, get_table_schema, etc.) are not available — "
+                "they only work on self-hosted Supabase."
+            ),
         },
         {
             "name": "anon_key",
-            "label": "Anon Key",
+            "label": "Anon Key (Optional)",
             "type": "password",
-            "required": True,
-            "hint": "Supabase Dashboard → Settings → API → anon key",
+            "required": False,
+            "hint": (
+                "Supabase Dashboard → Settings → API → anon key. "
+                "Optional — if omitted, service_role_key is used for all calls."
+            ),
+        },
+        {
+            "name": "meta_url",
+            "label": "postgres-meta URL (Optional)",
+            "type": "text",
+            "required": False,
+            "hint": (
+                "Only needed when /pg/ is not exposed through Kong (common on Coolify). "
+                "Enter the direct postgres-meta container URL, e.g.: "
+                "http://supabase-meta-<id>:8080 — "
+                "Leave blank to use the default Kong /pg/ route."
+            ),
         },
     ],
     "openpanel": [
@@ -507,6 +527,99 @@ async def delete_user_site(site_id: str, user_id: str) -> bool:
     if deleted:
         logger.info("Deleted site %s for user %s", site_id, user_id)
     return deleted
+
+
+async def update_user_site(
+    site_id: str,
+    user_id: str,
+    url: str,
+    credentials: dict[str, str],
+    skip_validation: bool = False,
+) -> dict[str, Any]:
+    """Update URL and credentials for an existing site.
+
+    Password fields left blank are preserved from the existing encrypted credentials.
+    Re-validates the connection after update.
+
+    Args:
+        site_id: Site UUID.
+        user_id: Owner's UUID.
+        url: New base URL (required).
+        credentials: Credential dict — blank password fields keep their current value.
+        skip_validation: If True, skip connection test (for testing).
+
+    Returns:
+        The updated site dict (without decrypted credentials).
+
+    Raises:
+        ValueError: If site not found, validation fails, or connection test fails.
+    """
+    from core.database import get_database
+    from core.encryption import get_credential_encryption
+
+    db = get_database()
+
+    # Verify site ownership
+    existing_site = await db.get_site(site_id, user_id)
+    if existing_site is None:
+        raise ValueError("Site not found")
+
+    plugin_type = existing_site["plugin_type"]
+
+    # Validate URL
+    url = url.strip().rstrip("/")
+    if not url or not (url.startswith("http://") or url.startswith("https://")):
+        raise ValueError("URL must start with http:// or https://")
+
+    # Merge new credentials with existing ones — blank fields keep existing values
+    encryptor = get_credential_encryption()
+    existing_credentials = encryptor.decrypt_credentials(existing_site["credentials"], site_id)
+
+    merged: dict[str, str] = dict(existing_credentials)
+    for key, value in credentials.items():
+        # Only override if the new value is non-empty
+        if value and value.strip():
+            merged[key] = value.strip()
+        # Blank value for a non-required field (e.g. meta_url) → explicitly clear it
+        else:
+            field_defs = {f["name"]: f for f in PLUGIN_CREDENTIAL_FIELDS.get(plugin_type, [])}
+            if key in field_defs and not field_defs[key].get("required", True):
+                merged[key] = ""
+
+    # Strip empty optional values before storing (keep storage clean)
+    merged = {k: v for k, v in merged.items() if v}
+
+    # Validate required fields are still present
+    valid, errors = validate_credentials(plugin_type, merged)
+    if not valid:
+        raise ValueError(f"Missing required credentials: {', '.join(errors)}")
+
+    # Test connection
+    if not skip_validation:
+        ok, msg = await validate_site_connection(plugin_type, url, merged)
+        if not ok:
+            raise ValueError(f"Connection test failed: {msg}")
+
+    # Encrypt merged credentials
+    encrypted = encryptor.encrypt_credentials(merged, site_id)
+
+    # Persist
+    updated = await db.update_site_credentials(site_id, user_id, url, encrypted)
+    if not updated:
+        raise RuntimeError(f"Failed to update site {site_id}")
+
+    # Mark active after successful connection test
+    status_msg = "Connection verified" if not skip_validation else "Updated (not tested)"
+    await db.update_site_status(site_id, "active", status_msg, user_id=user_id)
+
+    result = await db.get_site(site_id, user_id)
+    if result is None:
+        raise RuntimeError(f"Failed to read back updated site {site_id}")
+
+    site_dict = dict(result)
+    site_dict.pop("credentials", None)
+    logger.info("Updated site %s (%s) for user %s", site_id, plugin_type, user_id)
+    return site_dict
 
 
 async def test_site_connection(site_id: str, user_id: str) -> tuple[bool, str]:

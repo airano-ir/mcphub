@@ -1,0 +1,134 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}{{ t.edit_site }} - MCP Hub{% endblock %}
+{% block page_title %}{{ t.edit_site }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+    <div class="flex items-center gap-4 mb-6">
+        <a href="/dashboard/sites{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}"
+            class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+        </a>
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white">{{ t.edit_site }}: {{ site.alias }}</h2>
+    </div>
+
+    <!-- Info notice about password fields -->
+    <div class="bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 text-blue-700 dark:text-blue-300 px-4 py-3 rounded-lg text-sm">
+        {{ t.keep_existing }}
+    </div>
+
+    <!-- Error display -->
+    <div id="error-msg" class="hidden bg-red-50 dark:bg-red-500/20 border border-red-200 dark:border-red-500/50 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg"></div>
+
+    <form id="edit-site-form" class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-6">
+
+        <!-- Plugin Type (read-only) -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ t.plugin_type }}</label>
+            <div class="w-full bg-gray-100 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-600 dark:text-gray-400">
+                {{ plugin_names.get(site.plugin_type, site.plugin_type) }}
+            </div>
+        </div>
+
+        <!-- URL -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ t.site_url }}</label>
+            <input type="url" id="url" name="url" required value="{{ site.url }}"
+                class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+        </div>
+
+        <!-- Alias (read-only) -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ t.site_alias }}</label>
+            <div class="w-full bg-gray-100 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-600 dark:text-gray-400">
+                {{ site.alias }}
+            </div>
+        </div>
+
+        <!-- Credential Fields -->
+        <div id="credential-fields" class="space-y-4">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ t.credentials }}</label>
+            {% set fields = plugin_fields.get(site.plugin_type, []) %}
+            {% for field in fields %}
+            <div class="mb-4">
+                <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                    {{ field.label }}{% if field.required %} *{% endif %}
+                </label>
+                <input type="{{ field.type }}" name="cred_{{ field.name }}"
+                    {% if field.type == 'password' %}placeholder="{{ t.keep_existing }}"{% endif %}
+                    class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                {% if field.hint %}
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ field.hint }}</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Submit -->
+        <div class="flex items-center gap-4 pt-4">
+            <button type="submit" id="submit-btn"
+                class="btn-primary px-6 py-2.5 rounded-lg text-white font-medium disabled:opacity-50">
+                {{ t.save }}
+            </button>
+            <a href="/dashboard/sites{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}"
+                class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+                {{ t.cancel }}
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const siteId = "{{ site.id }}";
+    const pluginType = "{{ site.plugin_type }}";
+    const pluginFields = {{ plugin_fields_json | safe }};
+
+    document.getElementById('edit-site-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('submit-btn');
+        const errorEl = document.getElementById('error-msg');
+        errorEl.classList.add('hidden');
+
+        btn.textContent = '{{ t.updating_site }}';
+        btn.disabled = true;
+
+        const url = document.getElementById('url').value;
+
+        // Collect credentials — only include non-empty values
+        const creds = {};
+        if (pluginFields[pluginType]) {
+            pluginFields[pluginType].forEach(field => {
+                const input = document.querySelector(`[name="cred_${field.name}"]`);
+                if (input) creds[field.name] = input.value;
+            });
+        }
+
+        try {
+            const resp = await fetch('/api/sites/' + siteId, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: url, credentials: creds }),
+            });
+            const data = await resp.json();
+            if (resp.ok) {
+                window.location.href = '/dashboard/sites?msg={{ t.site_updated }}{% if lang and lang != "en" %}&lang={{ lang }}{% endif %}';
+            } else {
+                errorEl.textContent = data.error || 'Failed to update site';
+                errorEl.classList.remove('hidden');
+                btn.textContent = '{{ t.save }}';
+                btn.disabled = false;
+            }
+        } catch (err) {
+            errorEl.textContent = 'Network error: ' + err.message;
+            errorEl.classList.remove('hidden');
+            btn.textContent = '{{ t.save }}';
+            btn.disabled = false;
+        }
+    });
+</script>
+{% endblock %}
