@@ -4,6 +4,8 @@
 
 596 tools across 9 plugins. Connect your sites, stores, repos, and databases — manage them all through Claude, ChatGPT, Cursor, or any MCP client.
 
+> **Don't want to self-host?** Try the hosted instance at **[mcp.palebluedot.live](https://mcp.palebluedot.live)** — log in with GitHub or Google, add your sites, and connect your AI client in minutes.
+
 ## Quick Start
 
 ### 1. Create a `.env` file
@@ -91,6 +93,7 @@ Use the most specific endpoint for your use case:
 
 | Endpoint | Tools | `site` param? | Best for |
 |----------|------:|:-------------:|----------|
+| `/u/{user_id}/{alias}/mcp` | 22-100 | No (pre-scoped) | Hosted/OAuth users |
 | `/project/{alias}/mcp` | 22-100 | No (pre-scoped) | Single-site workflow |
 | `/{plugin}/mcp` | 23-101 | Yes | Multi-site management |
 | `/mcp` | 596 | Yes | Admin & discovery only |
@@ -131,7 +134,7 @@ docker compose up -d
 | URL | Description |
 |-----|-------------|
 | `http://localhost:8000/health` | Health check & status |
-| `http://localhost:8000/dashboard` | Web dashboard (manage API keys, view sites, health) |
+| `http://localhost:8000/dashboard` | Web dashboard (manage sites, API keys, OAuth clients, health monitoring). Login via MASTER_API_KEY or GitHub/Google OAuth |
 | `http://localhost:8000/mcp` | MCP endpoint (connect AI clients here) |
 
 ## Environment Variables
@@ -146,10 +149,18 @@ docker compose up -d
 | `WORDPRESS_SITE1_CONTAINER` | For WP-CLI | Docker container name of your WordPress site (enables cache/db/system tools) |
 | `OAUTH_JWT_SECRET_KEY` | For OAuth | JWT secret for ChatGPT auto-registration (not needed for Claude/Cursor) |
 | `OAUTH_BASE_URL` | For OAuth | Public URL of your server (not needed for Claude/Cursor) |
+| `GITHUB_CLIENT_ID` | For Social Login | GitHub OAuth App client ID |
+| `GITHUB_CLIENT_SECRET` | For Social Login | GitHub OAuth App client secret |
+| `GOOGLE_CLIENT_ID` | For Social Login | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | For Social Login | Google OAuth client secret |
+| `PUBLIC_URL` | For Social Login | Public URL for OAuth callbacks (e.g., `https://mcp.example.com`) |
+| `ENCRYPTION_KEY` | For Multi-user | AES-256 key for encrypting user site credentials. Generate: `python -c "import os, base64; print(base64.b64encode(os.urandom(32)).decode())"` |
 
 > **CONTAINER**: Required for WP-CLI tools (cache flush, database export, system info) and **all** WordPress Advanced tools. Find your container name: `docker ps --filter name=wordpress`. Also requires Docker socket mount.
 
 > **OAuth**: Only needed for ChatGPT Remote MCP auto-registration. For Claude Desktop, Claude Code, Cursor, and VS Code — just use `MASTER_API_KEY` with Bearer token auth.
+
+> **Social Login**: Enable GitHub/Google login for multi-user mode. Users can add sites via the dashboard and get personal MCP endpoints (`/u/{user_id}/{alias}/mcp`).
 
 Add more sites with `SITE2`, `SITE3`, etc. See [full configuration guide](https://github.com/airano-ir/mcphub/blob/main/docs/getting-started.md).
 

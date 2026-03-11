@@ -179,7 +179,7 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 
 - Test files exist in both `tests/` (proper) and root directory (legacy `test_*.py`). Run `pytest tests/` for organized tests only.
 - `server_multi.py` is the alternative multi-endpoint entry point; `server.py` is the primary
-- `wordpress-plugin/` contains companion WP plugins (openpanel, seo-api-bridge) — these are PHP, not Python
+- `wordpress-plugin/` contains companion WP plugins (openpanel, airano-mcp-seo-bridge) — these are PHP, not Python
 - `env.example` has "FUTURE" labels for Supabase/Gitea but both are fully implemented
 - Dashboard templates live in `core/templates/` (included in pip package as `package_data`)
 - `ruff` config uses top-level `select` key in pyproject.toml (not `[tool.ruff.lint]` nested format)

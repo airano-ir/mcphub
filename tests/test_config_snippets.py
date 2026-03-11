@@ -60,16 +60,18 @@ class TestClaudeFormat:
         assert server_name in config["mcpServers"]
         server = config["mcpServers"][server_name]
         assert server["url"] == EXPECTED_ENDPOINT
+        assert server["type"] == "streamableHttp"
         assert f"Bearer {API_KEY}" in server["headers"]["Authorization"]
 
     @pytest.mark.unit
     def test_claude_code_format(self):
-        """Claude Code config should use the same mcpServers format."""
+        """Claude Code config should use the same mcpServers format with http type."""
         snippet = generate_config(BASE_URL, USER_ID, ALIAS, API_KEY, "claude_code")
         config = json.loads(snippet)
         assert "mcpServers" in config
         server_name = f"mcphub-{ALIAS}"
         assert server_name in config["mcpServers"]
+        assert config["mcpServers"][server_name]["type"] == "http"
 
 
 # ── Cursor / VS Code Format ─────────────────────────────────
@@ -80,7 +82,7 @@ class TestCursorVSCodeFormat:
 
     @pytest.mark.unit
     def test_cursor_format(self):
-        """Cursor config should be valid JSON with mcp.servers."""
+        """Cursor config should be valid JSON with mcp.servers and http type."""
         snippet = generate_config(BASE_URL, USER_ID, ALIAS, API_KEY, "cursor")
         config = json.loads(snippet)
         assert "mcp" in config
@@ -89,15 +91,18 @@ class TestCursorVSCodeFormat:
         assert server_name in config["mcp"]["servers"]
         server = config["mcp"]["servers"][server_name]
         assert server["url"] == EXPECTED_ENDPOINT
+        assert server["type"] == "http"
         assert f"Bearer {API_KEY}" in server["headers"]["Authorization"]
 
     @pytest.mark.unit
     def test_vscode_format(self):
-        """VS Code config should use the same mcp.servers format as Cursor."""
+        """VS Code config should use mcp.servers format with http type."""
         snippet = generate_config(BASE_URL, USER_ID, ALIAS, API_KEY, "vscode")
         config = json.loads(snippet)
         assert "mcp" in config
         assert "servers" in config["mcp"]
+        server_name = f"mcphub-{ALIAS}"
+        assert config["mcp"]["servers"][server_name]["type"] == "http"
 
 
 # ── ChatGPT Format ───────────────────────────────────────────

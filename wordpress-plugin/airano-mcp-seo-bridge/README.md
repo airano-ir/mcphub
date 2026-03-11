@@ -1,4 +1,4 @@
-# SEO API Bridge - WordPress Plugin
+# Airano MCP SEO Bridge - WordPress Plugin
 
 **Version:** 1.3.0
 **Requires:** WordPress 5.0+, PHP 7.4+
@@ -72,23 +72,23 @@ SEO API Bridge is a comprehensive WordPress plugin that exposes Rank Math SEO an
 
 ### Method 1: Upload via WordPress Admin
 
-1. Download `seo-api-bridge.zip` from [Releases](https://github.com/airano-ir/mcphub)
+1. Download `airano-mcp-seo-bridge.zip` from [Releases](https://github.com/airano-ir/mcphub)
 2. Go to WordPress Admin > Plugins > Add New > Upload Plugin
 3. Upload the ZIP file and click "Install Now"
 4. Click "Activate Plugin"
 
 ### Method 2: FTP/SSH Upload
 
-1. Upload the `seo-api-bridge` folder to `/wp-content/plugins/`
+1. Upload the `airano-mcp-seo-bridge` folder to `/wp-content/plugins/`
 2. Go to WordPress Admin > Plugins
-3. Find "SEO API Bridge" and click "Activate"
+3. Find "Airano MCP SEO Bridge" and click "Activate"
 
 ### Method 3: WP-CLI
 
 ```bash
 cd /var/www/html/wp-content/plugins/
 # Copy the plugin folder here
-wp plugin activate seo-api-bridge
+wp plugin activate airano-mcp-seo-bridge
 ```
 
 ## REST API Endpoints
@@ -97,10 +97,10 @@ All endpoints require **WordPress Application Password** authentication.
 
 ### Status Endpoint
 
-**GET** `/wp-json/seo-api-bridge/v1/status`
+**GET** `/wp-json/airano-mcp-seo-bridge/v1/status`
 
 ```bash
-curl -X GET "https://yoursite.com/wp-json/seo-api-bridge/v1/status" \
+curl -X GET "https://yoursite.com/wp-json/airano-mcp-seo-bridge/v1/status" \
   -u "username:application_password"
 ```
 
@@ -121,17 +121,17 @@ curl -X GET "https://yoursite.com/wp-json/seo-api-bridge/v1/status" \
 
 ### Post SEO Endpoints
 
-**GET** `/wp-json/seo-api-bridge/v1/posts/{id}/seo` — Get SEO metadata for a post
+**GET** `/wp-json/airano-mcp-seo-bridge/v1/posts/{id}/seo` — Get SEO metadata for a post
 
-**POST** `/wp-json/seo-api-bridge/v1/posts/{id}/seo` — Update SEO metadata for a post
+**POST** `/wp-json/airano-mcp-seo-bridge/v1/posts/{id}/seo` — Update SEO metadata for a post
 
 ```bash
 # Get post SEO
-curl -X GET "https://yoursite.com/wp-json/seo-api-bridge/v1/posts/123/seo" \
+curl -X GET "https://yoursite.com/wp-json/airano-mcp-seo-bridge/v1/posts/123/seo" \
   -u "username:application_password"
 
 # Update post SEO
-curl -X POST "https://yoursite.com/wp-json/seo-api-bridge/v1/posts/123/seo" \
+curl -X POST "https://yoursite.com/wp-json/airano-mcp-seo-bridge/v1/posts/123/seo" \
   -u "username:application_password" \
   -H "Content-Type: application/json" \
   -d '{"focus_keyword": "wordpress", "seo_title": "My Title"}'
@@ -139,18 +139,18 @@ curl -X POST "https://yoursite.com/wp-json/seo-api-bridge/v1/posts/123/seo" \
 
 ### Page SEO Endpoints
 
-**GET** `/wp-json/seo-api-bridge/v1/pages/{id}/seo`
+**GET** `/wp-json/airano-mcp-seo-bridge/v1/pages/{id}/seo`
 
-**POST** `/wp-json/seo-api-bridge/v1/pages/{id}/seo`
+**POST** `/wp-json/airano-mcp-seo-bridge/v1/pages/{id}/seo`
 
 ### Product SEO Endpoints (WooCommerce)
 
-**GET** `/wp-json/seo-api-bridge/v1/products/{id}/seo`
+**GET** `/wp-json/airano-mcp-seo-bridge/v1/products/{id}/seo`
 
-**POST** `/wp-json/seo-api-bridge/v1/products/{id}/seo`
+**POST** `/wp-json/airano-mcp-seo-bridge/v1/products/{id}/seo`
 
 ```bash
-curl -X POST "https://yoursite.com/wp-json/seo-api-bridge/v1/products/1217/seo" \
+curl -X POST "https://yoursite.com/wp-json/airano-mcp-seo-bridge/v1/products/1217/seo" \
   -u "username:application_password" \
   -H "Content-Type: application/json" \
   -d '{"focus_keyword": "product keyword", "seo_title": "Product Title"}'
@@ -223,7 +223,7 @@ result = await mcp.call_tool(
 
 2. **Status Endpoint:**
 ```bash
-curl -X GET "https://your-site.com/wp-json/seo-api-bridge/v1/status" \
+curl -X GET "https://your-site.com/wp-json/airano-mcp-seo-bridge/v1/status" \
   -u "username:application_password"
 ```
 
@@ -248,7 +248,7 @@ curl -X GET "https://your-site.com/wp-json/wp/v2/posts/1" \
 
 1. Upgrade to v1.1.0+ (has dedicated health check endpoint)
 2. Restart MCP server
-3. Test endpoint: `curl "https://your-site.com/wp-json/seo-api-bridge/v1/status" -u "user:pass"`
+3. Test endpoint: `curl "https://your-site.com/wp-json/airano-mcp-seo-bridge/v1/status" -u "user:pass"`
 
 ### SEO Plugin Not Detected
 
@@ -285,7 +285,7 @@ curl -X GET "https://your-site.com/wp-json/wp/v2/posts/1" \
 - Improved MariaDB compatibility for meta field queries
 
 ### 1.1.0 (2025-01-10)
-- Added health check REST API endpoint `/seo-api-bridge/v1/status`
+- Added health check REST API endpoint `/airano-mcp-seo-bridge/v1/status`
 - Direct plugin detection without requiring posts/products
 - Better compatibility with sites that have no content
 - Returns SEO plugin versions in status endpoint

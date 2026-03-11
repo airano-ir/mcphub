@@ -127,6 +127,32 @@
             <pre id="config-output" class="bg-gray-100 dark:bg-gray-900 rounded-lg p-4 text-sm text-gray-700 dark:text-gray-300 overflow-x-auto border border-gray-200 dark:border-gray-700 min-h-[120px]">Select a site and client to generate configuration...</pre>
             <button onclick="copyConfig()" class="absolute top-2 {{ 'left-2' if lang == 'fa' else 'right-2' }} text-xs bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 px-3 py-1 rounded transition-colors" id="copy-config-btn">{{ t['copy'] }}</button>
         </div>
+
+        <!-- Transport type info -->
+        <div class="mt-4 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-lg p-4">
+            <p class="text-sm text-blue-700 dark:text-blue-400">
+                {% if lang == 'fa' %}
+                <strong>نکته:</strong> تنظیمات بالا شامل نوع اتصال (<code>streamableHttp</code> برای Claude Desktop و <code>http</code> برای VS Code/Claude Code) می‌باشد. از <code>sse</code> استفاده نکنید — باعث خطای <code>400 Bad Request</code> می‌شود.
+                {% else %}
+                <strong>Note:</strong> Config above includes the correct transport type (<code>streamableHttp</code> for Claude Desktop, <code>http</code> for VS Code/Claude Code). Do not use <code>sse</code> — it will cause <code>400 Bad Request</code> errors.
+                {% endif %}
+            </p>
+        </div>
+
+        <!-- WordPress plugin requirement -->
+        <div class="mt-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg p-4">
+            <p class="text-sm text-amber-700 dark:text-amber-400">
+                {% if lang == 'fa' %}
+                <strong>وردپرس:</strong> برای استفاده از ابزارهای SEO، افزونه
+                <a href="https://wordpress.org/plugins/airano-mcp-seo-bridge/" target="_blank" class="underline">Airano MCP SEO Bridge</a>
+                را روی سایت وردپرسی خود نصب کنید. همچنین یک <strong>Application Password</strong> در وردپرس (Users → Profile) ایجاد و هنگام افزودن سایت وارد کنید.
+                {% else %}
+                <strong>WordPress:</strong> For SEO tools, install the
+                <a href="https://wordpress.org/plugins/airano-mcp-seo-bridge/" target="_blank" class="underline">Airano MCP SEO Bridge</a>
+                plugin on your WordPress site. Also create an <strong>Application Password</strong> in WordPress (Users → Profile) and enter it when adding your site.
+                {% endif %}
+            </p>
+        </div>
         {% else %}
         <p class="text-gray-500 dark:text-gray-400 text-sm">{{ t.no_sites }}. <a href="/dashboard/sites/add{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300">{{ t.add_site }}</a></p>
         {% endif %}

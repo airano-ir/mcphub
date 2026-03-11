@@ -188,7 +188,7 @@ class SEOHandler:
             # First, try to use the new health check endpoint (v1.1.0+)
             try:
                 status_result = await self.client.get(
-                    "seo-api-bridge/v1/status", use_custom_namespace=True
+                    "airano-mcp-seo-bridge/v1/status", use_custom_namespace=True
                 )
 
                 if status_result and isinstance(status_result, dict):
@@ -383,7 +383,7 @@ class SEOHandler:
         try:
             # Use SEO API Bridge endpoint for products (same as update_product_seo)
             result = await self.client.get(
-                f"seo-api-bridge/v1/products/{product_id}/seo", use_custom_namespace=True
+                f"airano-mcp-seo-bridge/v1/products/{product_id}/seo", use_custom_namespace=True
             )
 
             return json.dumps(result, indent=2)
@@ -592,7 +592,7 @@ class SEOHandler:
 
             # Use SEO API Bridge endpoint for products
             await self.client.post(
-                f"seo-api-bridge/v1/products/{product_id}/seo",
+                f"airano-mcp-seo-bridge/v1/products/{product_id}/seo",
                 json_data=data,
                 use_custom_namespace=True,
             )

@@ -42,6 +42,27 @@ For each WordPress site you want to manage:
 
 ## Installation
 
+### Option 0: Use Hosted Version (No Setup Required)
+
+The fastest way to try MCP Hub — no installation needed:
+
+1. Visit **[mcp.example.com](https://mcp.example.com)**
+2. Log in with **GitHub** or **Google**
+3. Add your sites via the dashboard (**My Sites → Add Service**)
+4. Go to **Connect** page to generate your AI client config
+5. Copy-paste into Claude Desktop, VS Code, or Claude Code
+
+Your personal MCP endpoint:
+```
+https://mcp.example.com/u/{your-user-id}/{alias}/mcp
+```
+
+**WordPress users:** Install the [Airano MCP SEO Bridge](https://wordpress.org/plugins/airano-mcp-seo-bridge/) plugin for SEO tools, and create an [Application Password](https://make.wordpress.org/core/2020/11/05/application-passwords-integration-guide/) (Users → Profile) for authentication.
+
+> If you prefer self-hosting, continue with the options below.
+
+---
+
 ### Option 1: Docker (Recommended)
 
 ```bash
@@ -161,6 +182,21 @@ GITEA_REPO1_ALIAS=mygitea
 # ============================================
 OAUTH_JWT_SECRET_KEY=your-jwt-secret
 OAUTH_BASE_URL=https://your-server:8000
+
+# ============================================
+# Social Login (GitHub/Google OAuth — for hosted/multi-user)
+# ============================================
+GITHUB_CLIENT_ID=your-github-oauth-app-id
+GITHUB_CLIENT_SECRET=your-github-oauth-app-secret
+GOOGLE_CLIENT_ID=your-google-oauth-client-id
+GOOGLE_CLIENT_SECRET=your-google-oauth-client-secret
+PUBLIC_URL=https://your-server:8000
+
+# ============================================
+# Encryption (required for storing user site credentials)
+# ============================================
+# Generate: python -c "import os, base64; print(base64.b64encode(os.urandom(32)).decode())"
+ENCRYPTION_KEY=your-base64-encoded-32-byte-key
 
 # ============================================
 # Optional
@@ -327,13 +363,15 @@ curl http://localhost:8000/health
 
 **2. Open the web dashboard:**
 
-Open **http://localhost:8000/dashboard** in your browser. Log in with your `MASTER_API_KEY`.
+Open **http://localhost:8000/dashboard** in your browser. Log in with your `MASTER_API_KEY` or via **GitHub/Google OAuth** (if configured).
 
 The dashboard lets you:
 - View all connected sites and their health status
+- **Add, edit, delete, and test sites** via the My Sites page (OAuth users)
 - Create and manage per-project API keys
-- View audit logs
-- Monitor rate limits
+- **Generate AI client configs** on the Connect page (with correct transport type per client)
+- View audit logs and monitor rate limits
+- **Per-user MCP endpoints**: OAuth users get personal endpoints at `/u/{user_id}/{alias}/mcp` with `mhu_` API keys
 
 **3. Check container status (Docker only):**
 

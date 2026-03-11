@@ -79,10 +79,14 @@ def generate_config(
     endpoint_url = f"{base_url}/u/{user_id}/{alias}/mcp"
     server_name = f"mcphub-{alias}"
 
+    # Claude Desktop uses streamableHttp; Claude Code, VS Code, Cursor use http
+    transport_type = "streamableHttp" if client_type == "claude_desktop" else "http"
+
     if client_type in ("claude_desktop", "claude_code"):
         config = {
             "mcpServers": {
                 server_name: {
+                    "type": transport_type,
                     "url": endpoint_url,
                     "headers": {
                         "Authorization": f"Bearer {api_key}",
@@ -97,6 +101,7 @@ def generate_config(
             "mcp": {
                 "servers": {
                     server_name: {
+                        "type": transport_type,
                         "url": endpoint_url,
                         "headers": {
                             "Authorization": f"Bearer {api_key}",

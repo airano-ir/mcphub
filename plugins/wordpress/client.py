@@ -127,7 +127,7 @@ class WordPressClient:
         """
         # Build URL based on endpoint type
         if use_custom_namespace:
-            # For custom namespaces like seo-api-bridge/v1
+            # For custom namespaces like airano-mcp-seo-bridge/v1
             url = f"{self.site_url}/wp-json/{endpoint}"
         elif use_woocommerce:
             # For WooCommerce endpoints

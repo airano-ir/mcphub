@@ -13,7 +13,7 @@ Connect your sites, stores, repos, and databases — manage them all through Cla
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776ab.svg)](https://www.python.org/)
 [![PyPI](https://img.shields.io/pypi/v/mcphub-server.svg)](https://pypi.org/project/mcphub-server/)
 [![Docker](https://img.shields.io/docker/v/airano/mcphub?label=docker)](https://hub.docker.com/r/airano/mcphub)
-[![Tests: 290 passing](https://img.shields.io/badge/tests-290%20passing-brightgreen.svg)]()
+[![Tests: 481 passing](https://img.shields.io/badge/tests-481%20passing-brightgreen.svg)]()
 [![Tools: 596](https://img.shields.io/badge/tools-596-orange.svg)]()
 [![CI](https://github.com/airano-ir/mcphub/actions/workflows/ci.yml/badge.svg)](https://github.com/airano-ir/mcphub/actions/workflows/ci.yml)
 
@@ -108,7 +108,20 @@ curl http://localhost:8000/health
 
 Open the **web dashboard** in your browser: **http://localhost:8000/dashboard**
 
-You should see the login page. Use your `MASTER_API_KEY` to log in.
+You should see the login page. Log in with your `MASTER_API_KEY` or via **GitHub/Google OAuth** (if configured).
+
+### Try It Now (No Setup Required)
+
+**Don't want to self-host?** Use the hosted instance at **[mcp.example.com](https://mcp.example.com)**:
+
+1. Log in with **GitHub** or **Google**
+2. Add your sites via the dashboard (My Sites → Add Service)
+3. Go to **Connect** page — generate config for your AI client
+4. Copy-paste the config into Claude Desktop, VS Code, or Claude Code
+
+Your personal MCP endpoint: `https://mcp.example.com/u/{your-user-id}/{alias}/mcp`
+
+---
 
 ### Configure Your Sites
 
@@ -297,12 +310,14 @@ MCP Hub supports **Open Dynamic Client Registration** (RFC 7591). ChatGPT can au
 /appwrite/mcp               → Appwrite tools (100 tools)
 /directus/mcp               → Directus tools (100 tools)
 /project/{alias}/mcp        → Per-project endpoint (auto-injects site)
+/u/{user_id}/{alias}/mcp    → Per-user endpoint (hosted/OAuth users)
 ```
 
 **Recommendation**: Use plugin-specific endpoints instead of `/mcp` (596 tools) to minimize token usage.
 
 | Endpoint | Use Case | Tools |
 |----------|----------|------:|
+| `/u/{user_id}/{alias}/mcp` | Hosted users (OAuth login) | 22-100 |
 | `/project/{alias}/mcp` | Single-site workflow (recommended) | 22-100 |
 | `/{plugin}/mcp` | Multi-site management | 23-101 |
 | `/mcp` | Admin & discovery only | 596 |
@@ -323,7 +338,7 @@ Some MCP Hub tools require companion WordPress plugins:
 
 | Tools | Requirement |
 |-------|-------------|
-| SEO tools (`wordpress_get_post_seo`, etc.) | [SEO API Bridge](wordpress-plugin/seo-api-bridge/) ([Download ZIP](wordpress-plugin/seo-api-bridge.zip)) + Rank Math or Yoast SEO |
+| SEO tools (`wordpress_get_post_seo`, etc.) | [Airano MCP SEO Bridge](https://wordpress.org/plugins/airano-mcp-seo-bridge/) ([GitHub](wordpress-plugin/airano-mcp-seo-bridge/)) + Rank Math or Yoast SEO |
 | WP-CLI tools (15 tools: `wp_cache_*`, `wp_db_*`, etc.) | Docker socket + `CONTAINER` env var |
 | WordPress Advanced database/system tools | Docker socket + `CONTAINER` env var |
 | OpenPanel analytics integration | [OpenPanel Self-Hosted](wordpress-plugin/openpanel-self-hosted/) ([Download ZIP](wordpress-plugin/openpanel-self-hosted.zip)) |
@@ -363,7 +378,7 @@ Without Docker socket, WP-CLI tools return "not available" but all REST API tool
 # Install with dev dependencies
 pip install -e ".[dev]"
 
-# Run tests (290 tests)
+# Run tests (481 tests)
 pytest
 
 # Format and lint
