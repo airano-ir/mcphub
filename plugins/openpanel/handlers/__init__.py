@@ -1,30 +1,36 @@
 """
-OpenPanel Handlers
+OpenPanel Handlers — 42 tools across 7 handlers.
 
-Phase H.1: Core (25 tools)
-- events.py: Event tracking (9 tools - alias_user removed)
-- export.py: Data export (10 tools)
-- system.py: Health & stats (6 tools)
+All tools use public REST APIs (no tRPC/session dependency).
 
-Phase H.2: Analytics (24 tools)
-- reports.py: Analytics reports (8 tools)
-- funnels.py: Funnel analysis (8 tools)
-- profiles.py: User profiles (8 tools)
+Track API (/track) — write mode:
+- events.py: Event tracking, groups (11 tools)
 
-Phase H.3: Management (24 tools)
-- projects.py: Project management (8 tools)
-- dashboards.py: Dashboard management (10 tools)
-- clients.py: API client management (6 tools)
+Export API (/export) — read mode:
+- export.py: Data export & analytics (10 tools)
 
-Total: 73 tools
+Insights API (/insights) — read mode:
+- reports.py: Overview & realtime stats (2 tools)
+
+Profile API — read mode:
+- profiles.py: Profile events & data export (3 tools)
+
+Manage API (/manage) — root mode:
+- projects.py: Project CRUD (5 tools)
+- clients.py: Client CRUD (5 tools)
+
+System:
+- system.py: Health & instance info (6 tools)
+
+Removed (no public API):
+- dashboards.py (tRPC-only)
+- funnels.py (tRPC-only)
 """
 
 from plugins.openpanel.handlers import (
     clients,
-    dashboards,
     events,
     export,
-    funnels,
     profiles,
     projects,
     reports,
@@ -36,9 +42,7 @@ __all__ = [
     "export",
     "system",
     "reports",
-    "funnels",
     "profiles",
     "projects",
-    "dashboards",
     "clients",
 ]

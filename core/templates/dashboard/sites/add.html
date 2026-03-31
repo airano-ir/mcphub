@@ -37,6 +37,7 @@
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ t.site_url }}</label>
             <input type="url" id="url" name="url" required placeholder="https://example.com"
                 class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            <p id="url-hint" class="text-xs text-gray-500 dark:text-gray-400 mt-1 hidden"></p>
         </div>
 
         <!-- Alias -->
@@ -73,9 +74,23 @@
 <script>
     const pluginFields = {{ plugin_fields_json| safe }};
 
+    const urlHints = {
+        'openpanel': 'OpenPanel API URL — Cloud: https://api.openpanel.dev | Self-hosted: your API service URL (e.g., https://analytics.example.com)',
+        'supabase': 'Your Supabase project URL (e.g., https://xxxxx.supabase.co)',
+    };
+
     function updateFields() {
         const ptype = document.getElementById('plugin_type').value;
         const container = document.getElementById('credential-fields');
+        const urlHintEl = document.getElementById('url-hint');
+
+        // Update URL hint
+        if (urlHints[ptype]) {
+            urlHintEl.textContent = urlHints[ptype];
+            urlHintEl.classList.remove('hidden');
+        } else {
+            urlHintEl.classList.add('hidden');
+        }
 
         if (!ptype || !pluginFields[ptype]) {
             container.innerHTML = '<label class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ t.credentials }}</label><p class="text-sm text-gray-500 dark:text-gray-400">{{ t.select_plugin }}</p>';

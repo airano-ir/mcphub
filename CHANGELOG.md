@@ -5,6 +5,38 @@ All notable changes to MCP Hub will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.0] — 2026-03-31
+
+### OpenPanel Plugin — Public Release (Track F.10)
+
+OpenPanel product analytics plugin fully reviewed, tested, and published for public use. Works with both self-hosted and cloud (openpanel.dev) instances.
+
+#### Added
+- **OpenPanel Plugin** (42 tools): Complete rewrite using public REST APIs — no tRPC/session dependency
+  - **Track API** (11 tools): track_event, page_view, screen_view, identify_user, set_user_properties, increment/decrement_property, create_group, assign_group, track_revenue, track_batch
+  - **Export API** (10 tools): export_events, export_events_csv, export_chart_data, get_event_count, get_unique_users, get_page_views, get_top_pages, get_top_referrers, get_geo_data, get_device_data
+  - **Insights API** (2 tools): get_overview_report, get_realtime_stats
+  - **Profile API** (3 tools): get_profile_events, get_profile_sessions, export_profile_data
+  - **Manage API** (10 tools): list/get/create/update/delete projects and clients
+  - **System** (6 tools): health_check, get_instance_info, get_usage_stats, get_storage_stats, test_connection, get_rate_limit_status
+- **Service Page descriptions**: Per-plugin description and notes section on service detail pages
+- **Dynamic URL hints**: Add Site form shows per-plugin URL guidance (e.g., OpenPanel API URL vs dashboard URL)
+- **WordPress plugin download**: OpenPanel WordPress plugin bundled at `/static/plugins/openpanel-self-hosted.zip`
+- **62 unit tests** for OpenPanel plugin (`tests/test_openpanel_plugin.py`)
+
+#### Changed
+- `ENABLED_PLUGINS` default: `wordpress,woocommerce,supabase,openpanel` (was: `wordpress,woocommerce,supabase`)
+- OpenPanel health check uses `GET /healthcheck` (was: non-existent `/api/v1/oauth/token`)
+- OpenPanel credential fields: added Project ID and Organization ID (optional)
+
+#### Removed
+- OpenPanel `alias_user` tool (explicitly unsupported by OpenPanel API)
+- OpenPanel dashboard handler (18 tools) — no public API available, was placeholder stubs
+- OpenPanel funnel handler (8 tools) — no public API available, was placeholder stubs
+- tRPC client dependency — all tools now use public REST APIs
+
+---
+
 ## [3.3.0] — 2026-03-31
 
 ### Platform Hardening & Admin Unification (Track F.1–F.8)
@@ -22,7 +54,7 @@ Major quality release: plugin visibility control, UI/UX polish, unified admin pa
 - **Pre-configured OAuth** (F.2): Default OAuth redirect URIs for Claude.ai; green tip about optional OAuth
 
 #### Fixed
-- **Connect Page** (F.2): WordPress/SEO amber info box now shown only for WordPress/WooCommerce sites (was shown for all plugin types)
+- **Connect Page** (F.2): WordPress/SEO amber info box shown only for WordPress/WooCommerce sites (was shown for all plugin types)
 - **Sidebar Version** (F.2): Fixed "v" displaying when version string is empty
 - **Auth Page Language** (F.2): Auth page defaults to English regardless of Accept-Language header
 - **Donation Link** (F.2): Moved from home page to sidebar for consistent visibility

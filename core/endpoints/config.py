@@ -249,16 +249,15 @@ ENDPOINT_CONFIGS = {
         },
         max_tools=80,
     ),
-    # OpenPanel endpoint - Product Analytics (73 tools) - Phase H
+    # OpenPanel endpoint - Product Analytics (42 tools) - Phase H
     EndpointType.OPENPANEL: EndpointConfig(
         path="/openpanel",
         name="OpenPanel Analytics",
-        description="OpenPanel product analytics management (events, export, funnels, dashboards)",
+        description="OpenPanel self-hosted product analytics (events, export, insights, project/client management)",
         endpoint_type=EndpointType.OPENPANEL,
         plugin_types=["openpanel"],
         require_master_key=False,
         allowed_scopes={"read", "write", "admin"},
-        # Blacklist system and admin tools
         tool_blacklist={
             "manage_api_keys_create",
             "manage_api_keys_delete",
@@ -266,7 +265,7 @@ ENDPOINT_CONFIGS = {
             "oauth_register_client",
             "oauth_revoke_client",
         },
-        max_tools=80,
+        max_tools=50,
     ),
     # Appwrite endpoint - Backend-as-a-Service (100 tools) - Phase I
     EndpointType.APPWRITE: EndpointConfig(

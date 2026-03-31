@@ -15,7 +15,7 @@ Usage:
 import os
 
 # Default plugins available to public (OAuth) users
-DEFAULT_PUBLIC_PLUGINS = {"wordpress", "woocommerce", "supabase"}
+DEFAULT_PUBLIC_PLUGINS = {"wordpress", "woocommerce", "supabase", "openpanel"}
 
 
 def _parse_plugins(val: str) -> set[str]:

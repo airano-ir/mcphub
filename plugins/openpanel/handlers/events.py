@@ -1,4 +1,4 @@
-"""Events Handler - OpenPanel event tracking operations (10 tools)"""
+"""Events Handler - OpenPanel event tracking operations (11 tools)"""
 
 import json
 from typing import Any
@@ -7,7 +7,7 @@ from plugins.openpanel.client import OpenPanelClient
 
 
 def get_tool_specifications() -> list[dict[str, Any]]:
-    """Return tool specifications for ToolGenerator (10 tools)"""
+    """Return tool specifications for ToolGenerator (11 tools)"""
     return [
         {
             "name": "track_event",
@@ -222,7 +222,56 @@ def get_tool_specifications() -> list[dict[str, Any]]:
             },
             "scope": "write",
         },
-        # NOTE: alias_user removed - not supported on most self-hosted OpenPanel instances
+        {
+            "name": "create_group",
+            "method_name": "create_group",
+            "description": "Create or update a group (e.g., company, workspace, team). Groups can be associated with events and profiles.",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "group_id": {
+                        "type": "string",
+                        "description": "Unique group identifier",
+                    },
+                    "group_type": {
+                        "type": "string",
+                        "description": "Group category (e.g., 'company', 'workspace', 'team')",
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "Display name for the group",
+                    },
+                    "properties": {
+                        "anyOf": [{"type": "object"}, {"type": "null"}],
+                        "description": 'Custom group properties (e.g., {"plan": "enterprise", "size": 50})',
+                    },
+                },
+                "required": ["group_id", "group_type", "name"],
+            },
+            "scope": "write",
+        },
+        {
+            "name": "assign_group",
+            "method_name": "assign_group",
+            "description": "Assign a user to one or more groups. If no profile_id is provided, falls back to device ID.",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "group_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of group IDs to assign the user to",
+                        "minItems": 1,
+                    },
+                    "profile_id": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "User profile ID (falls back to device ID if not provided)",
+                    },
+                },
+                "required": ["group_ids"],
+            },
+            "scope": "write",
+        },
         {
             "name": "track_revenue",
             "method_name": "track_revenue",
@@ -566,32 +615,55 @@ async def decrement_property(
         )
 
 
-async def alias_user(client: OpenPanelClient, profile_id: str, alias: str) -> str:
-    """Create an alias to link two profile IDs"""
+async def create_group(
+    client: OpenPanelClient,
+    group_id: str,
+    group_type: str,
+    name: str,
+    properties: dict[str, Any] | None = None,
+) -> str:
+    """Create or update a group"""
     try:
-        result = await client.alias_user(profile_id=profile_id, alias=alias)
-
+        result = await client.track_group(
+            group_id=group_id, group_type=group_type, name=name, properties=properties
+        )
         return json.dumps(
             {
                 "success": True,
-                "profile_id": profile_id,
-                "alias": alias,
-                "message": f"Alias '{alias}' linked to profile '{profile_id}'",
+                "group_id": group_id,
+                "group_type": group_type,
+                "name": name,
+                "message": f"Group '{name}' ({group_type}) created/updated",
                 "response": result,
             },
             indent=2,
             ensure_ascii=False,
         )
     except Exception as e:
-        error_str = str(e)
-        hint = ""
-        if "not supported" in error_str.lower() or "400" in error_str:
-            hint = " (Note: Alias feature may not be available in all OpenPanel configurations. This is a server-side limitation.)"
+        return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
+
+
+async def assign_group(
+    client: OpenPanelClient,
+    group_ids: list[str],
+    profile_id: str | None = None,
+) -> str:
+    """Assign a user to groups"""
+    try:
+        result = await client.assign_group(group_ids=group_ids, profile_id=profile_id)
         return json.dumps(
-            {"success": False, "error": error_str + hint, "profile_id": profile_id, "alias": alias},
+            {
+                "success": True,
+                "group_ids": group_ids,
+                "profile_id": profile_id,
+                "message": f"User assigned to {len(group_ids)} group(s)",
+                "response": result,
+            },
             indent=2,
             ensure_ascii=False,
         )
+    except Exception as e:
+        return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
 
 async def track_revenue(

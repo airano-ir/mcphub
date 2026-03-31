@@ -1,10 +1,17 @@
 """
-OpenPanel Plugin - Product Analytics Management
+OpenPanel Plugin - Product Analytics Management.
 
-Complete OpenPanel Self-Hosted management through REST API.
-Provides tools for event tracking, data export, and analytics.
+Self-hosted OpenPanel management through public REST APIs.
+Provides event tracking, data export, analytics, and project/client management.
 
-For Self-Hosted instances deployed on Coolify.
+APIs used:
+- Track API (/track) — Event ingestion (write mode)
+- Export API (/export) — Raw data export (read mode)
+- Insights API (/insights) — Analytics queries (read mode)
+- Manage API (/manage) — Project & client CRUD (root mode)
+- Health API (/healthcheck) — Instance health
+
+For Self-Hosted instances deployed on Coolify or Docker.
 """
 
 from typing import Any
@@ -16,30 +23,17 @@ from plugins.openpanel.client import OpenPanelClient
 
 class OpenPanelPlugin(BasePlugin):
     """
-    OpenPanel Analytics Plugin - Comprehensive product analytics.
+    OpenPanel Analytics Plugin — 42 tools across 7 handlers.
 
-    Provides complete OpenPanel management capabilities including:
-    - Event tracking (track, identify, increment, decrement)
-    - Data export (events, charts, CSV)
-    - Analytics reports (page views, referrers, geo, devices)
-    - System operations (health, stats)
+    All tools use public REST APIs (no tRPC/session dependency).
 
-    Phase H.1: Core (25 tools)
-    - Events Handler: 9 tools (alias_user removed - not supported on self-hosted)
-    - Export Handler: 10 tools
-    - System Handler: 6 tools
-
-    Phase H.2: Analytics (24 tools)
-    - Reports Handler: 8 tools
-    - Funnels Handler: 8 tools
-    - Profiles Handler: 8 tools
-
-    Phase H.3: Management (24 tools)
-    - Projects Handler: 8 tools
-    - Dashboards Handler: 10 tools
-    - Clients Handler: 6 tools
-
-    Total: 73 tools
+    Events (11): track, identify, increment, decrement, group, assign_group, batch, revenue
+    Export (10): events, charts, CSV, counts, top pages/referrers/geo/devices
+    Reports (2): overview stats, realtime visitors
+    Profiles (3): profile events, sessions, GDPR export
+    Projects (5): list, get, create, update, delete
+    Clients (5): list, get, create, update, delete
+    System (6): health, instance info, usage stats, storage, connection test, rate limits
     """
 
     @staticmethod
@@ -61,63 +55,42 @@ class OpenPanelPlugin(BasePlugin):
                 - url: OpenPanel instance URL
                 - client_id: Client ID for authentication
                 - client_secret: Client Secret for authentication
-                - project_id: OpenPanel project ID (for Export/Read APIs)
-                - organization_id: Organization/Workspace ID (for multi-tenant setups)
+                - project_id: OpenPanel project ID (for Export/Insights APIs)
+                - organization_id: Organization/Workspace ID (optional)
             project_id: Optional MCP project ID (auto-generated if not provided)
         """
         super().__init__(config, project_id=project_id)
 
-        # Get OpenPanel project_id and organization_id from config
         openpanel_project_id = config.get("project_id")
         openpanel_organization_id = config.get("organization_id")
 
-        # Get session cookie for tRPC API access (optional)
-        # This is needed for analytics queries as tRPC uses session-based auth
-        session_cookie = config.get("session_cookie")
-
-        # Create OpenPanel API client
         self.client = OpenPanelClient(
             base_url=config["url"],
             client_id=config["client_id"],
             client_secret=config["client_secret"],
             project_id=openpanel_project_id,
             organization_id=openpanel_organization_id,
-            session_cookie=session_cookie,
         )
 
-        # Store for reference
         self.openpanel_project_id = openpanel_project_id
         self.openpanel_organization_id = openpanel_organization_id
-        self.has_session = bool(session_cookie)
 
     @staticmethod
     def get_tool_specifications() -> list[dict[str, Any]]:
         """
-        Return all tool specifications for ToolGenerator.
+        Return all tool specifications for ToolGenerator (42 tools).
 
         This method is called by ToolGenerator to create unified tools
         with site parameter routing.
-
-        Returns:
-            List of tool specification dictionaries (26 tools in Phase H.1)
         """
         specs = []
-
-        # Phase H.1: Core (26 tools)
-        specs.extend(handlers.events.get_tool_specifications())  # 10 tools
+        specs.extend(handlers.events.get_tool_specifications())  # 11 tools
         specs.extend(handlers.export.get_tool_specifications())  # 10 tools
         specs.extend(handlers.system.get_tool_specifications())  # 6 tools
-
-        # Phase H.2: Analytics (24 tools)
-        specs.extend(handlers.reports.get_tool_specifications())  # 8 tools
-        specs.extend(handlers.funnels.get_tool_specifications())  # 8 tools
-        specs.extend(handlers.profiles.get_tool_specifications())  # 8 tools
-
-        # Phase H.3: Management (24 tools)
-        specs.extend(handlers.projects.get_tool_specifications())  # 8 tools
-        specs.extend(handlers.dashboards.get_tool_specifications())  # 10 tools
-        specs.extend(handlers.clients.get_tool_specifications())  # 6 tools
-
+        specs.extend(handlers.reports.get_tool_specifications())  # 2 tools
+        specs.extend(handlers.profiles.get_tool_specifications())  # 3 tools
+        specs.extend(handlers.projects.get_tool_specifications())  # 5 tools
+        specs.extend(handlers.clients.get_tool_specifications())  # 5 tools
         return specs
 
     def __getattr__(self, name: str):
@@ -139,10 +112,8 @@ class OpenPanelPlugin(BasePlugin):
             handlers.export,
             handlers.system,
             handlers.reports,
-            handlers.funnels,
             handlers.profiles,
             handlers.projects,
-            handlers.dashboards,
             handlers.clients,
         ]
 

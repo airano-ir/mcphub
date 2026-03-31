@@ -483,6 +483,8 @@ async def delete_user_factor(client: SupabaseClient, user_id: str, factor_id: st
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 
 
+
+
 async def search_users(
     client: SupabaseClient, query: str, page: int = 1, per_page: int = 50
 ) -> str:

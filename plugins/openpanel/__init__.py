@@ -1,11 +1,8 @@
 """
-OpenPanel Plugin - Product Analytics Management
+OpenPanel Plugin - Product Analytics Management.
 
-Complete OpenPanel Self-Hosted management through REST API.
-Provides tools for event tracking, data export, funnels,
-dashboards, user profiles, and analytics reports.
-
-For Self-Hosted instances deployed on Coolify.
+Self-hosted OpenPanel management through public REST APIs (42 tools).
+Event tracking, data export, analytics, project & client management.
 """
 
 from plugins.openpanel.client import OpenPanelClient

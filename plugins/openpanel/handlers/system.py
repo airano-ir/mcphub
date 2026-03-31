@@ -132,45 +132,15 @@ async def get_instance_info(client: OpenPanelClient) -> str:
 
 
 async def get_usage_stats(client: OpenPanelClient, project_id: str, date_range: str = "30d") -> str:
-    """Get usage statistics for a project"""
+    """Get usage statistics for a project via Insights metrics API."""
     try:
-        # Get event count
-        events_config = [{"name": "*", "segment": "event"}]
-        events_result = await client.export_charts(
-            project_id=project_id, events=events_config, interval="day", date_range=date_range
-        )
-
-        # Get unique users
-        users_config = [{"name": "*", "segment": "user"}]
-        users_result = await client.export_charts(
-            project_id=project_id, events=users_config, interval="day", date_range=date_range
-        )
-
-        # Calculate totals
-        total_events = 0
-        if isinstance(events_result, dict) and "data" in events_result:
-            for point in events_result.get("data", []):
-                total_events += point.get("count", 0)
-
-        total_users = 0
-        if isinstance(users_result, dict) and "data" in users_result:
-            data = users_result.get("data", [])
-            if data:
-                total_users = data[-1].get("count", 0)
-
+        result = await client.get_overview_stats(project_id=project_id, date_range=date_range)
         return json.dumps(
             {
                 "success": True,
                 "project_id": project_id,
                 "date_range": date_range,
-                "stats": {
-                    "total_events": total_events,
-                    "unique_users": total_users,
-                    "events_per_user": (
-                        round(total_events / total_users, 2) if total_users > 0 else 0
-                    ),
-                },
-                "message": f"Usage stats for {date_range}",
+                "stats": result,
             },
             indent=2,
             ensure_ascii=False,

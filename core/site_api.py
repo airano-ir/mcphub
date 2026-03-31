@@ -157,7 +157,7 @@ PLUGIN_CREDENTIAL_FIELDS: dict[str, list[dict[str, Any]]] = {
             "label": "Client ID",
             "type": "text",
             "required": True,
-            "hint": "OpenPanel admin panel → API section",
+            "hint": "OpenPanel Dashboard → Settings → Clients → Create client with 'root' mode for full access",
         },
         {
             "name": "client_secret",
@@ -165,6 +165,21 @@ PLUGIN_CREDENTIAL_FIELDS: dict[str, list[dict[str, Any]]] = {
             "type": "password",
             "required": True,
             "hint": "Generated with your Client ID",
+        },
+        {
+            "name": "project_id",
+            "label": "Project ID",
+            "type": "text",
+            "required": False,
+            "hint": "From dashboard URL: dashboard.openpanel.dev/{org}/{project-id}/ — sets default for Export & Insights tools",
+        },
+        {
+            "name": "organization_id",
+            "label": "Organization ID",
+            "type": "text",
+            "required": False,
+            "hint": "From dashboard URL: dashboard.openpanel.dev/{org}/{project-id}/",
+            "advanced": True,
         },
     ],
     "appwrite": [
@@ -215,7 +230,7 @@ _HEALTH_ENDPOINTS: dict[str, dict[str, Any]] = {
     "gitea": {"path": "/api/v1/user", "method": "GET"},
     "n8n": {"path": "/healthz", "method": "GET"},
     "supabase": {"path": "/rest/v1/", "method": "GET"},
-    "openpanel": {"path": "/api/v1/oauth/token", "method": "POST"},
+    "openpanel": {"path": "/healthcheck", "method": "GET"},
     "appwrite": {"path": "/v1/health", "method": "GET"},
     "directus": {"path": "/server/health", "method": "GET"},
 }
@@ -342,23 +357,13 @@ async def validate_site_connection(
     elif plugin_type == "directus":
         headers["Authorization"] = f"Bearer {credentials.get('token', '')}"
     elif plugin_type == "openpanel":
-        # OpenPanel uses token exchange — just check that the URL is reachable
-        pass
+        headers["openpanel-client-id"] = credentials.get("client_id", "")
+        headers["openpanel-client-secret"] = credentials.get("client_secret", "")
 
     try:
         timeout = aiohttp.ClientTimeout(total=15)
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            if method == "POST" and plugin_type == "openpanel":
-                async with session.post(
-                    check_url,
-                    json={
-                        "clientId": credentials.get("client_id", ""),
-                        "clientSecret": credentials.get("client_secret", ""),
-                    },
-                ) as resp:
-                    status_code = resp.status
-                    resp_text = await resp.text()
-            elif method == "POST":
+            if method == "POST":
                 async with session.post(check_url, headers=headers) as resp:
                     status_code = resp.status
                     resp_text = await resp.text()

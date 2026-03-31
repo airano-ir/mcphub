@@ -850,12 +850,9 @@ async def get_all_projects(
         is_admin = False
         current_user_id = None
         if user_session:
-            if (
-                hasattr(user_session, "user_type")
-                and user_session.user_type == "master"
-                or isinstance(user_session, dict)
-                and user_session.get("role") == "admin"
-            ):
+            if hasattr(user_session, "user_type") and user_session.user_type == "master":
+                is_admin = True
+            elif isinstance(user_session, dict) and user_session.get("role") == "admin":
                 is_admin = True
             elif isinstance(user_session, dict) and "user_id" in user_session:
                 current_user_id = user_session["user_id"]
@@ -3292,6 +3289,46 @@ async def get_service_page_data(plugin_type: str) -> dict | None:
 
     from core.plugin_visibility import is_plugin_public
 
+    # Per-plugin descriptions and notes
+    service_descriptions = {
+        "openpanel": {
+            "en": (
+                "OpenPanel product analytics management. "
+                "Supports event tracking, data export, analytics reports, "
+                "and project/client management via public REST APIs. "
+                "Works with both self-hosted and cloud (openpanel.dev) instances."
+            ),
+            "fa": (
+                "مدیریت آنالیتیکس محصول OpenPanel. "
+                "پشتیبانی از ردیابی رویداد، خروجی داده، گزارش‌های آنالیتیکس، "
+                "و مدیریت پروژه/کلاینت از طریق API‌های عمومی REST. "
+                "هم نسخه خودمیزبان و هم نسخه cloud (openpanel.dev) پشتیبانی می‌شود."
+            ),
+            "notes_en": [
+                "<strong>Site URL must be the API URL</strong>, not the dashboard URL. "
+                "Cloud: <code>https://api.openpanel.dev</code> — "
+                "Self-hosted: your API service URL (e.g., <code>https://analytics.example.com</code>).",
+                "Client must have <strong>root</strong> mode for full access (tracking + export + manage). "
+                "Use <strong>read</strong> mode for analytics only, or <strong>write</strong> mode for tracking only.",
+                "If you have WordPress, install the <a href='/static/plugins/openpanel-self-hosted.zip' "
+                "class='text-primary-400 hover:underline'>OpenPanel WordPress plugin</a> "
+                "to automatically send analytics data to your OpenPanel instance.",
+            ],
+            "notes_fa": [
+                "<strong>آدرس سایت باید آدرس API باشد</strong>، نه داشبورد. "
+                "نسخه Cloud: <code>https://api.openpanel.dev</code> — "
+                "خودمیزبان: آدرس سرویس API شما (مثلاً <code>https://analytics.example.com</code>).",
+                "برای دسترسی کامل، کلاینت باید حالت <strong>root</strong> داشته باشد. "
+                "از حالت <strong>read</strong> برای آنالیتیکس و <strong>write</strong> برای ردیابی استفاده کنید.",
+                "اگر وردپرس دارید، افزونه <a href='/static/plugins/openpanel-self-hosted.zip' "
+                "class='text-primary-400 hover:underline'>OpenPanel WordPress</a> "
+                "را نصب کنید تا داده‌های آنالیتیکس به‌صورت خودکار به OpenPanel ارسال شود.",
+            ],
+        },
+    }
+
+    desc_data = service_descriptions.get(plugin_type, {})
+
     return {
         "plugin_type": plugin_type,
         "display_name": display_name,
@@ -3299,6 +3336,7 @@ async def get_service_page_data(plugin_type: str) -> dict | None:
         "tools_count": len(tools),
         "credential_fields": credential_fields,
         "is_public": is_plugin_public(plugin_type),
+        "description": desc_data,
     }
 
 
