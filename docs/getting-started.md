@@ -46,7 +46,7 @@ For each WordPress site you want to manage:
 
 The fastest way to try MCP Hub — no installation needed:
 
-1. Visit **[mcp.example.com](https://mcp.example.com)**
+1. Visit **[mcp.palebluedot.live](https://mcp.palebluedot.live)**
 2. Log in with **GitHub** or **Google**
 3. Add your sites via the dashboard (**My Sites → Add Service**)
 4. Go to **Connect** page to generate your AI client config
@@ -54,7 +54,7 @@ The fastest way to try MCP Hub — no installation needed:
 
 Your personal MCP endpoint:
 ```
-https://mcp.example.com/u/{your-user-id}/{alias}/mcp
+https://mcp.palebluedot.live/u/{your-user-id}/{alias}/mcp
 ```
 
 **WordPress users:** Install the [Airano MCP SEO Bridge](https://wordpress.org/plugins/airano-mcp-seo-bridge/) plugin for SEO tools, and create an [Application Password](https://make.wordpress.org/core/2020/11/05/application-passwords-integration-guide/) (Users → Profile) for authentication.

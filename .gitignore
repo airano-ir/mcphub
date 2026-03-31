@@ -164,3 +164,4 @@ pytest-cache-files-*/
 .worktrees/
 worktrees/
 /.agents
+uv.lock

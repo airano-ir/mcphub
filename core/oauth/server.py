@@ -115,7 +115,7 @@ class OAuthServer:
             )
 
         # Validate scope
-        requested_scopes = scope.split() if scope else ["read"]
+        requested_scopes = scope.split() if scope else ["read", "write", "admin"]
         for s in requested_scopes:
             if s not in client.allowed_scopes:
                 raise OAuthError(

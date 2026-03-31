@@ -212,8 +212,8 @@
                     required
                     rows="3"
                     class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    placeholder="https://example.com/callback&#10;https://app.example.com/oauth/callback"
-                ></textarea>
+                >https://claude.ai/api/mcp/auth_callback
+https://claude.com/api/mcp/auth_callback</textarea>
                 <p class="text-xs text-gray-500 mt-1">
                     {% if lang == 'fa' %}هر آدرس را در یک خط جداگانه وارد کنید{% else %}Enter one URI per line{% endif %}
                 </p>
@@ -227,11 +227,11 @@
                         <span class="text-sm text-gray-700 dark:text-gray-300">read</span>
                     </label>
                     <label class="flex items-center gap-2">
-                        <input type="checkbox" name="scopes" value="write" class="rounded bg-gray-700 border-gray-600 text-primary-500">
+                        <input type="checkbox" name="scopes" value="write" checked class="rounded bg-gray-700 border-gray-600 text-primary-500">
                         <span class="text-sm text-gray-700 dark:text-gray-300">write</span>
                     </label>
                     <label class="flex items-center gap-2">
-                        <input type="checkbox" name="scopes" value="admin" class="rounded bg-gray-700 border-gray-600 text-primary-500">
+                        <input type="checkbox" name="scopes" value="admin" checked class="rounded bg-gray-700 border-gray-600 text-primary-500">
                         <span class="text-sm text-gray-700 dark:text-gray-300">admin</span>
                     </label>
                 </div>

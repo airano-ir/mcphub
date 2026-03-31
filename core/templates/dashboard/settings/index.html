@@ -93,6 +93,63 @@
         </div>
     </div>
 
+    <!-- Managed Settings (4C.3) -->
+    {% if managed_settings %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            {% if lang == 'fa' %}تنظیمات قابل مدیریت{% else %}Managed Settings{% endif %}
+        </h3>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
+            {% if lang == 'fa' %}این تنظیمات از پنل قابل تغییر هستند. اولویت: دیتابیس > متغیر محیطی > پیش‌فرض{% else %}These settings can be changed from the panel. Priority: Database > Environment > Default{% endif %}
+        </p>
+        <div class="space-y-4">
+            {% for s in managed_settings %}
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4" id="setting-{{ s.key }}">
+                <div class="flex items-center justify-between mb-2">
+                    <div>
+                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            {% if lang == 'fa' %}{{ s.label_fa }}{% else %}{{ s.label }}{% endif %}
+                        </label>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            {% if lang == 'fa' %}{{ s.hint_fa }}{% else %}{{ s.hint }}{% endif %}
+                        </p>
+                    </div>
+                    <span class="px-2 py-0.5 rounded text-xs font-medium
+                        {% if s.source == 'database' %}bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300
+                        {% elif s.source == 'environment' %}bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300
+                        {% else %}bg-gray-100 dark:bg-gray-500/20 text-gray-600 dark:text-gray-400{% endif %}"
+                        id="source-{{ s.key }}">
+                        {{ s.source }}
+                    </span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="text" value="{{ s.value }}" id="input-{{ s.key }}"
+                        class="flex-1 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <button onclick="saveSetting('{{ s.key }}')"
+                        class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors"
+                        id="save-{{ s.key }}">
+                        {% if lang == 'fa' %}ذخیره{% else %}Save{% endif %}
+                    </button>
+                    {% if s.source == 'database' %}
+                    <button onclick="resetSetting('{{ s.key }}')"
+                        class="px-3 py-2 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-300 text-sm rounded-lg transition-colors"
+                        id="reset-{{ s.key }}"
+                        title="{% if lang == 'fa' %}بازگشت به پیش‌فرض{% else %}Reset to default{% endif %}">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                    </button>
+                    {% endif %}
+                </div>
+                <p class="text-xs text-gray-400 mt-1" id="default-{{ s.key }}">
+                    {% if lang == 'fa' %}پیش‌فرض: {{ s.default }}{% else %}Default: {{ s.default }}{% endif %}
+                </p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Registered Plugins -->
     <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
         <div class="flex items-center justify-between mb-4">
@@ -207,4 +264,60 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function saveSetting(key) {
+    const input = document.getElementById('input-' + key);
+    const btn = document.getElementById('save-' + key);
+    const value = input.value.trim();
+    if (!value) return;
+
+    btn.textContent = '...';
+    btn.disabled = true;
+    try {
+        const resp = await fetch('/api/dashboard/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key, value, action: 'save' }),
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            btn.textContent = '✓';
+            btn.className = btn.className.replace('bg-blue-600', 'bg-green-600').replace('hover:bg-blue-700', 'hover:bg-green-700');
+            const source = document.getElementById('source-' + key);
+            if (source) { source.textContent = 'database'; source.className = 'px-2 py-0.5 rounded text-xs font-medium bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300'; }
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            alert(data.error || 'Failed to save');
+            btn.textContent = '{% if lang == "fa" %}ذخیره{% else %}Save{% endif %}';
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+        btn.textContent = '{% if lang == "fa" %}ذخیره{% else %}Save{% endif %}';
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function resetSetting(key) {
+    if (!confirm('Reset this setting to default?')) return;
+    try {
+        const resp = await fetch('/api/dashboard/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key, action: 'reset' }),
+        });
+        if (resp.ok) {
+            location.reload();
+        } else {
+            const data = await resp.json();
+            alert(data.error || 'Failed to reset');
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+</script>
 {% endblock %}

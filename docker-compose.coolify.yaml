@@ -38,6 +38,10 @@ services:
       - PUBLIC_URL=${PUBLIC_URL:-}
       - SESSION_EXPIRY_HOURS=${SESSION_EXPIRY_HOURS:-168}
 
+      # === ADMIN SYSTEM (F.4) ===
+      - ADMIN_EMAILS=${ADMIN_EMAILS:-}
+      - DISABLE_MASTER_KEY_LOGIN=${DISABLE_MASTER_KEY_LOGIN:-false}
+
       # === LOGGING ===
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
 

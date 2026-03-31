@@ -121,6 +121,8 @@ plugins/{name}/
 
 **Registered plugins**: wordpress, woocommerce, wordpress_advanced, gitea, n8n, supabase, openpanel, appwrite, directus
 
+**Plugin visibility** (Track F.1): Public users only see plugins listed in `ENABLED_PLUGINS` env var (default: `wordpress,woocommerce,supabase`). Admin sees all. Controlled by `core/plugin_visibility.py`.
+
 ### Tool Generation
 
 Tools are dynamically generated at startup:
@@ -159,10 +161,24 @@ Parsed by `core/site_manager.py` into `SiteConfig` (Pydantic model). Sites are a
 | `core/oauth/` | OAuth 2.1 with PKCE (RFC 8414, 7591, 7636) |
 | `core/dashboard/routes.py` | Web UI dashboard (login, projects, API keys, health, audit) |
 | `core/endpoints/` | Multi-endpoint architecture (factory, registry, config) |
+| `core/plugin_visibility.py` | Plugin enable/disable for public vs admin users |
+| `core/user_auth.py` | OAuth Social Login (GitHub + Google) |
+| `core/user_endpoints.py` | Per-user MCP endpoints (`/u/{user_id}/{alias}/mcp`) |
+| `core/site_api.py` | User site CRUD, connection testing, credential encryption |
+| `core/user_keys.py` | User API key management (bcrypt, `mhu_` prefix) |
+| `core/database.py` | SQLite backend (aiosqlite, WAL mode, migrations) |
+| `core/encryption.py` | AES-256-GCM credential encryption |
+
+### User System (Track E)
+
+OAuth Social Login (GitHub + Google) via `core/user_auth.py`. Users register, add sites, get personal MCP endpoints at `/u/{user_id}/{alias}/mcp`. Per-user API keys with `mhu_` prefix (bcrypt-hashed). Credentials encrypted with AES-256-GCM in SQLite.
 
 ### Dashboard
 
-Web UI at the server root, built with Starlette + Jinja2 + HTMX + Tailwind CSS. Supports EN/FA i18n (`core/i18n.py`). 8 pages: Login, Home, Projects, API Keys, OAuth Clients, Audit Logs, Health, Settings.
+Web UI at the server root, built with Starlette + Jinja2 + HTMX + Tailwind CSS. Supports EN/FA i18n (`core/i18n.py`).
+
+**Admin pages**: Login, Home, Projects, API Keys, OAuth Clients, Audit Logs, Health, Settings.
+**User pages**: Login (OAuth), Home, My Sites (list/add/edit/test/delete), Connect (API keys + config snippets + OAuth clients), Profile.
 
 ### Legacy Modules (Deprecated)
 
@@ -175,12 +191,27 @@ Web UI at the server root, built with Starlette + Jinja2 + HTMX + Tailwind CSS. 
 ```
 Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 
+## Live Instances
+
+- **Platform**: `mcp.palebluedot.live` — Live MCP Hub with OAuth login
+- **Blog**: `blog.palebluedot.live` — WordPress test site + project blog
+- **Deployment**: Coolify / Docker Compose, port 8000
+
+## Current Development (Track F)
+
+v4 development cycle with 15 phases. See `docs/ROADMAP.md` (Track F) and `.claude/plans/structured-popping-adleman.md` for full plan.
+
+**Active plugins for public users**: WordPress, WooCommerce, Supabase (configurable via `ENABLED_PLUGINS` env var)
+
 ## Gotchas
 
 - Test files exist in both `tests/` (proper) and root directory (legacy `test_*.py`). Run `pytest tests/` for organized tests only.
 - `server_multi.py` is the alternative multi-endpoint entry point; `server.py` is the primary
 - `wordpress-plugin/` contains companion WP plugins (openpanel, airano-mcp-seo-bridge) — these are PHP, not Python
 - `env.example` has "FUTURE" labels for Supabase/Gitea but both are fully implemented
+- Only 3 plugins are tested for public use: WordPress, WooCommerce, Supabase. Others are admin-only or disabled.
+- OAuth Clients (Client ID/Secret) are for MCP endpoint auth, NOT the same as GitHub/Google dashboard login
+- User sites stored in SQLite (`core/database.py`), admin sites still from env vars
 - Dashboard templates live in `core/templates/` (included in pip package as `package_data`)
 - `ruff` config uses top-level `select` key in pyproject.toml (not `[tool.ruff.lint]` nested format)
 - The `scripts/` directory has platform-specific setup scripts: `setup.sh` (Linux/Mac), `setup.ps1` (Windows)
@@ -192,3 +223,6 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 - Docker socket mount required for WP-CLI tools: `/var/run/docker.sock:/var/run/docker.sock:ro`
 - Persistent volumes: `mcp-data` (API keys, OAuth), `mcp-logs` (audit, health)
 - Required env vars: `MASTER_API_KEY`, `OAUTH_JWT_SECRET_KEY`, `OAUTH_BASE_URL`
+- OAuth env vars: `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `PUBLIC_URL`
+- User limits: `MAX_SITES_PER_USER=10`, `USER_RATE_LIMIT_PER_MIN=30`, `USER_RATE_LIMIT_PER_HR=500`
+- Plugin visibility: `ENABLED_PLUGINS=wordpress,woocommerce,supabase` (default)

@@ -173,7 +173,8 @@
                 {% endif %}
             </div>
 
-            <!-- Divider -->
+            <!-- Divider + Admin Login Link (hidden when DISABLE_MASTER_KEY_LOGIN=true) -->
+            {% if not master_login_disabled %}
             <div class="my-6 flex items-center">
                 <div class="flex-1 border-t border-gray-600"></div>
                 <span class="px-4 text-sm text-gray-400">
@@ -182,7 +183,6 @@
                 <div class="flex-1 border-t border-gray-600"></div>
             </div>
 
-            <!-- Admin Login Link -->
             <a href="/dashboard/login{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}"
                 class="btn-admin transition-all flex items-center justify-center w-full py-3 px-4 text-gray-300 font-medium rounded-lg text-sm">
                 <svg class="w-4 h-4 {% if lang == 'fa' %}ml-2{% else %}mr-2{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -191,6 +191,7 @@
                 </svg>
                 {% if lang == 'fa' %}ورود مدیر با کلید API{% else %}Admin Login with API Key{% endif %}
             </a>
+            {% endif %}
 
             <!-- Language Toggle -->
             <div class="mt-6 text-center">

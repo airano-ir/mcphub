@@ -112,14 +112,14 @@ You should see the login page. Log in with your `MASTER_API_KEY` or via **GitHub
 
 ### Try It Now (No Setup Required)
 
-**Don't want to self-host?** Use the hosted instance at **[mcp.example.com](https://mcp.example.com)**:
+**Don't want to self-host?** Try the demo instance at **[mcp.palebluedot.live](https://mcp.palebluedot.live)**:
 
 1. Log in with **GitHub** or **Google**
 2. Add your sites via the dashboard (My Sites → Add Service)
 3. Go to **Connect** page — generate config for your AI client
 4. Copy-paste the config into Claude Desktop, VS Code, or Claude Code
 
-Your personal MCP endpoint: `https://mcp.example.com/u/{your-user-id}/{alias}/mcp`
+Your personal MCP endpoint: `https://mcp.palebluedot.live/u/{your-user-id}/{alias}/mcp`
 
 ---
 

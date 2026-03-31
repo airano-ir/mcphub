@@ -64,6 +64,7 @@ DASHBOARD_TRANSLATIONS = {
         "oauth_clients": "OAuth Clients",
         "audit_logs": "Audit Logs",
         "health": "Health",
+        "services": "Services",
         "settings": "Settings",
         "logout": "Logout",
         # Login page
@@ -127,8 +128,12 @@ DASHBOARD_TRANSLATIONS = {
         "edit_site": "Edit Site",
         "updating_site": "Updating site...",
         "keep_existing": "Leave blank to keep current value",
+        "leave_blank_to_clear": "Leave blank to clear (optional field)",
         "connection_ok": "Connection OK",
         "connection_failed": "Connection failed",
+        "last_tested": "Last tested",
+        "never_tested": "Not tested yet",
+        "just_now": "just now",
         "credentials": "Credentials",
         "select_plugin": "Select plugin type",
         "adding_site": "Adding site...",
@@ -164,6 +169,7 @@ DASHBOARD_TRANSLATIONS = {
         "oauth_clients": "کلاینت‌های OAuth",
         "audit_logs": "لاگ‌های ممیزی",
         "health": "سلامت",
+        "services": "سرویس‌ها",
         "settings": "تنظیمات",
         "logout": "خروج",
         # Login page
@@ -227,8 +233,12 @@ DASHBOARD_TRANSLATIONS = {
         "edit_site": "ویرایش سایت",
         "updating_site": "در حال بروزرسانی...",
         "keep_existing": "خالی بگذارید تا مقدار فعلی حفظ شود",
+        "leave_blank_to_clear": "خالی بگذارید برای حذف مقدار (فیلد اختیاری)",
         "connection_ok": "اتصال برقرار",
         "connection_failed": "اتصال ناموفق",
+        "last_tested": "آخرین تست",
+        "never_tested": "هنوز تست نشده",
+        "just_now": "همین الان",
         "credentials": "مشخصات دسترسی",
         "select_plugin": "نوع پلاگین را انتخاب کنید",
         "adding_site": "در حال افزودن سایت...",
@@ -321,6 +331,20 @@ async def get_dashboard_stats() -> dict:
     except Exception as e:
         logger.warning(f"Error getting dashboard stats: {e}")
 
+    # Platform stats (user system)
+    try:
+        from core.database import get_database
+
+        db = get_database()
+        row = await db.fetchone("SELECT COUNT(*) AS c FROM users")
+        stats["users_count"] = row["c"] if row else 0
+        row = await db.fetchone("SELECT COUNT(*) AS c FROM sites")
+        stats["user_sites_count"] = row["c"] if row else 0
+    except Exception as e:
+        logger.debug(f"Error getting platform stats: {e}")
+        stats.setdefault("users_count", 0)
+        stats.setdefault("user_sites_count", 0)
+
     return stats
 
 
@@ -330,7 +354,6 @@ async def get_user_dashboard_stats(user_id: str) -> dict:
         "sites_count": 0,
         "active_sites_count": 0,
         "api_keys_count": 0,
-        "tools_count": 0,
     }
     try:
         from core.site_api import get_user_sites
@@ -349,14 +372,6 @@ async def get_user_dashboard_stats(user_id: str) -> dict:
         stats["api_keys_count"] = len(keys)
     except Exception as e:
         logger.debug(f"Error getting user keys count: {e}")
-
-    try:
-        from core.tool_registry import get_tool_registry
-
-        tool_registry = get_tool_registry()
-        stats["tools_count"] = len(tool_registry.get_all())
-    except Exception:
-        stats["tools_count"] = 596  # Fallback
 
     return stats
 
@@ -489,9 +504,9 @@ async def dashboard_login_page(request: Request) -> Response:
     next_url = request.query_params.get("next", "/dashboard")
 
     return templates.TemplateResponse(
+        request,
         "dashboard/login.html",
         {
-            "request": request,
             "lang": lang,
             "t": t,
             "error": error,
@@ -499,6 +514,47 @@ async def dashboard_login_page(request: Request) -> Response:
             "version": _get_project_version(),
         },
     )
+
+
+async def _ensure_master_key_user(auth) -> str | None:
+    """Ensure a user record exists for master key admin.
+
+    Creates a user with provider='master_key' if none exists,
+    then returns a user session JWT so the admin can use My Sites, Connect, etc.
+
+    Returns:
+        User session JWT token, or None if creation failed.
+    """
+    from core.database import get_database
+    from core.user_auth import get_user_auth
+
+    db = get_database()
+    user_auth = get_user_auth()
+
+    # Check if master key user already exists
+    user = await db.get_user_by_provider("master_key", "master")
+    if not user:
+        # Create user record for master key admin
+        user = await db.create_user(
+            email="admin@localhost",
+            name="Admin",
+            provider="master_key",
+            provider_id="master",
+            role="admin",
+        )
+        logger.info("Created user record for master key admin: %s", user["id"])
+    else:
+        # Update last login
+        await db.update_user_last_login(user["id"])
+
+    # Create user session JWT (same as OAuth users get)
+    token = user_auth.create_user_session(
+        user_id=user["id"],
+        email=user["email"],
+        name=user.get("name"),
+        role="admin",
+    )
+    return token
 
 
 async def dashboard_login_submit(request: Request) -> Response:
@@ -556,6 +612,17 @@ async def dashboard_login_submit(request: Request) -> Response:
 
     # Create session
     token = auth.create_session(user_type, key_id)
+
+    # For master key login: auto-create user record + user session
+    # so master key admin can access My Sites, Connect, etc.
+    if user_type == "master":
+        try:
+            user_token = await _ensure_master_key_user(auth)
+            if user_token:
+                token = user_token  # Use user session instead of admin session
+        except Exception as e:
+            logger.warning("Failed to create master key user record: %s", e)
+            # Fall back to admin-only session (sites won't work, but dashboard will)
 
     # Redirect to dashboard
     response = RedirectResponse(url=next_url, status_code=303)
@@ -623,7 +690,6 @@ async def dashboard_home(request: Request) -> Response:
     t = get_translations(lang)
 
     context = {
-        "request": request,
         "lang": lang,
         "t": t,
         "session": session,
@@ -657,7 +723,7 @@ async def dashboard_home(request: Request) -> Response:
             }
         )
 
-    return templates.TemplateResponse("dashboard/index.html", context)
+    return templates.TemplateResponse(request, "dashboard/index.html", context)
 
 
 async def dashboard_api_stats(request: Request) -> Response:
@@ -781,18 +847,23 @@ async def get_all_projects(
         site_manager = get_site_manager()
         sites = site_manager.list_all_sites()
 
-        is_master = False
+        is_admin = False
         current_user_id = None
         if user_session:
-            if hasattr(user_session, "user_type") and user_session.user_type == "master":
-                is_master = True
+            if (
+                hasattr(user_session, "user_type")
+                and user_session.user_type == "master"
+                or isinstance(user_session, dict)
+                and user_session.get("role") == "admin"
+            ):
+                is_admin = True
             elif isinstance(user_session, dict) and "user_id" in user_session:
                 current_user_id = user_session["user_id"]
 
         for site in sites:
             # Tenant isolation checks
             site_user_id = site.get("user_id")
-            if not is_master:
+            if not is_admin:
                 if site_user_id != current_user_id:
                     continue
 
@@ -1003,9 +1074,9 @@ async def dashboard_projects_list(request: Request) -> Response:
     )
 
     return templates.TemplateResponse(
+        request,
         "dashboard/projects/list.html",
         {
-            "request": request,
             "lang": lang,
             "t": t,
             "session": session,
@@ -1048,9 +1119,9 @@ async def dashboard_project_detail(request: Request) -> Response:
 
     if not project:
         return templates.TemplateResponse(
+            request,
             "dashboard/projects/list.html",
             {
-                "request": request,
                 "lang": lang,
                 "t": t,
                 "session": session,
@@ -1062,9 +1133,9 @@ async def dashboard_project_detail(request: Request) -> Response:
         )
 
     return templates.TemplateResponse(
+        request,
         "dashboard/projects/detail.html",
         {
-            "request": request,
             "lang": lang,
             "t": t,
             "session": session,
@@ -1284,9 +1355,9 @@ async def dashboard_api_keys_list(request: Request) -> Response:
     available_projects = site_manager.list_all_sites()
 
     return templates.TemplateResponse(
+        request,
         "dashboard/api-keys/list.html",
         {
-            "request": request,
             "lang": lang,
             "t": t,
             "session": session,
@@ -1472,9 +1543,9 @@ async def dashboard_oauth_clients_list(request: Request) -> Response:
     clients_data = await get_oauth_clients_data()
 
     return templates.TemplateResponse(
+        request,
         "dashboard/oauth-clients/list.html",
         {
-            "request": request,
             "lang": lang,
             "t": t,
             "session": session,
@@ -1724,9 +1795,9 @@ async def dashboard_audit_logs_list(request: Request) -> Response:
     available_projects = site_manager.list_all_sites()
 
     return templates.TemplateResponse(
+        request,
         "dashboard/audit-logs/list.html",
         {
-            "request": request,
             "lang": lang,
             "t": t,
             "session": session,
@@ -2040,9 +2111,9 @@ async def dashboard_health_page(request: Request) -> Response:
         health_data = await get_health_data(live_check=refresh)
 
         return templates.TemplateResponse(
+            request,
             "dashboard/health/index.html",
             {
-                "request": request,
                 "lang": lang,
                 "t": t,
                 "session": session if session else {},
@@ -2091,9 +2162,9 @@ async def dashboard_health_projects_partial(request: Request) -> Response:
 
         # Render partial HTML for projects health table
         return templates.TemplateResponse(
+            request,
             "dashboard/health/projects-partial.html",
             {
-                "request": request,
                 "lang": lang,
                 "t": t,
                 "system_status": health_data["system_status"],
@@ -2245,6 +2316,11 @@ async def dashboard_settings_page(request: Request) -> Response:
     plugins = get_registered_plugins()
     about = get_about_info()
 
+    # Get managed settings (4C.3)
+    from core.settings import get_all_managed_settings
+
+    managed_settings = await get_all_managed_settings()
+
     # Format session display info (for Session Information section)
     if isinstance(session, dict):
         session_display = {
@@ -2260,9 +2336,9 @@ async def dashboard_settings_page(request: Request) -> Response:
         }
 
     return templates.TemplateResponse(
+        request,
         "dashboard/settings/index.html",
         {
-            "request": request,
             "lang": lang,
             "t": t,
             "session": session,  # Original session for RBAC sidebar
@@ -2270,9 +2346,41 @@ async def dashboard_settings_page(request: Request) -> Response:
             "config": config,
             "plugins": plugins,
             "about": about,
+            "managed_settings": managed_settings,
             "current_page": "settings",
         },
     )
+
+
+async def api_save_setting(request: Request) -> Response:
+    """POST /api/dashboard/settings — Save a managed setting."""
+    session, redirect = _require_admin_session(request)
+    if redirect:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
+
+    key = body.get("key", "")
+    value = body.get("value", "")
+    action = body.get("action", "save")  # "save" or "reset"
+
+    from core.settings import SETTING_DEFAULTS, delete_setting_value, save_setting
+
+    if key not in SETTING_DEFAULTS:
+        return JSONResponse({"error": f"Unknown setting: {key}"}, status_code=400)
+
+    if action == "reset":
+        await delete_setting_value(key)
+        return JSONResponse({"message": f"Setting '{key}' reset to default"})
+
+    if not value.strip():
+        return JSONResponse({"error": "Value cannot be empty"}, status_code=400)
+
+    await save_setting(key, value.strip())
+    return JSONResponse({"message": f"Setting '{key}' saved"})
 
 
 # =============================================================================
@@ -2289,10 +2397,9 @@ async def auth_login_page(request: Request) -> Response:
     if session:
         return RedirectResponse(url="/dashboard", status_code=303)
 
-    # Get language
-    accept_language = request.headers.get("accept-language")
+    # Get language — default to English for auth page, only override via ?lang=
     query_lang = request.query_params.get("lang")
-    lang = detect_language(accept_language, query_lang)
+    lang = detect_language(None, query_lang)
     t = get_translations(lang)
 
     error = request.query_params.get("error")
@@ -2308,14 +2415,16 @@ async def auth_login_page(request: Request) -> Response:
         pass
 
     return templates.TemplateResponse(
+        request,
         "dashboard/auth-login.html",
         {
-            "request": request,
             "lang": lang,
             "t": t,
             "error": error,
             "providers": providers,
             "version": _get_project_version(),
+            "master_login_disabled": os.environ.get("DISABLE_MASTER_KEY_LOGIN", "false").lower()
+            == "true",
         },
     )
 
@@ -2459,13 +2568,22 @@ async def auth_callback(request: Request) -> Response:
                 provider,
             )
 
+        # Determine effective role: check ADMIN_EMAILS env var
+        from core.admin_utils import is_admin_email
+
+        db_role = user.get("role", "user")
+        effective_role = "admin" if is_admin_email(user.get("email")) else db_role
+
         # Create session
         token = user_auth.create_user_session(
             user_id=user["id"],
             email=user["email"],
             name=user.get("name"),
-            role=user.get("role", "user"),
+            role=effective_role,
         )
+
+        if effective_role == "admin":
+            logger.info("Admin role granted to %s via ADMIN_EMAILS", user["email"])
 
         # Check for return URL (OAuth consent flow redirect-back)
         next_url = request.cookies.get("mcp_auth_next", "")
@@ -2545,9 +2663,9 @@ async def dashboard_profile_page(request: Request) -> Response:
         logger.warning("Failed to fetch user profile: %s", e)
 
     return templates.TemplateResponse(
+        request,
         "dashboard/profile.html",
         {
-            "request": request,
             "lang": lang,
             "t": t,
             "session": user_session,
@@ -2574,9 +2692,14 @@ def _require_user_session(request: Request):
 def _require_admin_session(request: Request):
     """Get admin session or redirect to dashboard. Helper for admin-only routes."""
     auth = get_dashboard_auth()
+    # Check DashboardSession (master key / API key)
     session = auth.get_session_from_request(request)
     if session and is_admin_session(session):
         return session, None
+    # Check OAuth user session (admin role)
+    user_session = auth.get_user_session_from_request(request)
+    if user_session and is_admin_session(user_session):
+        return user_session, None
     # Not admin — redirect to dashboard home
     return None, RedirectResponse(url="/dashboard", status_code=303)
 
@@ -2616,9 +2739,9 @@ async def dashboard_sites_list(request: Request) -> Response:
         )
 
     return templates.TemplateResponse(
+        request,
         "dashboard/sites/list.html",
         {
-            "request": request,
             "lang": lang,
             "t": t,
             "session": user_session,
@@ -2644,16 +2767,28 @@ async def dashboard_sites_add(request: Request) -> Response:
 
     import json
 
-    from core.site_api import get_user_credential_fields, get_user_plugin_names
+    from core.site_api import (
+        PLUGIN_CREDENTIAL_FIELDS,
+        PLUGIN_DISPLAY_NAMES,
+        get_user_credential_fields,
+        get_user_plugin_names,
+    )
 
-    # Non-admin users get a filtered list (no wordpress_advanced)
-    plugin_fields = get_user_credential_fields()
-    plugin_names = get_user_plugin_names()
+    # Admin sees all plugins; regular users get filtered list
+    if is_admin_session(user_session):
+        plugin_fields = dict(PLUGIN_CREDENTIAL_FIELDS)
+        plugin_names = dict(PLUGIN_DISPLAY_NAMES)
+    else:
+        plugin_fields = get_user_credential_fields()
+        plugin_names = get_user_plugin_names()
+
+    # Pre-select plugin type from query param (e.g., from service page)
+    preselect_plugin = request.query_params.get("plugin_type", "")
 
     return templates.TemplateResponse(
+        request,
         "dashboard/sites/add.html",
         {
-            "request": request,
             "lang": lang,
             "t": t,
             "session": user_session,
@@ -2661,6 +2796,7 @@ async def dashboard_sites_add(request: Request) -> Response:
             "plugin_fields_json": json.dumps(plugin_fields),
             "plugin_names": plugin_names,
             "current_page": "my_sites",
+            "preselect_plugin": preselect_plugin,
         },
     )
 
@@ -2693,9 +2829,9 @@ async def dashboard_connect_page(request: Request) -> Response:
     new_key = request.query_params.get("new_key")
 
     return templates.TemplateResponse(
+        request,
         "dashboard/connect.html",
         {
-            "request": request,
             "lang": lang,
             "t": t,
             "session": user_session,
@@ -2811,7 +2947,14 @@ async def api_test_site(request: Request) -> Response:
 
     try:
         ok, msg = await test_site_connection(site_id, user_session["user_id"])
-        return JSONResponse({"ok": ok, "message": msg})
+        return JSONResponse(
+            {
+                "ok": ok,
+                "message": msg,
+                "status": "active" if ok else "error",
+                "last_tested_at": datetime.now(UTC).isoformat(),
+            }
+        )
     except ValueError as e:
         return JSONResponse({"error": str(e)}, status_code=404)
     except Exception as e:
@@ -2844,9 +2987,9 @@ async def dashboard_sites_edit(request: Request) -> Response:
     plugin_names = get_user_plugin_names()
 
     return templates.TemplateResponse(
+        request,
         "dashboard/sites/edit.html",
         {
-            "request": request,
             "lang": lang,
             "t": t,
             "session": user_session,
@@ -2913,7 +3056,7 @@ async def api_create_key(request: Request) -> Response:
         result = await key_mgr.create_key(
             user_id=user_session["user_id"],
             name=body.get("name", "Default"),
-            scopes=body.get("scopes", "read write"),
+            scopes=body.get("scopes", "read write admin"),
             expires_in_days=body.get("expires_in_days"),
         )
         return JSONResponse({"key": result})
@@ -3005,9 +3148,9 @@ async def dashboard_user_oauth_clients_list(request: Request) -> Response:
     user_clients = [c for c in registry.list_clients() if c.owner_user_id == user_id]
 
     return templates.TemplateResponse(
+        request,
         "dashboard/user-oauth-clients.html",
         {
-            "request": request,
             "lang": lang,
             "t": t,
             "session": user_session,
@@ -3089,6 +3232,195 @@ async def dashboard_user_oauth_clients_delete(request: Request) -> Response:
 
     registry.delete_client(client_id)
     return JSONResponse({"success": True})
+
+
+async def get_service_page_data(plugin_type: str) -> dict | None:
+    """Get data for a plugin service page."""
+    from plugins import registry as plugin_registry
+
+    if not plugin_registry.is_registered(plugin_type):
+        return None
+
+    display_name = get_plugin_display_name(plugin_type)
+
+    # Get tools from registry
+    tools = []
+    try:
+        from core.tool_registry import get_tool_registry
+
+        tool_registry = get_tool_registry()
+        tool_defs = tool_registry.get_by_plugin_type(plugin_type)
+        for td in tool_defs:
+            tools.append(
+                {
+                    "name": td.name,
+                    "description": td.description,
+                    "scope": td.required_scope,
+                }
+            )
+    except Exception:
+        pass
+
+    # Fallback: get from plugin specs directly if registry had no tools
+    if not tools:
+        try:
+            plugin_class = plugin_registry._plugin_classes[plugin_type]
+            specs = plugin_class.get_tool_specifications()
+            for spec in specs:
+                tools.append(
+                    {
+                        "name": spec.get("name", ""),
+                        "description": spec.get("description", ""),
+                        "scope": spec.get("scope", "read"),
+                    }
+                )
+        except Exception:
+            pass
+
+    # Sort tools by scope then name
+    scope_order = {"read": 0, "write": 1, "admin": 2}
+    tools.sort(key=lambda t: (scope_order.get(t["scope"], 9), t["name"]))
+
+    # Get credential fields
+    credential_fields = []
+    try:
+        from core.site_api import PLUGIN_CREDENTIAL_FIELDS
+
+        credential_fields = PLUGIN_CREDENTIAL_FIELDS.get(plugin_type, [])
+    except Exception:
+        pass
+
+    from core.plugin_visibility import is_plugin_public
+
+    return {
+        "plugin_type": plugin_type,
+        "display_name": display_name,
+        "tools": tools,
+        "tools_count": len(tools),
+        "credential_fields": credential_fields,
+        "is_public": is_plugin_public(plugin_type),
+    }
+
+
+async def dashboard_services_list(request: Request) -> Response:
+    """GET /dashboard/services — List available MCP services."""
+    auth = get_dashboard_auth()
+    redirect = auth.require_auth(request)
+    if redirect:
+        return redirect
+
+    session = auth.get_session_from_request(request) or auth.get_user_session_from_request(request)
+    admin = is_admin_session(session)
+    display_info = get_session_display_info(session)
+
+    accept_language = request.headers.get("accept-language")
+    query_lang = request.query_params.get("lang")
+    lang = detect_language(accept_language, query_lang)
+    t = get_translations(lang)
+
+    # Get plugin list based on user role
+    if admin:
+        from plugins import registry as plugin_registry
+
+        plugin_types = plugin_registry.get_registered_types()
+    else:
+        from core.plugin_visibility import get_public_plugin_types
+
+        plugin_types = sorted(get_public_plugin_types())
+
+    services = []
+    for pt in plugin_types:
+        data = await get_service_page_data(pt)
+        if data:
+            services.append(data)
+
+    return templates.TemplateResponse(
+        request,
+        "dashboard/services_list.html",
+        {
+            "lang": lang,
+            "t": t,
+            "session": session,
+            "is_admin": admin,
+            "display_info": display_info,
+            "current_page": "services",
+            "services": services,
+        },
+    )
+
+
+async def dashboard_service_page(request: Request) -> Response:
+    """GET /dashboard/services/{plugin_type} — Show plugin info page."""
+    auth = get_dashboard_auth()
+    redirect = auth.require_auth(request)
+    if redirect:
+        return redirect
+
+    session = auth.get_session_from_request(request) or auth.get_user_session_from_request(request)
+    admin = is_admin_session(session)
+    display_info = get_session_display_info(session)
+
+    plugin_type = request.path_params.get("plugin_type", "")
+
+    # Non-admin users can only see public plugins
+    if not admin:
+        from core.plugin_visibility import is_plugin_public
+
+        if not is_plugin_public(plugin_type):
+            accept_language = request.headers.get("accept-language")
+            query_lang = request.query_params.get("lang")
+            lang = detect_language(accept_language, query_lang)
+            return templates.TemplateResponse(
+                request,
+                "dashboard/404.html",
+                {
+                    "lang": lang,
+                    "t": get_translations(lang),
+                    "session": session,
+                    "is_admin": admin,
+                    "display_info": display_info,
+                    "current_page": "services",
+                },
+                status_code=404,
+            )
+
+    data = await get_service_page_data(plugin_type)
+    if data is None:
+        accept_language = request.headers.get("accept-language")
+        query_lang = request.query_params.get("lang")
+        lang = detect_language(accept_language, query_lang)
+        return templates.TemplateResponse(
+            request,
+            "dashboard/404.html",
+            {
+                "lang": lang,
+                "t": get_translations(lang),
+                "session": session,
+                "is_admin": admin,
+                "display_info": display_info,
+                "current_page": "services",
+            },
+            status_code=404,
+        )
+
+    accept_language = request.headers.get("accept-language")
+    query_lang = request.query_params.get("lang")
+    lang = detect_language(accept_language, query_lang)
+    t = get_translations(lang)
+
+    return templates.TemplateResponse(
+        request,
+        "dashboard/service.html",
+        {
+            "lang": lang,
+            "t": t,
+            "session": session,
+            "is_admin": admin,
+            "display_info": display_info,
+            "current_page": "services",
+            "service": data,
+        },
+    )
 
 
 def register_dashboard_routes(mcp):
@@ -3176,6 +3508,10 @@ def register_dashboard_routes(mcp):
     mcp.custom_route("/dashboard/sites/add", methods=["GET"])(dashboard_sites_add)
     mcp.custom_route("/dashboard/sites/{id}/edit", methods=["GET"])(dashboard_sites_edit)
     mcp.custom_route("/dashboard/connect", methods=["GET"])(dashboard_connect_page)
+
+    # Service pages (F.3)
+    mcp.custom_route("/dashboard/services", methods=["GET"])(dashboard_services_list)
+    mcp.custom_route("/dashboard/services/{plugin_type}", methods=["GET"])(dashboard_service_page)
 
     # Site Management API (E.3)
     mcp.custom_route("/api/sites", methods=["GET"])(api_list_sites)

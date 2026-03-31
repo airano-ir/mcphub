@@ -27,7 +27,7 @@
                 onchange="updateFields()">
                 <option value="">{{ t.select_plugin }}</option>
                 {% for ptype, pname in plugin_names.items() %}
-                <option value="{{ ptype }}">{{ pname }}</option>
+                <option value="{{ ptype }}" {% if ptype == preselect_plugin %}selected{% endif %}>{{ pname }}</option>
                 {% endfor %}
             </select>
         </div>
@@ -82,11 +82,15 @@
             return;
         }
 
+        const mainFields = pluginFields[ptype].filter(f => !f.advanced);
+        const advFields = pluginFields[ptype].filter(f => f.advanced);
+
         let html = '<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ t.credentials }}</label>';
-        pluginFields[ptype].forEach(field => {
+
+        function renderField(field) {
             const req = field.required ? 'required' : '';
             const hintHtml = field.hint ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${field.hint}</p>` : '';
-            html += `
+            return `
         <div class="mb-4">
             <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">${field.label}${field.required ? ' *' : ''}</label>
             <input type="${field.type}" name="cred_${field.name}" ${req}
@@ -94,8 +98,27 @@
                    placeholder="${field.label}">
             ${hintHtml}
         </div>`;
-        });
+        }
+
+        mainFields.forEach(field => { html += renderField(field); });
+
+        if (advFields.length > 0) {
+            html += `
+        <details class="mt-2 border border-gray-200 dark:border-gray-600 rounded-lg">
+            <summary class="cursor-pointer px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white select-none">
+                Advanced Settings
+            </summary>
+            <div class="px-4 pb-4 pt-2">`;
+            advFields.forEach(field => { html += renderField(field); });
+            html += `</div></details>`;
+        }
+
         container.innerHTML = html;
+    }
+
+    // Auto-fill credential fields if plugin_type is pre-selected (e.g., from service page)
+    if (document.getElementById('plugin_type').value) {
+        updateFields();
     }
 
     document.getElementById('add-site-form').addEventListener('submit', async (e) => {

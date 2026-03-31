@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 _DEFAULT_DATA_DIR = "/app/data" if Path("/app").exists() else "./data"
 
 # Schema version — increment when adding migrations
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 5
 
 # Initial schema DDL
 _SCHEMA_SQL = """\
@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS sites (
     status      TEXT NOT NULL DEFAULT 'pending',
     status_msg  TEXT,
     last_health TEXT,
+    last_tested_at TEXT,
     created_at  TEXT NOT NULL,
     UNIQUE(user_id, alias)
 );
@@ -107,6 +108,17 @@ _MIGRATIONS: dict[int, str] = {
     2: (
         "ALTER TABLE user_api_keys ADD COLUMN key_prefix TEXT;\n"
         "CREATE INDEX IF NOT EXISTS idx_user_api_keys_prefix ON user_api_keys(key_prefix);\n"
+    ),
+    4: "ALTER TABLE sites ADD COLUMN last_tested_at TEXT;\n",
+    5: (
+        "ALTER TABLE sites ADD COLUMN is_system INTEGER NOT NULL DEFAULT 0;\n"
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_system_site_alias "
+        "ON sites(alias) WHERE is_system = 1;\n"
+        "CREATE TABLE IF NOT EXISTS settings (\n"
+        "    key         TEXT PRIMARY KEY,\n"
+        "    value       TEXT NOT NULL,\n"
+        "    updated_at  TEXT NOT NULL DEFAULT (datetime('now'))\n"
+        ");\n"
     ),
 }
 
@@ -519,15 +531,17 @@ class Database:
                 only updates if the site belongs to this user. When None,
                 performs system-level update (e.g., health checks).
         """
+        now = _utc_now()
         if user_id is not None:
             await self.execute(
-                "UPDATE sites SET status = ?, status_msg = ? WHERE id = ? AND user_id = ?",
-                (status, status_msg, site_id, user_id),
+                "UPDATE sites SET status = ?, status_msg = ?, last_tested_at = ?"
+                " WHERE id = ? AND user_id = ?",
+                (status, status_msg, now, site_id, user_id),
             )
         else:
             await self.execute(
-                "UPDATE sites SET status = ?, status_msg = ? WHERE id = ?",
-                (status, status_msg, site_id),
+                "UPDATE sites SET status = ?, status_msg = ?, last_tested_at = ?" " WHERE id = ?",
+                (status, status_msg, now, site_id),
             )
 
     async def update_site_credentials(
@@ -583,6 +597,33 @@ class Database:
             (user_id,),
         )
         return row["cnt"] if row else 0
+
+    # ------------------------------------------------------------------
+    # Settings CRUD (Phase 4C.3)
+    # ------------------------------------------------------------------
+
+    async def get_setting(self, key: str) -> str | None:
+        """Get a setting value by key."""
+        row = await self.fetchone("SELECT value FROM settings WHERE key = ?", (key,))
+        return row["value"] if row else None
+
+    async def set_setting(self, key: str, value: str) -> None:
+        """Set a setting value (upsert)."""
+        await self.execute(
+            "INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)"
+            " ON CONFLICT(key) DO UPDATE SET value = ?, updated_at = ?",
+            (key, value, _utc_now(), value, _utc_now()),
+        )
+
+    async def delete_setting(self, key: str) -> bool:
+        """Delete a setting. Returns True if deleted."""
+        cursor = await self.execute("DELETE FROM settings WHERE key = ?", (key,))
+        return cursor.rowcount > 0
+
+    async def get_all_settings(self) -> dict[str, str]:
+        """Get all settings as a dict."""
+        rows = await self.fetchall("SELECT key, value FROM settings")
+        return {r["key"]: r["value"] for r in rows}
 
     # ------------------------------------------------------------------
     # User API Key CRUD

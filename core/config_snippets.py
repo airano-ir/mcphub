@@ -21,6 +21,11 @@ import json
 # Supported MCP client types
 SUPPORTED_CLIENTS = [
     {
+        "id": "claude_connectors",
+        "label": "Claude.ai Connectors",
+        "description": "claude.ai/customize/connectors",
+    },
+    {
         "id": "claude_desktop",
         "label": "Claude Desktop",
         "description": "Anthropic's desktop app for Claude",
@@ -46,6 +51,9 @@ SUPPORTED_CLIENTS = [
         "description": "OpenAI ChatGPT (URL-based)",
     },
 ]
+
+# Clients that only need a URL (no JSON config snippet, no transport Note)
+WEB_CLIENTS = {"claude_connectors", "chatgpt"}
 
 
 def get_supported_clients() -> list[dict[str, str]]:
@@ -112,7 +120,7 @@ def generate_config(
         }
         return json.dumps(config, indent=2)
 
-    elif client_type == "chatgpt":
+    elif client_type in ("claude_connectors", "chatgpt"):
         return endpoint_url
 
     else:

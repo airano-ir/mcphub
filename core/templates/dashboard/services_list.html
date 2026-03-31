@@ -1,0 +1,57 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}{{ t.get('services', 'Services') }} - MCP Hub{% endblock %}
+{% block page_title %}{{ t.get('services', 'Services') }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
+            {% if lang == 'fa' %}سرویس‌های MCP{% else %}MCP Services{% endif %}
+        </h2>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% set plugin_colors = {
+            'wordpress': 'blue',
+            'woocommerce': 'purple',
+            'supabase': 'emerald',
+            'gitea': 'green',
+            'n8n': 'orange',
+            'openpanel': 'cyan',
+            'appwrite': 'pink',
+            'directus': 'violet',
+            'wordpress_advanced': 'indigo',
+        } %}
+
+        {% for svc in services %}
+        {% set color = plugin_colors.get(svc.plugin_type, 'gray') %}
+        <a href="/dashboard/services/{{ svc.plugin_type }}{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}"
+           class="block bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 hover:shadow-lg transition-all group">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white transition-colors">
+                    {{ svc.display_name }}
+                </h3>
+                {% if svc.is_public %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-300">
+                    {% if lang == 'fa' %}عمومی{% else %}Public{% endif %}
+                </span>
+                {% else %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-500/20 text-gray-600 dark:text-gray-400">
+                    {% if lang == 'fa' %}فقط مدیر{% else %}Admin Only{% endif %}
+                </span>
+                {% endif %}
+            </div>
+            <div class="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                <span>{{ svc.tools_count }} {% if lang == 'fa' %}ابزار{% else %}tools{% endif %}</span>
+                <span>&middot;</span>
+                {% set read_count = svc.tools|selectattr('scope', 'equalto', 'read')|list|length %}
+                {% set write_count = svc.tools|selectattr('scope', 'equalto', 'write')|list|length %}
+                <span class="text-green-600 dark:text-green-400">{{ read_count }} read</span>
+                <span class="text-orange-600 dark:text-orange-400">{{ write_count }} write</span>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

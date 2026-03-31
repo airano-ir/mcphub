@@ -242,13 +242,6 @@ def get_tool_specifications() -> list[dict[str, Any]]:
             "scope": "admin",
         },
         {
-            "name": "get_auth_config",
-            "method_name": "get_auth_config",
-            "description": "Get current GoTrue authentication configuration.",
-            "schema": {"type": "object", "properties": {}},
-            "scope": "read",
-        },
-        {
             "name": "search_users",
             "method_name": "search_users",
             "description": "Search users by email or phone number.",
@@ -486,17 +479,6 @@ async def delete_user_factor(client: SupabaseClient, user_id: str, factor_id: st
             indent=2,
             ensure_ascii=False,
         )
-    except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
-
-
-async def get_auth_config(client: SupabaseClient) -> str:
-    """Get auth configuration"""
-    try:
-        # Get health which includes some config info
-        result = await client.request("GET", "/auth/v1/health", use_service_role=False)
-
-        return json.dumps({"success": True, "config": result}, indent=2, ensure_ascii=False)
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False)
 

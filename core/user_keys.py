@@ -56,7 +56,7 @@ class UserKeyManager:
         self,
         user_id: str,
         name: str,
-        scopes: str = "read write",
+        scopes: str = "read write admin",
         expires_in_days: int | None = None,
     ) -> dict[str, Any]:
         """Create a new API key for a user.
@@ -64,7 +64,7 @@ class UserKeyManager:
         Args:
             user_id: Owner's UUID.
             name: Human label (e.g. "Claude Desktop").
-            scopes: Ignored — always "read write" (full access).
+            scopes: Access scopes (default: "read write admin" for full access).
             expires_in_days: Optional expiry in days from now. None = never.
 
         Returns:
@@ -72,9 +72,6 @@ class UserKeyManager:
             ``scopes``, ``created_at``, ``expires_at``.
         """
         from core.database import get_database
-
-        # All user API keys get full access — scopes param is ignored
-        scopes = "read write"
 
         raw_key = KEY_PREFIX_TAG + secrets.token_urlsafe(KEY_RANDOM_BYTES)
         key_prefix = raw_key[len(KEY_PREFIX_TAG) : len(KEY_PREFIX_TAG) + KEY_PREFIX_LEN]

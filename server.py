@@ -66,6 +66,8 @@ from core.dashboard.routes import (
     api_get_config,
     api_list_keys,
     api_list_sites,
+    # K.5: Settings routes
+    api_save_setting,
     api_test_site,
     api_update_site,
     # E.2: OAuth Social Login routes
@@ -104,7 +106,9 @@ from core.dashboard.routes import (
     dashboard_project_health_check,
     # K.2: Projects routes
     dashboard_projects_list,
-    # K.5: Settings routes
+    # F.3: Service pages
+    dashboard_service_page,
+    dashboard_services_list,
     dashboard_settings_page,
     # E.3: Site Management pages
     dashboard_sites_add,
@@ -1707,32 +1711,15 @@ def create_dynamic_tool(name: str, description: str, handler, input_schema: dict
     # Create signature
     sig = inspect.Signature(params)
 
-    # Create wrapper function with dynamic signature
-    # We need to use exec to create a function with the right signature
-    param_names = [p.name for p in params]
-    param_str = ", ".join(param_names)
+    # Create wrapper function using closure (no exec)
+    async def dynamic_wrapper(**kwargs):
+        return await handler(**kwargs)
 
-    # Build the function code
-    func_code = f"""
-async def {name}({param_str}):
-    '''
-{description}
-    '''
-    kwargs = {{{', '.join(f'"{p}": {p}' for p in param_names)}}}
-    return await handler(**kwargs)
-"""
-
-    # Execute the code to create the function
-    local_vars = {"handler": handler}
-    exec(func_code, local_vars)
-    dynamic_wrapper = local_vars[name]
-
-    # Attach the correct signature so FastMCP/Pydantic identify optional parameters.
-    # Without this, all parameters appear required because the exec'd function
-    # has no default values in its code object.
+    # Set function metadata so FastMCP recognizes it correctly
+    dynamic_wrapper.__name__ = name
+    dynamic_wrapper.__qualname__ = name
+    dynamic_wrapper.__doc__ = description
     dynamic_wrapper.__signature__ = sig
-
-    # Set annotations
     annotations["return"] = str  # All our tools return strings
     dynamic_wrapper.__annotations__ = annotations
 
@@ -2453,9 +2440,9 @@ async def oauth_authorize(request: Request):
         )
 
         return templates.TemplateResponse(
+            request,
             "oauth/authorize.html",
             {
-                "request": request,
                 "client_id": validated["client_id"],
                 "client_name": client_name,
                 "redirect_uri": validated["redirect_uri"],
@@ -2486,9 +2473,9 @@ async def oauth_authorize(request: Request):
         translations = get_all_translations(lang)
 
         return templates.TemplateResponse(
+            request,
             "oauth/error.html",
             {
-                "request": request,
                 "error": e.error,
                 "error_description": e.error_description,
                 "redirect_uri": params.get("redirect_uri") if "params" in locals() else None,
@@ -2510,9 +2497,9 @@ async def oauth_authorize(request: Request):
 
         # For unexpected errors, render error page
         return templates.TemplateResponse(
+            request,
             "oauth/error.html",
             {
-                "request": request,
                 "error": "server_error",
                 "error_description": str(e),
                 "redirect_uri": params.get("redirect_uri") if "params" in locals() else None,
@@ -2654,10 +2641,8 @@ async def oauth_authorize_confirm(request: Request):
                     user_role = user_session.get("role", "user")
                     api_key_id = f"user:{user_session['user_id']}"
                     api_key_project_id = "*"
-                    if user_role == "admin":
-                        api_key_scope = "read write admin"
-                    else:
-                        api_key_scope = "read write"
+                    # All authenticated users get admin scope for their own services
+                    api_key_scope = "read write admin"
                     logger.info(
                         f"OAuth authorization: Session-based consent - "
                         f"user_id={user_session['user_id']}, "
@@ -2756,8 +2741,9 @@ async def oauth_authorize_confirm(request: Request):
         else:
             # No redirect_uri, render error page
             return templates.TemplateResponse(
+                request,
                 "oauth/error.html",
-                {"request": request, "error": e.error, "error_description": e.error_description},
+                {"error": e.error, "error_description": e.error_description},
                 status_code=e.status_code,
             )
 
@@ -2770,8 +2756,9 @@ async def oauth_authorize_confirm(request: Request):
             return RedirectResponse(url=error_url, status_code=302)
         else:
             return templates.TemplateResponse(
+                request,
                 "oauth/error.html",
-                {"request": request, "error": "server_error", "error_description": str(e)},
+                {"error": "server_error", "error_description": str(e)},
                 status_code=500,
             )
 
@@ -4716,6 +4703,13 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
         try:
             await initialize_database()
             logger.info("Database initialized successfully")
+            # Load managed settings cache (4C.3)
+            try:
+                from core.settings import refresh_plugin_cache
+
+                await refresh_plugin_cache()
+            except Exception as e:
+                logger.debug("Settings cache init skipped: %s", e)
         except Exception as e:
             logger.error(f"Failed to initialize database: {e}")
             raise
@@ -4803,6 +4797,9 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
             methods=["GET"],
         ),
         Route("/dashboard/connect", dashboard_connect_page, methods=["GET"]),
+        # F.3: Service pages (must be before /dashboard catch-all)
+        Route("/dashboard/services", dashboard_services_list, methods=["GET"]),
+        Route("/dashboard/services/{plugin_type}", dashboard_service_page, methods=["GET"]),
         Route("/dashboard", dashboard_home, methods=["GET"]),
         Route("/dashboard/", dashboard_home, methods=["GET"]),
         Route("/api/dashboard/stats", dashboard_api_stats, methods=["GET"]),
@@ -4856,8 +4853,9 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
         Route("/dashboard/health", dashboard_health_page, methods=["GET"]),
         Route("/api/dashboard/health", dashboard_api_health, methods=["GET"]),
         Route("/api/dashboard/health/projects", dashboard_health_projects_partial, methods=["GET"]),
-        # Dashboard Settings routes (Phase K.5)
+        # Dashboard Settings routes (Phase K.5 + 4C.3)
         Route("/dashboard/settings", dashboard_settings_page, methods=["GET"]),
+        Route("/api/dashboard/settings", api_save_setting, methods=["POST"]),
         # Site Management API (E.3)
         Route("/api/sites", api_list_sites, methods=["GET"]),
         Route("/api/sites", api_create_site, methods=["POST"]),

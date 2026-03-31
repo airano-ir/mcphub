@@ -14,6 +14,8 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 
+import bcrypt
+
 logger = logging.getLogger(__name__)
 
 
@@ -79,7 +81,7 @@ class APIKey:
     """
 
     key_id: str
-    key_hash: str
+    key_hash: str  # bcrypt hash (new keys) or SHA-256 hex (legacy)
     project_id: str
     scope: Scope
     created_at: str
@@ -180,8 +182,16 @@ class APIKeyManager:
             logger.error(f"Failed to save keys: {e}")
 
     def _hash_key(self, api_key: str) -> str:
-        """Hash API key for storage."""
-        return hashlib.sha256(api_key.encode()).hexdigest()
+        """Hash API key for storage using bcrypt."""
+        return bcrypt.hashpw(api_key.encode(), bcrypt.gensalt()).decode()
+
+    def _verify_key(self, api_key: str, key_hash: str) -> bool:
+        """Verify API key against stored hash (supports bcrypt and legacy SHA-256)."""
+        if key_hash.startswith("$2"):
+            # bcrypt hash
+            return bcrypt.checkpw(api_key.encode(), key_hash.encode())
+        # Legacy SHA-256 fallback
+        return hashlib.sha256(api_key.encode()).hexdigest() == key_hash
 
     def create_key(
         self,
@@ -269,11 +279,9 @@ class APIKeyManager:
         Returns:
             Optional[str]: key_id if valid, None otherwise
         """
-        key_hash = self._hash_key(api_key)
-
-        # Find key by hash
+        # Find key by verifying against stored hash (bcrypt or legacy SHA-256)
         for key_id, key in self.keys.items():
-            if key.key_hash != key_hash:
+            if not self._verify_key(api_key, key.key_hash):
                 continue
 
             # Check if valid (not revoked, not expired)
@@ -341,10 +349,8 @@ class APIKeyManager:
         Returns:
             Optional[APIKey]: The APIKey object if found, None otherwise
         """
-        key_hash = self._hash_key(api_key)
-
         for key_id, key in self.keys.items():
-            if key.key_hash == key_hash:
+            if self._verify_key(api_key, key.key_hash):
                 logger.debug(f"Found API key {key_id} by token")
                 return key
 

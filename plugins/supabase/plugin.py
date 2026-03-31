@@ -59,6 +59,7 @@ class SupabasePlugin(BasePlugin):
                 - service_role_key: Admin API key (bypasses RLS). Required.
                 - anon_key: Public API key (RLS protected). Optional.
                 - meta_url: Direct postgres-meta URL. Optional.
+                - meta_auth: Basic Auth for postgres-meta (username:password). Optional.
             project_id: Optional project ID (auto-generated if not provided)
         """
         super().__init__(config, project_id=project_id)
@@ -69,6 +70,7 @@ class SupabasePlugin(BasePlugin):
             anon_key=config.get("anon_key", ""),
             service_role_key=config["service_role_key"],
             meta_url=config.get("meta_url"),
+            meta_auth=config.get("meta_auth"),
         )
 
     @staticmethod

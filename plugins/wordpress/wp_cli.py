@@ -76,9 +76,13 @@ class WPCLIManager:
         """
         try:
             # First, test if we have Docker socket access
-            test_cmd = "docker version --format '{{.Server.Version}}'"
-            test_process = await asyncio.create_subprocess_shell(
-                test_cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+            test_process = await asyncio.create_subprocess_exec(
+                "docker",
+                "version",
+                "--format",
+                "{{.Server.Version}}",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
             )
 
             test_stdout, test_stderr = await asyncio.wait_for(
@@ -98,11 +102,16 @@ class WPCLIManager:
             self.logger.debug(f"Docker access OK - Server version: {docker_version}")
 
             # Now check for our specific container using exact name match
-            # Use --all to include stopped containers and provide better error message
-            cmd = f"docker ps --all --filter name=^{self.container_name}$ --format '{{{{.Names}}}}|{{{{.Status}}}}'"
-
-            process = await asyncio.create_subprocess_shell(
-                cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+            process = await asyncio.create_subprocess_exec(
+                "docker",
+                "ps",
+                "--all",
+                "--filter",
+                f"name=^{self.container_name}$",
+                "--format",
+                "{{.Names}}|{{.Status}}",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
             )
 
             stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=5.0)
@@ -116,9 +125,14 @@ class WPCLIManager:
 
             if not output:
                 # Container not found - get list of available containers for helpful error
-                list_cmd = "docker ps --all --format '{{.Names}}' | head -10"
-                list_process = await asyncio.create_subprocess_shell(
-                    list_cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+                list_process = await asyncio.create_subprocess_exec(
+                    "docker",
+                    "ps",
+                    "--all",
+                    "--format",
+                    "{{.Names}}",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
                 )
                 list_stdout, _ = await list_process.communicate()
                 available = list_stdout.decode().strip().split("\n") if list_stdout else []
@@ -169,10 +183,15 @@ class WPCLIManager:
 
         try:
             # Try to run wp --version
-            cmd = f"docker exec {self.container_name} wp --version --allow-root"
-
-            process = await asyncio.create_subprocess_shell(
-                cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+            process = await asyncio.create_subprocess_exec(
+                "docker",
+                "exec",
+                self.container_name,
+                "wp",
+                "--version",
+                "--allow-root",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
             )
 
             stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=5.0)
@@ -290,15 +309,17 @@ class WPCLIManager:
                 f"Please install WP-CLI in your WordPress container."
             )
 
-        # 4. Build docker exec command
-        docker_cmd = f"docker exec {self.container_name} wp {command} --allow-root"
+        # 4. Build docker exec command (split command into args to prevent shell injection)
+        cmd_parts = (
+            ["docker", "exec", self.container_name, "wp"] + command.split() + ["--allow-root"]
+        )
 
-        self.logger.info(f"Executing: {docker_cmd}")
+        self.logger.info(f"Executing: {' '.join(cmd_parts)}")
 
         try:
             # 5. Execute command
-            process = await asyncio.create_subprocess_shell(
-                docker_cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+            process = await asyncio.create_subprocess_exec(
+                *cmd_parts, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
             )
 
             # 6. Wait for completion with timeout
@@ -580,13 +601,33 @@ class WPCLIManager:
         # Get file size if export succeeded
         # Try to check file size via docker exec
         try:
-            size_cmd = f"docker exec {self.container_name} stat -f %z {export_path} 2>/dev/null || docker exec {self.container_name} stat -c %s {export_path} 2>/dev/null"
-
-            process = await asyncio.create_subprocess_shell(
-                size_cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+            # Try GNU stat first, fall back to BSD stat
+            process = await asyncio.create_subprocess_exec(
+                "docker",
+                "exec",
+                self.container_name,
+                "stat",
+                "-c",
+                "%s",
+                export_path,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
             )
-
             stdout, _ = await asyncio.wait_for(process.communicate(), timeout=5.0)
+            if process.returncode != 0:
+                # BSD stat fallback
+                process = await asyncio.create_subprocess_exec(
+                    "docker",
+                    "exec",
+                    self.container_name,
+                    "stat",
+                    "-f",
+                    "%z",
+                    export_path,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                stdout, _ = await asyncio.wait_for(process.communicate(), timeout=5.0)
 
             if process.returncode == 0:
                 size_bytes = int(stdout.decode().strip())

@@ -98,7 +98,7 @@ class ClientRegistry:
             client_name=client_name,
             redirect_uris=redirect_uris,
             grant_types=grant_types or ["authorization_code", "refresh_token"],
-            allowed_scopes=allowed_scopes or ["read", "write"],
+            allowed_scopes=allowed_scopes or ["read", "write", "admin"],
             metadata=metadata or {},
             owner_user_id=owner_user_id,
         )

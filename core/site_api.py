@@ -120,9 +120,11 @@ PLUGIN_CREDENTIAL_FIELDS: dict[str, list[dict[str, Any]]] = {
             "label": "Anon Key (Optional)",
             "type": "password",
             "required": False,
+            "advanced": True,
             "hint": (
                 "Supabase Dashboard → Settings → API → anon key. "
-                "Optional — if omitted, service_role_key is used for all calls."
+                "Optional — if omitted, service_role_key is used for all calls. "
+                "Only useful for testing RLS policies as a regular user."
             ),
         },
         {
@@ -130,11 +132,22 @@ PLUGIN_CREDENTIAL_FIELDS: dict[str, list[dict[str, Any]]] = {
             "label": "postgres-meta URL (Optional)",
             "type": "text",
             "required": False,
+            "advanced": True,
             "hint": (
-                "Only needed when /pg/ is not exposed through Kong (common on Coolify). "
-                "Enter the direct postgres-meta container URL, e.g.: "
-                "http://supabase-meta-<id>:8080 — "
-                "Leave blank to use the default Kong /pg/ route."
+                "Only needed if your Supabase setup does not expose /pg/ through Kong. "
+                "Most self-hosted installs (including Coolify) work without this. "
+                "Example: http://supabase-meta:8080 or https://your-meta.example.com"
+            ),
+        },
+        {
+            "name": "meta_auth",
+            "label": "postgres-meta Auth (Optional)",
+            "type": "password",
+            "required": False,
+            "advanced": True,
+            "hint": (
+                "Basic Auth for postgres-meta (format: username:password). "
+                "Only needed when postgres-meta is exposed via a public URL."
             ),
         },
     ],
@@ -230,28 +243,31 @@ def get_credential_fields(plugin_type: str) -> list[dict[str, Any]]:
 
 
 def get_user_credential_fields() -> dict[str, list[dict[str, Any]]]:
-    """Get credential fields for regular (non-admin) users.
+    """Get credential fields for public (non-admin) users.
 
-    Excludes plugin types that require admin-level infrastructure
-    (e.g., wordpress_advanced needs Docker access).
+    Only includes plugins enabled via ENABLED_PLUGINS env var.
 
     Returns:
         Filtered dict of plugin_type -> field definitions.
     """
-    excluded = {"wordpress_advanced"}
-    return {k: v for k, v in PLUGIN_CREDENTIAL_FIELDS.items() if k not in excluded}
+    from core.plugin_visibility import get_public_plugin_types
+
+    public = get_public_plugin_types()
+    return {k: v for k, v in PLUGIN_CREDENTIAL_FIELDS.items() if k in public}
 
 
 def get_user_plugin_names() -> dict[str, str]:
-    """Get plugin display names for regular (non-admin) users.
+    """Get plugin display names for public (non-admin) users.
 
-    Excludes plugins that require admin-level infrastructure.
+    Only includes plugins enabled via ENABLED_PLUGINS env var.
 
     Returns:
         Filtered dict of plugin_type -> display name.
     """
-    excluded = {"wordpress_advanced"}
-    return {k: v for k, v in PLUGIN_DISPLAY_NAMES.items() if k not in excluded}
+    from core.plugin_visibility import get_public_plugin_types
+
+    public = get_public_plugin_types()
+    return {k: v for k, v in PLUGIN_DISPLAY_NAMES.items() if k in public}
 
 
 def validate_credentials(plugin_type: str, credentials: dict[str, str]) -> tuple[bool, list[str]]:

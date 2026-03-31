@@ -53,18 +53,48 @@
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ t.credentials }}</label>
             {% set fields = plugin_fields.get(site.plugin_type, []) %}
             {% for field in fields %}
+            {% if not field.get('advanced', False) %}
             <div class="mb-4">
                 <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
                     {{ field.label }}{% if field.required %} *{% endif %}
                 </label>
                 <input type="{{ field.type }}" name="cred_{{ field.name }}"
-                    {% if field.type == 'password' %}placeholder="{{ t.keep_existing }}"{% endif %}
+                    placeholder="{% if field.required %}{{ t.keep_existing }}{% else %}{{ t.leave_blank_to_clear }}{% endif %}"
+                    data-required="{{ field.required | lower }}"
                     class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                 {% if field.hint %}
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ field.hint }}</p>
                 {% endif %}
             </div>
+            {% endif %}
             {% endfor %}
+
+            {% set has_advanced = fields | map(attribute='advanced') | select | list | length > 0 if fields else false %}
+            {% if has_advanced %}
+            <details class="mt-2 border border-gray-200 dark:border-gray-600 rounded-lg">
+                <summary class="cursor-pointer px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white select-none">
+                    Advanced Settings
+                </summary>
+                <div class="px-4 pb-4 pt-2 space-y-4">
+                    {% for field in fields %}
+                    {% if field.get('advanced', False) %}
+                    <div class="mb-4">
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                            {{ field.label }}
+                        </label>
+                        <input type="{{ field.type }}" name="cred_{{ field.name }}"
+                            placeholder="{{ t.leave_blank_to_clear }}"
+                            data-required="false"
+                            class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        {% if field.hint %}
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ field.hint }}</p>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </details>
+            {% endif %}
         </div>
 
         <!-- Submit -->
@@ -99,12 +129,20 @@
 
         const url = document.getElementById('url').value;
 
-        // Collect credentials — only include non-empty values
+        // Collect credentials — non-empty values always sent,
+        // optional fields sent as empty string to allow clearing
         const creds = {};
         if (pluginFields[pluginType]) {
             pluginFields[pluginType].forEach(field => {
                 const input = document.querySelector(`[name="cred_${field.name}"]`);
-                if (input) creds[field.name] = input.value;
+                if (!input) return;
+                const val = input.value.trim();
+                if (val) {
+                    creds[field.name] = val;
+                } else if (input.dataset.required === 'false') {
+                    // Send empty string for optional fields so server can clear them
+                    creds[field.name] = '';
+                }
             });
         }
 

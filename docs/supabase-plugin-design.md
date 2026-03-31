@@ -75,12 +75,11 @@ SUPABASE_SITE1_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 SUPABASE_SITE1_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 SUPABASE_SITE1_ALIAS=mysupabase
 
-# Optional: Direct database access for postgres-meta
-SUPABASE_SITE1_DB_HOST=db.supabase.example.com
-SUPABASE_SITE1_DB_PORT=5432
-SUPABASE_SITE1_DB_NAME=postgres
-SUPABASE_SITE1_DB_USER=postgres
-SUPABASE_SITE1_DB_PASSWORD=your-db-password
+# Optional: Direct postgres-meta URL (when /pg/ is not exposed via Kong)
+# SUPABASE_SITE1_META_URL=http://supabase-meta:8080
+#
+# Optional: Basic Auth for postgres-meta (when exposed via public URL)
+# SUPABASE_SITE1_META_AUTH=admin:secretpassword
 
 # Multiple Instances
 SUPABASE_SITE2_URL=https://supabase-staging.example.com
@@ -701,6 +700,40 @@ EndpointType.SUPABASE: EndpointConfig(
 - [ ] Invoke Edge Function
 - [ ] RLS policy enforcement
 - [ ] Service role bypass
+
+---
+
+## Security: postgres-meta
+
+**postgres-meta has NO built-in authentication.** It is designed as an internal service
+behind Kong API Gateway. When accessed through Kong's `/pg/` route, Kong validates JWT tokens.
+
+### Risk: Public Exposure
+
+If postgres-meta is exposed via a public URL (e.g., on Coolify with a public domain),
+**anyone with the URL can execute SQL as `supabase_admin`**.
+
+### Deployment Scenarios
+
+| Deployment | meta_url needed? | meta_auth needed? | Notes |
+|-----------|:---:|:---:|-------|
+| supabase.com cloud | N/A | N/A | postgres-meta tools disabled |
+| Docker Compose (standard) | No | No | Kong handles JWT via `/pg/` |
+| Docker Compose (no /pg/) | Yes (internal URL) | No | Internal network is secure |
+| Coolify (internal URL) | Yes | No | Internal Docker network |
+| Coolify (public domain) | Yes | **Yes** | Exposed without auth |
+| MCP Hub hosted users | Yes (public URL) | **Yes** | Must use public URL |
+
+### Recommendations
+
+1. **Prefer internal Docker network URLs** (`http://supabase-meta:8080`) when possible
+2. **If public URL required**: Configure Basic Auth via reverse proxy and set `META_AUTH`
+3. **Never expose postgres-meta publicly without authentication**
+
+### MCP Hub Support
+
+MCP Hub supports `META_AUTH` (format: `username:password`) for Basic Auth with postgres-meta.
+When configured, requests to postgres-meta use `Authorization: Basic ...` instead of JWT.
 
 ---
 

@@ -5,6 +5,41 @@ All notable changes to MCP Hub will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.0] — 2026-03-31
+
+### Platform Hardening & Admin Unification (Track F.1–F.8)
+
+Major quality release: plugin visibility control, UI/UX polish, unified admin panel, database-backed settings, and security hardening. No breaking API changes.
+
+#### Added
+- **Plugin Visibility Control** (F.1): `ENABLED_PLUGINS` env var controls which plugins public users see. Default: `wordpress,woocommerce,supabase`. Admin sees all. New module: `core/plugin_visibility.py`
+- **MCP Service Pages** (F.3): Dedicated `/dashboard/services/{type}` pages showing plugin capabilities, tool list, and setup requirements. Services list page with grid of plugin cards
+- **Admin by Email** (F.4a): `ADMIN_EMAILS` env var for designating OAuth users as admin (supports multiple emails). OAuth admin users see full admin sidebar
+- **Master Key Scope Control** (F.4b): `DISABLE_MASTER_KEY_LOGIN` to block dashboard login via master key. `MASTER_KEY_SCOPE` (`all`/`admin`) to restrict master key to admin endpoints only
+- **Panel Unification** (F.4c): OAuth admin sees both "My Tools" and "Administration" sidebar sections. Master key admin auto-creates user record on first login for unified site management
+- **Settings from UI** (F.4c.3): Database-backed settings with DB > ENV > Default priority. Admin can edit `ENABLED_PLUGINS`, `MAX_SITES_PER_USER`, rate limits, registration toggle from dashboard. New module: `core/settings.py`
+- **Dashboard Stats** (F.3): Admin home page shows Total Users and User Sites stat cards
+- **Pre-configured OAuth** (F.2): Default OAuth redirect URIs for Claude.ai; green tip about optional OAuth
+
+#### Fixed
+- **Connect Page** (F.2): WordPress/SEO amber info box now shown only for WordPress/WooCommerce sites (was shown for all plugin types)
+- **Sidebar Version** (F.2): Fixed "v" displaying when version string is empty
+- **Auth Page Language** (F.2): Auth page defaults to English regardless of Accept-Language header
+- **Donation Link** (F.2): Moved from home page to sidebar for consistent visibility
+- **Test Connection** (F.3): Fixed 504/HTML error handling; status badge auto-updates without page refresh; added `last_tested_at` timestamp (DB schema v4)
+- **Admin Auth** (F.4): Fixed `_require_admin_session()` to recognize OAuth admin sessions; hide "Admin Login with API Key" button when `DISABLE_MASTER_KEY_LOGIN=true`
+- **Starlette API** (F.2): Updated `TemplateResponse` to new API (request as first arg)
+
+#### Security
+- **exec() Removal** (F.8): Replaced `exec()` in `core/tool_generator.py` with closure-based tool generation
+- **Shell Injection Fix** (F.8): Replaced `create_subprocess_shell` with `create_subprocess_exec` in WP-CLI handler
+- **bcrypt Migration** (F.8): Admin API key hashing upgraded from unsalted SHA-256 to bcrypt
+
+#### Tests
+- New test suites: `test_plugin_visibility.py`, `test_admin_system.py`, `test_f3_admin_stats.py`, `test_f3_last_tested.py`, `test_f3_service_pages.py`
+
+---
+
 ## [3.2.0] — 2026-02-25
 
 ### Fixed

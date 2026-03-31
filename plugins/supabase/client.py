@@ -33,6 +33,7 @@ class SupabaseClient:
         anon_key: str,
         service_role_key: str,
         meta_url: str | None = None,
+        meta_auth: str | None = None,
     ):
         """
         Initialize Supabase API client.
@@ -45,12 +46,16 @@ class SupabaseClient:
             meta_url: Optional direct postgres-meta URL (e.g. http://localhost:5555).
                 When provided, postgres-meta calls hit this URL directly instead of
                 the Kong /pg/ route. Useful when /pg/ is not exposed through Kong.
+            meta_auth: Optional Basic Auth credentials for postgres-meta (username:password).
+                When provided, requests to meta_base_url use Basic Auth instead of JWT.
+                Recommended when postgres-meta is exposed via a public URL.
         """
         self.base_url = base_url.rstrip("/")
         self.anon_key = anon_key
         self.service_role_key = service_role_key
         # postgres-meta base: custom URL or Kong /pg/ prefix
         self.meta_base_url = (meta_url or f"{self.base_url}/pg").rstrip("/")
+        self.meta_auth = meta_auth
 
         # Initialize logger
         self.logger = logging.getLogger(f"SupabaseClient.{base_url}")
@@ -81,6 +86,23 @@ class SupabaseClient:
         if additional_headers:
             headers.update(additional_headers)
 
+        return headers
+
+    def _get_meta_headers(self, additional_headers: dict | None = None) -> dict[str, str]:
+        """Get headers for postgres-meta requests (Basic Auth if configured, else JWT)."""
+        headers: dict[str, str] = {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        }
+        if self.meta_auth:
+            encoded = base64.b64encode(self.meta_auth.encode()).decode()
+            headers["Authorization"] = f"Basic {encoded}"
+        else:
+            key = self.service_role_key
+            headers["apikey"] = key
+            headers["Authorization"] = f"Bearer {key}"
+        if additional_headers:
+            headers.update(additional_headers)
         return headers
 
     async def _head_request_headers(
@@ -140,7 +162,11 @@ class SupabaseClient:
         """
         url = f"{base_url_override or self.base_url}{endpoint}"
 
-        headers = self._get_headers(use_service_role, headers_override)
+        # Use Basic Auth headers for postgres-meta requests when meta_auth is configured
+        if base_url_override and base_url_override == self.meta_base_url:
+            headers = self._get_meta_headers(headers_override)
+        else:
+            headers = self._get_headers(use_service_role, headers_override)
 
         # Remove Content-Type for binary data
         if data is not None:
@@ -163,7 +189,7 @@ class SupabaseClient:
 
             if params:
                 kwargs["params"] = params
-            if json_data:
+            if json_data is not None:
                 kwargs["json"] = json_data
             if data:
                 kwargs["data"] = data
@@ -681,7 +707,10 @@ class SupabaseClient:
     async def empty_bucket(self, bucket_id: str) -> dict:
         """Empty a bucket (delete all files)."""
         return await self.request(
-            "POST", f"/storage/v1/bucket/{bucket_id}/empty", use_service_role=True
+            "POST",
+            f"/storage/v1/bucket/{bucket_id}/empty",
+            json_data={},
+            use_service_role=True,
         )
 
     async def list_files(

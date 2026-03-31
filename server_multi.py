@@ -430,19 +430,14 @@ def create_dynamic_tool(
                     )
                 )
 
-    param_names = [p.name for p in params]
-    param_str = ", ".join(param_names)
+    # Create wrapper using closure (no exec)
+    async def dynamic_wrapper(**kwargs):
+        return await handler(**kwargs)
 
-    func_code = f"""
-async def {name}({param_str}):
-    '''{description}'''
-    kwargs = {{{', '.join(f'"{p}": {p}' for p in param_names)}}}
-    return await handler(**kwargs)
-"""
-
-    local_vars = {"handler": handler}
-    exec(func_code, local_vars)
-    dynamic_wrapper = local_vars[name]
+    dynamic_wrapper.__name__ = name
+    dynamic_wrapper.__qualname__ = name
+    dynamic_wrapper.__doc__ = description
+    dynamic_wrapper.__signature__ = inspect.Signature(params)
     annotations["return"] = str
     dynamic_wrapper.__annotations__ = annotations
 

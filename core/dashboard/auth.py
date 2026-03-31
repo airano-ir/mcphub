@@ -90,21 +90,29 @@ class DashboardAuth:
             return False, "", None
 
         api_key_clean = api_key.strip()
+        # Check if master key dashboard login is disabled
+        master_login_disabled = (
+            os.environ.get("DISABLE_MASTER_KEY_LOGIN", "false").lower() == "true"
+        )
+
         # Check master API key (from env var)
-        if self.master_api_key and secrets.compare_digest(
-            api_key_clean, self.master_api_key.strip()
+        if (
+            not master_login_disabled
+            and self.master_api_key
+            and secrets.compare_digest(api_key_clean, self.master_api_key.strip())
         ):
             return True, "master", None
 
         # Check AuthManager's master key (covers auto-generated temp keys)
-        try:
-            from core.auth import get_auth_manager
+        if not master_login_disabled:
+            try:
+                from core.auth import get_auth_manager
 
-            auth_mgr = get_auth_manager()
-            if auth_mgr.validate_master_key(api_key):
-                return True, "master", None
-        except Exception as e:
-            logger.debug(f"AuthManager check skipped: {e}")
+                auth_mgr = get_auth_manager()
+                if auth_mgr.validate_master_key(api_key):
+                    return True, "master", None
+            except Exception as e:
+                logger.debug(f"AuthManager check skipped: {e}")
 
         # Check project API keys with admin scope
         try:
@@ -353,9 +361,10 @@ def get_session_display_info(session) -> dict:
     if isinstance(session, DashboardSession):
         return {"name": "Admin", "type": "admin", "email": None, "avatar": None}
     if isinstance(session, dict):
+        session_type = "admin" if session.get("role") == "admin" else "user"
         return {
             "name": session.get("name") or session.get("email", "User"),
-            "type": "user",
+            "type": session_type,
             "email": session.get("email"),
             "avatar": None,
         }

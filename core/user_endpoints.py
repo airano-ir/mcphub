@@ -306,6 +306,17 @@ async def user_mcp_handler(request: Request) -> Response:
             status_code=403,
         )
 
+    # --- Plugin visibility check ---
+    from core.plugin_visibility import is_plugin_public
+
+    if not is_plugin_public(site["plugin_type"]):
+        return JSONResponse(
+            _jsonrpc_error(
+                None, -32600, f"Plugin '{site['plugin_type']}' is not currently available"
+            ),
+            status_code=403,
+        )
+
     # --- Parse JSON-RPC body ---
     try:
         body = await request.json()

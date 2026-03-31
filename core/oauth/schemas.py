@@ -18,9 +18,9 @@ class OAuthClient(BaseModel):
         default=["authorization_code", "refresh_token"], description="Allowed grant types"
     )
     response_types: list[str] = Field(default=["code"], description="Allowed response types")
-    scope: str = Field(default="read", description="Default scope for this client")
+    scope: str = Field(default="read write admin", description="Default scope for this client")
     allowed_scopes: list[str] = Field(
-        default=["read", "write"], description="All scopes this client can request"
+        default=["read", "write", "admin"], description="All scopes this client can request"
     )
     token_endpoint_auth_method: str = Field(
         default="client_secret_post", description="Token endpoint authentication method"
