@@ -23,9 +23,9 @@ class TestSupportedClients:
 
     @pytest.mark.unit
     def test_get_supported_clients(self):
-        """Should return exactly 5 supported client types."""
+        """Should return all supported client types."""
         clients = get_supported_clients()
-        assert len(clients) == 5
+        assert len(clients) == 6
         client_ids = [c["id"] for c in clients]
         assert "claude_desktop" in client_ids
         assert "claude_code" in client_ids
