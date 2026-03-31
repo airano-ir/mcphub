@@ -66,6 +66,8 @@ from core.dashboard.routes import (
     api_get_config,
     api_list_keys,
     api_list_sites,
+    # K.5: Settings routes
+    api_save_setting,
     api_test_site,
     api_update_site,
     # E.2: OAuth Social Login routes
@@ -107,8 +109,6 @@ from core.dashboard.routes import (
     # F.3: Service pages
     dashboard_service_page,
     dashboard_services_list,
-    # K.5: Settings routes
-    api_save_setting,
     dashboard_settings_page,
     # E.3: Site Management pages
     dashboard_sites_add,
