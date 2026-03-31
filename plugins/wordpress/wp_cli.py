@@ -77,8 +77,12 @@ class WPCLIManager:
         try:
             # First, test if we have Docker socket access
             test_process = await asyncio.create_subprocess_exec(
-                "docker", "version", "--format", "{{.Server.Version}}",
-                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+                "docker",
+                "version",
+                "--format",
+                "{{.Server.Version}}",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
             )
 
             test_stdout, test_stderr = await asyncio.wait_for(
@@ -99,10 +103,15 @@ class WPCLIManager:
 
             # Now check for our specific container using exact name match
             process = await asyncio.create_subprocess_exec(
-                "docker", "ps", "--all",
-                "--filter", f"name=^{self.container_name}$",
-                "--format", "{{.Names}}|{{.Status}}",
-                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+                "docker",
+                "ps",
+                "--all",
+                "--filter",
+                f"name=^{self.container_name}$",
+                "--format",
+                "{{.Names}}|{{.Status}}",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
             )
 
             stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=5.0)
@@ -117,8 +126,13 @@ class WPCLIManager:
             if not output:
                 # Container not found - get list of available containers for helpful error
                 list_process = await asyncio.create_subprocess_exec(
-                    "docker", "ps", "--all", "--format", "{{.Names}}",
-                    stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+                    "docker",
+                    "ps",
+                    "--all",
+                    "--format",
+                    "{{.Names}}",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
                 )
                 list_stdout, _ = await list_process.communicate()
                 available = list_stdout.decode().strip().split("\n") if list_stdout else []
@@ -170,9 +184,14 @@ class WPCLIManager:
         try:
             # Try to run wp --version
             process = await asyncio.create_subprocess_exec(
-                "docker", "exec", self.container_name,
-                "wp", "--version", "--allow-root",
-                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+                "docker",
+                "exec",
+                self.container_name,
+                "wp",
+                "--version",
+                "--allow-root",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
             )
 
             stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=5.0)
@@ -291,7 +310,9 @@ class WPCLIManager:
             )
 
         # 4. Build docker exec command (split command into args to prevent shell injection)
-        cmd_parts = ["docker", "exec", self.container_name, "wp"] + command.split() + ["--allow-root"]
+        cmd_parts = (
+            ["docker", "exec", self.container_name, "wp"] + command.split() + ["--allow-root"]
+        )
 
         self.logger.info(f"Executing: {' '.join(cmd_parts)}")
 
@@ -582,17 +603,29 @@ class WPCLIManager:
         try:
             # Try GNU stat first, fall back to BSD stat
             process = await asyncio.create_subprocess_exec(
-                "docker", "exec", self.container_name,
-                "stat", "-c", "%s", export_path,
-                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+                "docker",
+                "exec",
+                self.container_name,
+                "stat",
+                "-c",
+                "%s",
+                export_path,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
             )
             stdout, _ = await asyncio.wait_for(process.communicate(), timeout=5.0)
             if process.returncode != 0:
                 # BSD stat fallback
                 process = await asyncio.create_subprocess_exec(
-                    "docker", "exec", self.container_name,
-                    "stat", "-f", "%z", export_path,
-                    stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+                    "docker",
+                    "exec",
+                    self.container_name,
+                    "stat",
+                    "-f",
+                    "%z",
+                    export_path,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
                 )
                 stdout, _ = await asyncio.wait_for(process.communicate(), timeout=5.0)
 
