@@ -357,7 +357,7 @@ After starting (via Docker or locally), wait ~30 seconds for the server to initi
 
 ```bash
 curl http://localhost:8000/health
-# Expected: {"status": "ok", "tools_loaded": 596, ...}
+# Expected: {"status": "ok", "tools_loaded": 565, ...}
 ```
 
 **2. Open the web dashboard:**
@@ -481,7 +481,7 @@ MCP Hub supports **Open Dynamic Client Registration** (RFC 7591). ChatGPT can au
 
 ## Using MCP Tools
 
-### 596 Tools Across 9 Plugins
+### 565 Tools Across 9 Plugins
 
 | Plugin | Tools | Env Prefix |
 |--------|-------|------------|
@@ -491,7 +491,7 @@ MCP Hub supports **Open Dynamic Client Registration** (RFC 7591). ChatGPT can au
 | Gitea | 56 | `GITEA_` |
 | n8n | 56 | `N8N_` |
 | Supabase | 70 | `SUPABASE_` |
-| OpenPanel | 73 | `OPENPANEL_` |
+| OpenPanel | 42 | `OPENPANEL_` |
 | Appwrite | 100 | `APPWRITE_` |
 | Directus | 100 | `DIRECTUS_` |
 | System | 24 | (no config needed) |
@@ -518,9 +518,9 @@ Use the most specific endpoint for your use case to minimize token usage:
 | `/project/{alias}/mcp` | Single-site workflow | 22-100 | No (pre-scoped) |
 | `/{plugin}/mcp` | Multi-site management | 23-101 | Yes |
 | `/system/mcp` | System administration | 24 | N/A |
-| `/mcp` | Admin & discovery only | 596 | Yes |
+| `/mcp` | Admin & discovery only | 565 | Yes |
 
-> **Recommendation**: Always use the most specific endpoint. Using `/mcp` (596 tools) wastes context tokens and degrades AI response quality.
+> **Recommendation**: Always use the most specific endpoint. Using `/mcp` (565 tools) wastes context tokens and degrades AI response quality.
 
 **Available plugin endpoints:**
 
@@ -532,7 +532,7 @@ Use the most specific endpoint for your use case to minimize token usage:
 | `/gitea/mcp` | Gitea | 56 |
 | `/n8n/mcp` | n8n | 56 |
 | `/supabase/mcp` | Supabase | 70 |
-| `/openpanel/mcp` | OpenPanel | 73 |
+| `/openpanel/mcp` | OpenPanel | 42 |
 | `/appwrite/mcp` | Appwrite | 100 |
 | `/directus/mcp` | Directus | 100 |
 | `/system/mcp` | System Management | 24 |
@@ -638,7 +638,7 @@ After deployment, add sites via the web dashboard at `https://your-domain.com/da
 
 ## Next Steps
 
-1. **Explore the full tool list**: See the [README](../README.md) for all 596 tools
+1. **Explore the full tool list**: See the [README](../README.md) for all 565 tools
 2. **Set up API keys**: [API Keys Guide](API_KEYS_GUIDE.md) for per-project access control
 3. **Configure OAuth**: [OAuth Guide](OAUTH_GUIDE.md) for Claude/ChatGPT auto-registration
 4. **Monitor health**: Use `check_all_projects_health` tool or visit the web dashboard

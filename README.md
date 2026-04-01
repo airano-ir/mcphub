@@ -14,7 +14,7 @@ Connect your sites, stores, repos, and databases — manage them all through Cla
 [![PyPI](https://img.shields.io/pypi/v/mcphub-server.svg)](https://pypi.org/project/mcphub-server/)
 [![Docker](https://img.shields.io/docker/v/airano/mcphub?label=docker)](https://hub.docker.com/r/airano/mcphub)
 [![Tests: 481 passing](https://img.shields.io/badge/tests-481%20passing-brightgreen.svg)]()
-[![Tools: 596](https://img.shields.io/badge/tools-596-orange.svg)]()
+[![Tools: 565](https://img.shields.io/badge/tools-565-orange.svg)]()
 [![CI](https://github.com/airano-ir/mcphub/actions/workflows/ci.yml/badge.svg)](https://github.com/airano-ir/mcphub/actions/workflows/ci.yml)
 
 </div>
@@ -49,7 +49,7 @@ MCP Hub is the first MCP server that lets you manage WordPress, WooCommerce, and
 
 ---
 
-## 596 Tools Across 9 Plugins
+## 565 Tools Across 9 Plugins
 
 | Plugin | Tools | What You Can Do |
 |--------|-------|-----------------|
@@ -59,11 +59,11 @@ MCP Hub is the first MCP server that lets you manage WordPress, WooCommerce, and
 | **Gitea** | 56 | Repos, issues, pull requests, releases, webhooks, organizations |
 | **n8n** | 56 | Workflows, executions, credentials, variables, audit |
 | **Supabase** | 70 | Database, auth, storage, edge functions, realtime |
-| **OpenPanel** | 73 | Events, funnels, profiles, dashboards, projects |
+| **OpenPanel** | 42 | Events, export, insights, profiles, projects, system |
 | **Appwrite** | 100 | Databases, auth, storage, functions, teams, messaging |
 | **Directus** | 100 | Collections, items, users, files, flows, permissions |
 | **System** | 24 | Health monitoring, API keys, OAuth management, audit |
-| **Total** | **596** | Constant count — scales to unlimited sites |
+| **Total** | **565** | Constant count — scales to unlimited sites |
 
 ---
 
@@ -75,14 +75,14 @@ MCP Hub is the first MCP server that lets you manage WordPress, WooCommerce, and
 git clone https://github.com/airano-ir/mcphub.git
 cd mcphub
 cp env.example .env
-# Edit .env — set MASTER_API_KEY and add your site credentials
+# Edit .env — set MASTER_API_KEY, then add sites via the web dashboard
 docker compose up -d
 ```
 
 ### Option 2: Docker Hub (No Clone)
 
 ```bash
-# Create a .env file with your credentials (see "Configure Your Sites" below)
+# Create a .env file with MASTER_API_KEY (see "Configure Your Sites" below)
 docker run -d --name mcphub -p 8000:8000 --env-file .env airano/mcphub:latest
 ```
 
@@ -93,7 +93,7 @@ git clone https://github.com/airano-ir/mcphub.git
 cd mcphub
 pip install -e .
 cp env.example .env
-# Edit .env with your site credentials
+# Edit .env — set MASTER_API_KEY
 python server.py --transport streamable-http --port 8000
 ```
 
@@ -265,7 +265,7 @@ MCP Hub supports **Open Dynamic Client Registration** (RFC 7591). ChatGPT can au
 ## Architecture
 
 ```
-/mcp                        → Admin endpoint (all 596 tools)
+/mcp                        → Admin endpoint (all 565 tools)
 /system/mcp                 → System tools only (24 tools)
 /wordpress/mcp              → WordPress tools (67 tools)
 /woocommerce/mcp            → WooCommerce tools (28 tools)
@@ -273,21 +273,21 @@ MCP Hub supports **Open Dynamic Client Registration** (RFC 7591). ChatGPT can au
 /gitea/mcp                  → Gitea tools (56 tools)
 /n8n/mcp                    → n8n tools (56 tools)
 /supabase/mcp               → Supabase tools (70 tools)
-/openpanel/mcp              → OpenPanel tools (73 tools)
+/openpanel/mcp              → OpenPanel tools (42 tools)
 /appwrite/mcp               → Appwrite tools (100 tools)
 /directus/mcp               → Directus tools (100 tools)
 /project/{alias}/mcp        → Per-project endpoint (auto-injects site)
 /u/{user_id}/{alias}/mcp    → Per-user endpoint (hosted/OAuth users)
 ```
 
-**Recommendation**: Use plugin-specific endpoints instead of `/mcp` (596 tools) to minimize token usage.
+**Recommendation**: Use plugin-specific endpoints instead of `/mcp` (565 tools) to minimize token usage.
 
 | Endpoint | Use Case | Tools |
 |----------|----------|------:|
 | `/u/{user_id}/{alias}/mcp` | Hosted users (OAuth login) | 22-100 |
 | `/project/{alias}/mcp` | Single-site workflow (recommended) | 22-100 |
 | `/{plugin}/mcp` | Multi-site management | 23-101 |
-| `/mcp` | Admin & discovery only | 596 |
+| `/mcp` | Admin & discovery only | 565 |
 
 ### Security
 
@@ -306,21 +306,19 @@ Some MCP Hub tools require companion WordPress plugins:
 | Tools | Requirement |
 |-------|-------------|
 | SEO tools (`wordpress_get_post_seo`, etc.) | [Airano MCP SEO Bridge](https://wordpress.org/plugins/airano-mcp-seo-bridge/) ([GitHub](wordpress-plugin/airano-mcp-seo-bridge/)) + Rank Math or Yoast SEO |
-| WP-CLI tools (15 tools: `wp_cache_*`, `wp_db_*`, etc.) | Docker socket + `CONTAINER` env var |
-| WordPress Advanced database/system tools | Docker socket + `CONTAINER` env var |
+| WP-CLI tools (15 tools: `wp_cache_*`, `wp_db_*`, etc.) | Docker socket + `CONTAINER` config |
+| WordPress Advanced database/system tools | Docker socket + `CONTAINER` config |
 | OpenPanel analytics integration | [OpenPanel Self-Hosted](wordpress-plugin/openpanel-self-hosted/) ([Download ZIP](wordpress-plugin/openpanel-self-hosted.zip)) |
-| WooCommerce tools | WooCommerce plugin (separate `WOOCOMMERCE_` config) |
+| WooCommerce tools | WooCommerce plugin installed on your WordPress site |
 
 **Docker socket** is needed for WP-CLI and WordPress Advanced system tools. Add to your docker-compose:
 
 ```yaml
 volumes:
   - /var/run/docker.sock:/var/run/docker.sock:ro
-environment:
-  WORDPRESS_SITE1_CONTAINER: your-wp-container-name
 ```
 
-Without Docker socket, WP-CLI tools return "not available" but all REST API tools work normally.
+Set the `container` field when adding a WordPress site in the dashboard. Without Docker socket, WP-CLI tools return "not available" but all REST API tools work normally.
 
 ---
 
