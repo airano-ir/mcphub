@@ -10,11 +10,11 @@ import json
 import logging
 import os
 import secrets
+
+import bcrypt
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-
-import bcrypt
 
 logger = logging.getLogger(__name__)
 

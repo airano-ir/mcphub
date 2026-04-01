@@ -125,26 +125,17 @@ plugins/{name}/
 
 ### Tool Generation
 
-Tools are dynamically generated at startup:
-1. `SiteManager` discovers sites from env vars (`{PLUGIN_TYPE}_{SITE_ID}_{CONFIG_KEY}`)
-2. `ToolGenerator` creates unified tools with a `site` parameter injected
-3. Tools are registered in `ToolRegistry` and exposed via FastMCP
+Tools are dynamically generated at startup from plugin specifications:
+1. `ToolGenerator` creates unified tools with a `site` parameter injected
+2. Tools are registered in `ToolRegistry` and exposed via FastMCP
 
 Unified tool pattern: `wordpress_create_post(site="myblog", title="Hello")` — the `site` parameter accepts either a site_id or alias.
 
-### Site Configuration via Environment Variables
+### Site Configuration
 
-Pattern: `{PLUGIN_TYPE}_{SITE_ID}_{CONFIG_KEY}`
-
-```bash
-WORDPRESS_SITE1_URL=https://example.com
-WORDPRESS_SITE1_USERNAME=admin
-WORDPRESS_SITE1_APP_PASSWORD=xxxx xxxx xxxx xxxx
-WORDPRESS_SITE1_ALIAS=myblog          # optional friendly name
-WORDPRESS_SITE1_CONTAINER=wp-docker   # optional, for WP-CLI
-```
-
-Parsed by `core/site_manager.py` into `SiteConfig` (Pydantic model). Sites are auto-discovered on startup.
+Sites are managed via the web dashboard and stored in SQLite (DB-based).
+User sites are encrypted with AES-256-GCM and accessed via `core/site_api.py` + `core/database.py`.
+`SiteManager` (`core/site_manager.py`) provides registration and lookup infrastructure for tool generation.
 
 ### Key Core Modules
 
@@ -152,7 +143,7 @@ Parsed by `core/site_manager.py` into `SiteConfig` (Pydantic model). Sites are a
 |--------|---------|
 | `core/auth.py` | Master API key validation, request authentication |
 | `core/api_keys.py` | Per-project API keys with scopes (read/write/admin) |
-| `core/site_manager.py` | Type-safe site config discovery from env vars |
+| `core/site_manager.py` | Type-safe site config registration and lookup |
 | `core/tool_registry.py` | Central tool definitions and lookup |
 | `core/tool_generator.py` | Dynamic unified tool creation with site injection |
 | `core/health.py` | Health monitoring, metrics, alerts |
@@ -182,7 +173,7 @@ Web UI at the server root, built with Starlette + Jinja2 + HTMX + Tailwind CSS. 
 
 ### Legacy Modules (Deprecated)
 
-`core/project_manager.py`, `core/site_registry.py`, `core/unified_tools.py` — kept for backward compatibility. New code should use `SiteManager`, `ToolRegistry`, and `ToolGenerator` instead.
+`core/project_manager.py` (retained for HealthMonitor compatibility), `core/site_registry.py`, `core/unified_tools.py` — kept for backward compatibility. New code should use `SiteManager`, `ToolRegistry`, and `ToolGenerator` instead.
 
 ## Commit Style
 
@@ -211,7 +202,7 @@ v4 development cycle with 15 phases. See `docs/ROADMAP.md` (Track F) and `.claud
 - `env.example` has "FUTURE" labels for Supabase/Gitea but both are fully implemented
 - 4 plugins are tested for public use: WordPress, WooCommerce, Supabase, OpenPanel. Others are admin-only or disabled.
 - OAuth Clients (Client ID/Secret) are for MCP endpoint auth, NOT the same as GitHub/Google dashboard login
-- User sites stored in SQLite (`core/database.py`), admin sites still from env vars
+- All sites stored in SQLite (`core/database.py`), managed via web dashboard
 - Dashboard templates live in `core/templates/` (included in pip package as `package_data`)
 - `ruff` config uses top-level `select` key in pyproject.toml (not `[tool.ruff.lint]` nested format)
 - The `scripts/` directory has platform-specific setup scripts: `setup.sh` (Linux/Mac), `setup.ps1` (Windows)

@@ -67,18 +67,17 @@ class WordPressClient:
         # Validate required parameters
         if not site_url:
             raise ConfigurationError(
-                "Site URL is not configured. "
-                "Please set the URL environment variable (e.g., WORDPRESS_SITE1_URL)."
+                "Site URL is not configured. " "Please add or update the site in the dashboard."
             )
         if not username:
             raise ConfigurationError(
                 "Username is not configured. "
-                "Please set the USERNAME environment variable (e.g., WORDPRESS_SITE1_USERNAME)."
+                "Please update the site credentials in the dashboard."
             )
         if not app_password:
             raise ConfigurationError(
                 "App password is not configured. "
-                "Please set the APP_PASSWORD environment variable (e.g., WORDPRESS_SITE1_APP_PASSWORD)."
+                "Please update the site credentials in the dashboard."
             )
 
         self.site_url = site_url.rstrip("/")

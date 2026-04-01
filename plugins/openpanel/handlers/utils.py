@@ -23,6 +23,6 @@ def get_project_id(client: OpenPanelClient, project_id: str | None) -> str:
         return client.default_project_id
     raise ValueError(
         "project_id is required. Either provide it as a parameter or configure "
-        "OPENPANEL_SITE1_PROJECT_ID in environment variables. "
+        "the project_id field when adding the site in the dashboard. "
         "You can find your Project ID in OpenPanel Dashboard → Project Settings."
     )

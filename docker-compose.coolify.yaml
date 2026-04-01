@@ -50,15 +50,9 @@ services:
       - USER_RATE_LIMIT_PER_MIN=${USER_RATE_LIMIT_PER_MIN:-30}
       - USER_RATE_LIMIT_PER_HR=${USER_RATE_LIMIT_PER_HR:-500}
 
-      # === ADMIN-MANAGED SITES (optional) ===
-      # Add WordPress/Gitea/n8n/etc. sites here if you want admin-level access.
-      # Users can add their own sites via the dashboard without these.
-      # Format: {PLUGIN_TYPE}_{SITE_ID}_{CONFIG_KEY}
-      #
-      # - WORDPRESS_SITE1_URL=${WORDPRESS_SITE1_URL:-}
-      # - WORDPRESS_SITE1_USERNAME=${WORDPRESS_SITE1_USERNAME:-}
-      # - WORDPRESS_SITE1_APP_PASSWORD=${WORDPRESS_SITE1_APP_PASSWORD:-}
-      # - WORDPRESS_SITE1_ALIAS=${WORDPRESS_SITE1_ALIAS:-}
+      # === SITES ===
+      # Sites are managed via the web dashboard (DB-based).
+      # After deployment, open the dashboard to add sites.
 
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8000/health"]

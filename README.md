@@ -125,28 +125,15 @@ Your personal MCP endpoint: `https://mcp.example.com/u/{your-user-id}/{alias}/mc
 
 ### Configure Your Sites
 
-Add site credentials to `.env`:
+Sites are managed via the **web dashboard** — no environment variables needed.
+
+1. Set `MASTER_API_KEY` in your `.env` file
+2. Start the server and open the dashboard
+3. Add sites with their credentials (URL, username, password/token)
 
 ```bash
-# Master API Key (recommended — auto-generates temp key if omitted)
+# .env — only system configuration needed
 MASTER_API_KEY=your-secure-key-here
-
-# WordPress Site
-WORDPRESS_SITE1_URL=https://myblog.com
-WORDPRESS_SITE1_USERNAME=admin
-WORDPRESS_SITE1_APP_PASSWORD=xxxx xxxx xxxx xxxx
-WORDPRESS_SITE1_ALIAS=myblog
-
-# WooCommerce Store
-WOOCOMMERCE_STORE1_URL=https://mystore.com
-WOOCOMMERCE_STORE1_CONSUMER_KEY=ck_xxxxx
-WOOCOMMERCE_STORE1_CONSUMER_SECRET=cs_xxxxx
-WOOCOMMERCE_STORE1_ALIAS=mystore
-
-# Gitea Instance
-GITEA_REPO1_URL=https://git.example.com
-GITEA_REPO1_TOKEN=your_gitea_token
-GITEA_REPO1_ALIAS=mygitea
 ```
 
 <details>
@@ -158,45 +145,25 @@ GITEA_REPO1_ALIAS=mygitea
 |----------|----------|---------|-------------|
 | `MASTER_API_KEY` | Recommended | Auto-generated | Master API key for admin access |
 | `LOG_LEVEL` | No | `INFO` | Logging level (DEBUG, INFO, WARNING, ERROR) |
+| `ENCRYPTION_KEY` | For Live Platform | — | AES-256-GCM key for credential encryption |
 | `OAUTH_JWT_SECRET_KEY` | For OAuth | — | JWT secret for ChatGPT auto-registration (not needed for Claude/Cursor) |
 | `OAUTH_BASE_URL` | For OAuth | — | Public URL of your server (not needed for Claude/Cursor) |
-| `OAUTH_JWT_ALGORITHM` | No | `HS256` | JWT algorithm |
-| `OAUTH_ACCESS_TOKEN_TTL` | No | `3600` | Access token TTL in seconds |
-| `OAUTH_REFRESH_TOKEN_TTL` | No | `604800` | Refresh token TTL in seconds |
-| `OAUTH_STORAGE_TYPE` | No | `json` | Token storage type |
-| `OAUTH_STORAGE_PATH` | No | `/app/data` | Data directory path |
 
 > **OAuth** is only needed for ChatGPT Remote MCP auto-registration. For Claude Desktop, Claude Code, Cursor, and VS Code — just use `MASTER_API_KEY` with Bearer token auth.
 
-**Plugin Site Configuration** — Pattern: `{PLUGIN_TYPE}_{SITE_ID}_{KEY}`
+**Plugin Credential Reference** — when adding sites via dashboard, you'll need:
 
-| Plugin | Required Keys | Optional Keys |
-|--------|--------------|---------------|
-| `WORDPRESS` | `URL`, `USERNAME`, `APP_PASSWORD` | `ALIAS`, `CONTAINER` |
-| `WOOCOMMERCE` | `URL`, `CONSUMER_KEY`, `CONSUMER_SECRET` | `ALIAS` |
-| `WORDPRESS_ADVANCED` | `URL`, `USERNAME`, `APP_PASSWORD`, `CONTAINER` | `ALIAS` |
-| `GITEA` | `URL`, `TOKEN` | `ALIAS` |
-| `N8N` | `URL`, `API_KEY` | `ALIAS` |
-| `SUPABASE` | `URL`, `SERVICE_ROLE_KEY` | `ALIAS` |
-| `OPENPANEL` | `URL`, `CLIENT_ID`, `CLIENT_SECRET` | `ALIAS` |
-| `APPWRITE` | `URL`, `API_KEY`, `PROJECT_ID` | `ALIAS` |
-| `DIRECTUS` | `URL`, `TOKEN` | `ALIAS` |
-
-> **CONTAINER**: Docker container name of your WordPress site. Optional for WordPress (enables WP-CLI tools like cache flush, transient management). **Required** for WordPress Advanced (all 22 tools use WP-CLI). Find your container: `docker ps --filter name=wordpress`. Also requires Docker socket mount.
-
-**Example** — Multiple WordPress sites:
-
-```bash
-WORDPRESS_BLOG_URL=https://blog.example.com
-WORDPRESS_BLOG_USERNAME=admin
-WORDPRESS_BLOG_APP_PASSWORD=xxxx xxxx xxxx xxxx
-WORDPRESS_BLOG_ALIAS=blog
-
-WORDPRESS_SHOP_URL=https://shop.example.com
-WORDPRESS_SHOP_USERNAME=admin
-WORDPRESS_SHOP_APP_PASSWORD=yyyy yyyy yyyy yyyy
-WORDPRESS_SHOP_ALIAS=shop
-```
+| Plugin | Required Credentials | Notes |
+|--------|---------------------|-------|
+| WordPress | URL, Username, App Password | [How to create App Password](https://wordpress.org/documentation/article/application-passwords/) |
+| WooCommerce | URL, Consumer Key, Consumer Secret | WooCommerce → Settings → Advanced → REST API |
+| WordPress Advanced | URL, Username, App Password, Container | Container = Docker container name (for WP-CLI) |
+| Gitea | URL, Token | Settings → Applications → Personal Access Token |
+| n8n | URL, API Key | Settings → API → Create API Key |
+| Supabase | URL, Service Role Key | Supabase Dashboard → Settings → API |
+| OpenPanel | URL, Client ID, Client Secret | OpenPanel Dashboard → Project Settings |
+| Appwrite | URL, API Key, Project ID | Appwrite Console → Settings → API Keys |
+| Directus | URL, Static Token | Directus Admin → Settings |
 
 </details>
 

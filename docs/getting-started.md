@@ -248,12 +248,11 @@ Without Docker socket:
 - WordPress Advanced database/system tools are unavailable
 - All REST API tools (bulk operations, content management) work normally
 
-### Environment Variable Reference
+### Site Configuration
 
-All site configuration follows the pattern: `{PLUGIN_TYPE}_{SITE_ID}_{CONFIG_KEY}=value`
+Sites are managed via the web dashboard. After starting the server, open the dashboard to add sites.
 
-- `SITE_ID` can be any alphanumeric identifier (e.g., `SITE1`, `PROD`, `MYBLOG`)
-- Multiple sites: change `SITE1` to `SITE2`, `SITE3`, etc.
+Each plugin requires specific credentials (see below for reference).
 
 #### WordPress
 ```env
@@ -392,7 +391,7 @@ docker compose logs -f mcphub
 | Port 8000 already in use | Change port in docker-compose.yaml: `"8001:8000"` |
 | Health check shows "unhealthy" | Wait 60 seconds, then check logs for startup errors |
 | Dashboard login fails | Make sure you're using the `MASTER_API_KEY` value from your `.env` |
-| Sites not showing up | Restart after adding new env vars: `docker compose restart` |
+| Sites not showing up | Add sites via the web dashboard, then check the connect page |
 
 ---
 
@@ -610,18 +609,16 @@ docker compose up --build -d
 
 ### Step 3: Configure Environment Variables
 
-Add all required environment variables in Coolify's environment variable UI:
+Add the required environment variables in Coolify's environment variable UI:
 
 ```
 MASTER_API_KEY=your-secure-key-here
 OAUTH_JWT_SECRET_KEY=your-jwt-secret
 OAUTH_BASE_URL=https://your-domain.com
-WORDPRESS_SITE1_URL=https://example.com
-WORDPRESS_SITE1_USERNAME=admin
-WORDPRESS_SITE1_APP_PASSWORD=xxxx xxxx xxxx xxxx
+ENCRYPTION_KEY=your-base64-encryption-key
 ```
 
-The server auto-discovers all `WORDPRESS_*`, `WOOCOMMERCE_*`, `GITEA_*`, and other plugin environment variables at startup.
+After deployment, add sites via the web dashboard at `https://your-domain.com/dashboard`.
 
 ### Step 4: Configure Health Check
 

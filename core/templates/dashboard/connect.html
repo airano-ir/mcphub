@@ -159,10 +159,10 @@
             <p class="text-sm text-green-700 dark:text-green-400">
                 {% if lang == 'fa' %}
                 <strong>نکته:</strong> فقط آدرس URL کافی است. هنگام اتصال می‌توانید با <strong>API Key</strong> یا <strong>GitHub/Google</strong> احراز هویت کنید.
-                ساخت <a href="/dashboard/connect/oauth-clients{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="underline">OAuth Client</a> اختیاری است.
+                ساخت <a href="/dashboard/oauth-clients{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="underline">OAuth Client</a> اختیاری است.
                 {% else %}
                 <strong>Tip:</strong> You only need the URL above. When connecting, you can authenticate with an <strong>API Key</strong> or <strong>GitHub/Google</strong>.
-                Creating an <a href="/dashboard/connect/oauth-clients{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="underline">OAuth Client</a> is optional.
+                Creating an <a href="/dashboard/oauth-clients{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="underline">OAuth Client</a> is optional.
                 {% endif %}
             </p>
         </div>

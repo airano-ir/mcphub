@@ -165,7 +165,6 @@ rate_limiter = get_rate_limiter()
 # Initialize site manager
 site_manager = get_site_manager()
 plugin_types = plugin_registry.get_registered_types()
-site_manager.discover_sites(plugin_types)
 
 # WooCommerce can fallback to WordPress site configurations if no WOOCOMMERCE_* env vars
 # This mapping is only used when woocommerce has no sites configured

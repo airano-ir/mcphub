@@ -4,20 +4,12 @@ Site Manager - Type-safe site configuration management
 Manages site configurations with Pydantic validation.
 Part of Option B clean architecture refactoring.
 
-Discovers sites from environment variables:
-- {PLUGIN_TYPE}_{SITE_ID}_{CONFIG_KEY}
-- {PLUGIN_TYPE}_{SITE_ID}_ALIAS (optional)
-
-Example:
-    WORDPRESS_SITE1_URL=https://example.com
-    WORDPRESS_SITE1_USERNAME=admin
-    WORDPRESS_SITE1_APP_PASSWORD=xxxx
-    WORDPRESS_SITE2_ALIAS=myblog
+Sites are managed via the web dashboard and stored in SQLite (DB-based).
+The SiteManager provides registration and lookup infrastructure for
+plugin tool generation and endpoint routing.
 """
 
 import logging
-import os
-import re
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
@@ -111,7 +103,8 @@ class SiteManager:
     """
     Manage site configurations with type safety.
 
-    Discovers, validates, and provides access to site configurations.
+    Provides registration and lookup of site configurations.
+    Sites are registered programmatically (e.g., from database) via register_site().
 
     Attributes:
         sites: Dictionary mapping plugin_type to site configurations
@@ -120,7 +113,7 @@ class SiteManager:
 
     Examples:
         >>> manager = SiteManager()
-        >>> manager.discover_sites(['wordpress', 'gitea'])
+        >>> manager.register_site(config)
         >>> config = manager.get_site_config('wordpress', 'myblog')
         >>> sites = manager.list_sites('wordpress')
     """
@@ -135,167 +128,6 @@ class SiteManager:
 
         self.logger = logging.getLogger("SiteManager")
         self.logger.info("SiteManager initialized")
-
-    def discover_sites(self, plugin_types: list[str]) -> int:
-        """
-        Discover sites from environment variables.
-
-        Scans environment for site configurations and registers them.
-
-        Args:
-            plugin_types: List of plugin types to discover (e.g., ['wordpress'])
-
-        Returns:
-            Number of sites discovered
-
-        Examples:
-            >>> count = manager.discover_sites(['wordpress', 'gitea'])
-            >>> print(f"Discovered {count} sites")
-        """
-        self.logger.info(f"Starting site discovery for: {', '.join(plugin_types)}")
-
-        total_discovered = 0
-        for plugin_type in plugin_types:
-            count = self._discover_plugin_sites(plugin_type)
-            total_discovered += count
-
-        self.logger.info(
-            f"Discovery complete. Found {total_discovered} sites "
-            f"across {len(plugin_types)} plugin types."
-        )
-
-        return total_discovered
-
-    # Reserved words that should NOT be interpreted as site IDs
-    RESERVED_SITE_WORDS = {
-        "limit",
-        "rate",
-        "config",
-        "debug",
-        "log",
-        "level",
-        "mode",
-        "timeout",
-        "retry",
-        "max",
-        "min",
-        "default",
-        "global",
-        "enabled",
-        "disabled",
-        "host",
-        "port",
-        "path",
-        "key",
-        "secret",
-        "token",
-        "advanced",
-        "basic",
-        "simple",
-        "pro",
-        "premium",
-        "standard",
-    }
-
-    def _discover_plugin_sites(self, plugin_type: str) -> int:
-        """
-        Discover all sites for a specific plugin type.
-
-        Args:
-            plugin_type: Type of plugin (e.g., 'wordpress')
-
-        Returns:
-            Number of sites discovered for this plugin type
-
-        Examples:
-            >>> count = manager._discover_plugin_sites('wordpress')
-        """
-        prefix = plugin_type.upper() + "_"
-
-        # Build list of longer prefixes from other plugin types to avoid collisions.
-        # e.g. WORDPRESS_ must not match WORDPRESS_ADVANCED_ env vars.
-        from plugins import registry as plugin_registry
-
-        all_plugin_types = plugin_registry.get_registered_types()
-        longer_prefixes = [
-            pt.upper() + "_"
-            for pt in all_plugin_types
-            if pt != plugin_type and pt.upper().startswith(plugin_type.upper() + "_")
-        ]
-
-        # Pattern to match: WORDPRESS_SITE1_URL, WORDPRESS_SITE2_USERNAME, etc.
-        env_pattern = re.compile(f"^{prefix}([A-Z0-9_]+?)_(.+)$")
-
-        # Find all unique site IDs
-        site_ids = set()
-        for env_key in os.environ.keys():
-            # Skip env vars that belong to a more specific plugin type
-            if any(env_key.startswith(lp) for lp in longer_prefixes):
-                continue
-
-            match = env_pattern.match(env_key)
-            if match:
-                site_id = match.group(1).lower()
-                # Skip reserved words that are not real site IDs
-                if site_id not in self.RESERVED_SITE_WORDS:
-                    site_ids.add(site_id)
-
-        # Load configuration for each site
-        discovered_count = 0
-        for site_id in site_ids:
-            try:
-                config = self._load_site_config(plugin_type, site_id)
-                if config:
-                    self.register_site(config)
-                    discovered_count += 1
-            except Exception as e:
-                self.logger.error(
-                    f"Failed to load {plugin_type} site '{site_id}': {e}", exc_info=True
-                )
-
-        return discovered_count
-
-    def _load_site_config(self, plugin_type: str, site_id: str) -> SiteConfig | None:
-        """
-        Load configuration for a site from environment.
-
-        Args:
-            plugin_type: Plugin type
-            site_id: Site ID
-
-        Returns:
-            SiteConfig if successful, None if incomplete
-
-        Examples:
-            >>> config = manager._load_site_config('wordpress', 'site1')
-        """
-        prefix = f"{plugin_type.upper()}_{site_id.upper()}_"
-        config_data = {"site_id": site_id, "plugin_type": plugin_type}
-
-        # Collect all config keys for this site
-        for env_key, env_value in os.environ.items():
-            if env_key.startswith(prefix):
-                # Extract config key (everything after prefix)
-                config_key = env_key[len(prefix) :].lower()
-                config_data[config_key] = env_value
-
-        # Must have at least some configuration beyond site_id and plugin_type
-        if len(config_data) <= 2:
-            return None
-
-        try:
-            # Create and validate SiteConfig
-            config = SiteConfig(**config_data)
-
-            self.logger.debug(
-                f"Loaded config for {plugin_type}/{site_id}: " f"{list(config_data.keys())}"
-            )
-
-            return config
-
-        except Exception as e:
-            self.logger.error(f"Validation failed for {plugin_type}/{site_id}: {e}", exc_info=True)
-            return None
 
     def register_site(self, config: SiteConfig) -> None:
         """
@@ -356,7 +188,7 @@ class SiteManager:
             # SECURITY: Don't reveal available plugin types in multi-tenant environment
             raise ValueError(
                 f"No sites configured for plugin type: {plugin_type}. "
-                f"Please check your environment variables."
+                f"Please add a site via the dashboard."
             )
 
         # Try direct lookup
@@ -373,7 +205,7 @@ class SiteManager:
         )
         raise ValueError(
             f"Site '{site}' not configured for {plugin_type}. "
-            f"Please verify the site alias/ID and check environment variables."
+            f"Please verify the site alias/ID in the dashboard."
         )
 
     def list_sites(self, plugin_type: str) -> list[str]:
@@ -545,7 +377,7 @@ def get_site_manager() -> SiteManager:
 
     Examples:
         >>> manager = get_site_manager()
-        >>> manager.discover_sites(['wordpress'])
+        >>> manager.register_site(config)
     """
     global _site_manager
     if _site_manager is None:

@@ -14,8 +14,9 @@ Usage:
 
 Environment Variables:
     MASTER_API_KEY: Master API key for authentication
-    {PLUGIN_TYPE}_{PROJECT_ID}_{CONFIG_KEY}: Project configurations
     LOG_LEVEL: Logging level (DEBUG, INFO, WARNING, ERROR)
+
+Sites are managed via the web dashboard and stored in SQLite (DB-based).
 """
 
 import base64
@@ -66,8 +67,6 @@ from core.dashboard.routes import (
     api_get_config,
     api_list_keys,
     api_list_sites,
-    # K.5: Settings routes
-    api_save_setting,
     api_test_site,
     api_update_site,
     # E.2: OAuth Social Login routes
@@ -109,6 +108,8 @@ from core.dashboard.routes import (
     # F.3: Service pages
     dashboard_service_page,
     dashboard_services_list,
+    # K.5: Settings routes
+    api_save_setting,
     dashboard_settings_page,
     # E.3: Site Management pages
     dashboard_sites_add,
@@ -308,7 +309,6 @@ from plugins import registry as plugin_registry
 
 site_manager = get_site_manager()
 plugin_types = plugin_registry.get_registered_types()
-site_manager.discover_sites(plugin_types)
 # Initialize tool registry (central tool management)
 tool_registry = get_tool_registry()
 
@@ -323,24 +323,8 @@ if auth_manager._is_temporary_key:
     logger.info(f"Master API Key (temporary): {_mk}")
 else:
     logger.info(f"Master API Key: {_mk[:8]}***{_mk[-4:]}")
-logger.info(f"Discovered {len(project_manager.projects)} per-site project instances (legacy)")
-logger.info(
-    f"Discovered {site_manager.get_count()} unique sites across {len(plugin_types)} plugin types"
-)
-logger.info(f"Site breakdown: {site_manager.get_count_by_type()}")
-
-# Log discovered projects
-for full_id, plugin in project_manager.projects.items():
-    logger.info(f"  - {full_id} ({plugin.get_plugin_name()})")
-
-# Log discovered sites
-logger.info("\nDiscovered sites:")
-for site_info in site_manager.list_all_sites():
-    alias_display = (
-        f" (alias: {site_info['alias']})" if site_info["alias"] != site_info["site_id"] else ""
-    )
-    logger.info(f"  - {site_info['full_id']}{alias_display}")
-
+logger.info(f"Plugin types registered: {', '.join(plugin_types)}")
+logger.info("Sites are managed via the web dashboard (DB-based)")
 logger.info("=" * 60)
 
 
@@ -5031,12 +5015,6 @@ def main():
     if args.transport != "stdio":
         logger.info(f"Host: {args.host}")
         logger.info(f"Port: {args.port}")
-
-    # Check if any sites were discovered (SiteManager is the primary discovery system)
-    if site_manager.get_count() == 0:
-        logger.warning("No sites discovered! Check your environment variables.")
-        logger.warning("Expected format: {PLUGIN_TYPE}_{SITE_ID}_{CONFIG_KEY}=value")
-        logger.warning("Example: WORDPRESS_SITE1_URL=https://example.com")
 
     try:
         if args.transport == "stdio":

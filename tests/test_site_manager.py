@@ -1,4 +1,4 @@
-"""Tests for Site Manager (core/site_manager.py)."""
+"""Tests for Site Manager (core/site_manager.py) — registration and lookup."""
 
 import pytest
 
@@ -125,69 +125,6 @@ class TestSiteManagerRegistration:
     def test_list_sites_empty_plugin(self, manager):
         """Should return empty list for unknown plugin type."""
         assert manager.list_sites("nonexistent") == []
-
-
-class TestSiteManagerDiscovery:
-    """Test site discovery from environment variables."""
-
-    def test_discover_wordpress_sites(self, monkeypatch):
-        """Should discover sites from WORDPRESS_SITE1_* env vars."""
-        monkeypatch.setenv("WORDPRESS_SITE1_URL", "https://wp1.example.com")
-        monkeypatch.setenv("WORDPRESS_SITE1_USERNAME", "admin")
-        monkeypatch.setenv("WORDPRESS_SITE1_APP_PASSWORD", "xxxx")
-        monkeypatch.setenv("WORDPRESS_SITE1_ALIAS", "myblog")
-
-        manager = SiteManager()
-        count = manager.discover_sites(["wordpress"])
-
-        assert count == 1
-        config = manager.get_site_config("wordpress", "site1")
-        assert config.url == "https://wp1.example.com"
-        assert config.username == "admin"
-        assert config.alias == "myblog"
-
-    def test_discover_multiple_sites(self, monkeypatch):
-        """Should discover multiple sites for same plugin type."""
-        monkeypatch.setenv("WORDPRESS_SITE1_URL", "https://wp1.example.com")
-        monkeypatch.setenv("WORDPRESS_SITE1_USERNAME", "admin")
-        monkeypatch.setenv("WORDPRESS_SITE2_URL", "https://wp2.example.com")
-        monkeypatch.setenv("WORDPRESS_SITE2_USERNAME", "editor")
-
-        manager = SiteManager()
-        count = manager.discover_sites(["wordpress"])
-
-        assert count == 2
-
-    def test_discover_across_plugin_types(self, monkeypatch):
-        """Should discover sites across different plugin types."""
-        monkeypatch.setenv("WORDPRESS_SITE1_URL", "https://wp.example.com")
-        monkeypatch.setenv("WORDPRESS_SITE1_USERNAME", "admin")
-        monkeypatch.setenv("GITEA_SITE1_URL", "https://git.example.com")
-        monkeypatch.setenv("GITEA_SITE1_TOKEN", "tok_123")
-
-        manager = SiteManager()
-        count = manager.discover_sites(["wordpress", "gitea"])
-
-        assert count == 2
-
-    def test_reserved_words_skipped(self, monkeypatch):
-        """Reserved words like LIMIT, RATE should not become site IDs."""
-        monkeypatch.setenv("WORDPRESS_LIMIT_PER_MINUTE", "100")
-        monkeypatch.setenv("WORDPRESS_RATE_PER_HOUR", "500")
-
-        manager = SiteManager()
-        count = manager.discover_sites(["wordpress"])
-
-        assert count == 0
-
-    def test_incomplete_config_skipped(self, monkeypatch):
-        """Sites with no config data (only prefix match) should be skipped."""
-        # WORDPRESS_SITE1_ exists as prefix but no actual config keys
-        # This is hard to test directly since env vars always have a value
-        # Instead, test that a site with only site_id and plugin_type (no config) is skipped
-        manager = SiteManager()
-        count = manager.discover_sites(["wordpress"])
-        assert count == 0
 
 
 class TestSiteManagerCounts:

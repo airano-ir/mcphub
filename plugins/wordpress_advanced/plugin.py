@@ -67,7 +67,7 @@ class WordPressAdvancedPlugin(BasePlugin):
         if not container_name:
             raise ValueError(
                 "WordPress Advanced plugin requires 'container' configuration. "
-                "Please set WORDPRESS_ADVANCED_SITE1_CONTAINER in environment variables."
+                "Please set the 'container' field when adding the site in the dashboard."
             )
 
         # Import WP-CLI manager

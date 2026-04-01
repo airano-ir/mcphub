@@ -850,12 +850,9 @@ async def get_all_projects(
         is_admin = False
         current_user_id = None
         if user_session:
-            if (
-                hasattr(user_session, "user_type")
-                and user_session.user_type == "master"
-                or isinstance(user_session, dict)
-                and user_session.get("role") == "admin"
-            ):
+            if hasattr(user_session, "user_type") and user_session.user_type == "master":
+                is_admin = True
+            elif isinstance(user_session, dict) and user_session.get("role") == "admin":
                 is_admin = True
             elif isinstance(user_session, dict) and "user_id" in user_session:
                 current_user_id = user_session["user_id"]
@@ -1512,6 +1509,7 @@ async def get_oauth_clients_data() -> dict:
                     "grant_types": client.grant_types,
                     "allowed_scopes": client.allowed_scopes,
                     "created_at": client.created_at.isoformat() if client.created_at else "",
+                    "owner_user_id": getattr(client, "owner_user_id", None),
                 }
             )
 
@@ -1528,10 +1526,26 @@ async def get_oauth_clients_data() -> dict:
 
 
 async def dashboard_oauth_clients_list(request: Request) -> Response:
-    """Render OAuth clients list page (admin only)."""
-    session, redirect = _require_admin_session(request)
-    if redirect:
-        return redirect
+    """Render OAuth clients list page (admin and user)."""
+    # Try admin session first, then user session
+    auth = get_dashboard_auth()
+    session = None
+    is_admin = False
+    user_id = None
+
+    admin_session = auth.get_session_from_request(request)
+    if admin_session and is_admin_session(admin_session):
+        session = admin_session
+        is_admin = True
+    else:
+        user_session = auth.get_user_session_from_request(request)
+        if user_session:
+            session = user_session
+            is_admin = is_admin_session(user_session)
+            user_id = user_session.get("user_id")
+
+    if not session:
+        return RedirectResponse(url="/auth/login", status_code=303)
 
     # Get language
     accept_language = request.headers.get("accept-language")
@@ -1539,8 +1553,13 @@ async def dashboard_oauth_clients_list(request: Request) -> Response:
     lang = detect_language(accept_language, query_lang)
     t = get_translations(lang)
 
-    # Get clients data
+    # Get clients data — admin sees all, user sees own
     clients_data = await get_oauth_clients_data()
+    if not is_admin and user_id:
+        clients_data["clients"] = [
+            c for c in clients_data["clients"] if c.get("owner_user_id") == user_id
+        ]
+        clients_data["total_count"] = len(clients_data["clients"])
 
     return templates.TemplateResponse(
         request,
@@ -1552,15 +1571,26 @@ async def dashboard_oauth_clients_list(request: Request) -> Response:
             "clients": clients_data["clients"],
             "total_count": clients_data["total_count"],
             "current_page": "oauth_clients",
+            "is_admin": is_admin,
         },
     )
 
 
 async def dashboard_oauth_clients_create(request: Request) -> Response:
-    """API endpoint to create OAuth client (admin only)."""
-    session, redirect = _require_admin_session(request)
-    if redirect:
-        return JSONResponse({"error": "Admin access required"}, status_code=403)
+    """API endpoint to create OAuth client (admin and user)."""
+    # Accept both admin and user sessions
+    auth = get_dashboard_auth()
+    owner_user_id = None
+
+    admin_session = auth.get_session_from_request(request)
+    user_session = auth.get_user_session_from_request(request)
+
+    if admin_session and is_admin_session(admin_session):
+        pass  # Admin — no owner_user_id
+    elif user_session:
+        owner_user_id = user_session.get("user_id")
+    else:
+        return JSONResponse({"error": "Authentication required"}, status_code=403)
 
     try:
         data = await request.json()
@@ -1569,7 +1599,7 @@ async def dashboard_oauth_clients_create(request: Request) -> Response:
         redirect_uris = data.get("redirect_uris") or []
         if not redirect_uris and data.get("redirect_uri"):
             redirect_uris = [data.get("redirect_uri")]
-        scopes = data.get("scopes", ["read"])
+        scopes = data.get("scopes", ["read", "write", "admin"])
 
         if not client_name or not redirect_uris:
             return JSONResponse({"error": "Missing required fields"}, status_code=400)
@@ -1578,16 +1608,23 @@ async def dashboard_oauth_clients_create(request: Request) -> Response:
 
         client_registry = get_client_registry()
 
-        client_id, client_secret = client_registry.create_client(
-            client_name=client_name, redirect_uris=redirect_uris, allowed_scopes=scopes
-        )
+        create_kwargs = {
+            "client_name": client_name,
+            "redirect_uris": redirect_uris,
+            "allowed_scopes": scopes,
+        }
+        if owner_user_id:
+            create_kwargs["owner_user_id"] = owner_user_id
+
+        client_id, client_secret = client_registry.create_client(**create_kwargs)
 
         # Log the action
         from core.audit_log import get_audit_logger
 
         audit_logger = get_audit_logger()
         audit_logger.log_system_event(
-            event=f"OAuth client created: {client_name}", details={"client_id": client_id}
+            event=f"OAuth client created: {client_name}",
+            details={"client_id": client_id, "owner_user_id": owner_user_id},
         )
 
         return JSONResponse(
@@ -1604,10 +1641,22 @@ async def dashboard_oauth_clients_create(request: Request) -> Response:
 
 
 async def dashboard_oauth_clients_delete(request: Request) -> Response:
-    """API endpoint to delete OAuth client (admin only)."""
-    session, redirect = _require_admin_session(request)
-    if redirect:
-        return JSONResponse({"error": "Admin access required"}, status_code=403)
+    """API endpoint to delete OAuth client (admin and user)."""
+    # Accept both admin and user sessions
+    auth = get_dashboard_auth()
+    is_admin_user = False
+    user_id = None
+
+    admin_session = auth.get_session_from_request(request)
+    user_session = auth.get_user_session_from_request(request)
+
+    if admin_session and is_admin_session(admin_session):
+        is_admin_user = True
+    elif user_session:
+        user_id = user_session.get("user_id")
+        is_admin_user = is_admin_session(user_session)
+    else:
+        return JSONResponse({"error": "Authentication required"}, status_code=403)
 
     try:
         client_id = request.path_params.get("client_id", "")
@@ -1615,6 +1664,14 @@ async def dashboard_oauth_clients_delete(request: Request) -> Response:
         from core.oauth.client_registry import get_client_registry
 
         client_registry = get_client_registry()
+
+        # Non-admin users can only delete their own clients
+        if not is_admin_user and user_id:
+            client = client_registry.get_client(client_id)
+            if not client:
+                return JSONResponse({"error": "Client not found"}, status_code=404)
+            if getattr(client, "owner_user_id", None) != user_id:
+                return JSONResponse({"error": "Access denied"}, status_code=403)
 
         success = client_registry.delete_client(client_id)
 
@@ -3131,107 +3188,18 @@ async def api_get_config(request: Request) -> Response:
 
 
 async def dashboard_user_oauth_clients_list(request: Request) -> Response:
-    """GET /dashboard/connect/oauth-clients — OAuth user's own OAuth clients."""
-    user_session, redirect = _require_user_session(request)
-    if redirect:
-        return redirect
-
-    accept_language = request.headers.get("accept-language")
-    query_lang = request.query_params.get("lang")
-    lang = detect_language(accept_language, query_lang)
-    t = get_translations(lang)
-
-    from core.oauth import get_client_registry as _get_client_registry
-
-    registry = _get_client_registry()
-    user_id = user_session["user_id"]
-    user_clients = [c for c in registry.list_clients() if c.owner_user_id == user_id]
-
-    return templates.TemplateResponse(
-        request,
-        "dashboard/user-oauth-clients.html",
-        {
-            "lang": lang,
-            "t": t,
-            "session": user_session,
-            "clients": user_clients,
-            "current_page": "connect",
-        },
-    )
+    """GET /dashboard/connect/oauth-clients — Redirect to unified OAuth clients page."""
+    return RedirectResponse(url="/dashboard/oauth-clients", status_code=303)
 
 
 async def dashboard_user_oauth_clients_create(request: Request) -> Response:
-    """POST /api/dashboard/user-oauth-clients/create — Create OAuth client for OAuth user."""
-    user_session, redirect = _require_user_session(request)
-    if redirect:
-        return JSONResponse({"error": "Unauthorized"}, status_code=401)
-
-    try:
-        body = await request.json()
-    except Exception:
-        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
-
-    client_name = body.get("client_name", "").strip()
-    redirect_uris_raw = body.get("redirect_uris", "")
-    scopes = body.get("scopes", ["read", "write", "admin"])
-
-    if not client_name:
-        return JSONResponse({"error": "Client name required"}, status_code=400)
-
-    if isinstance(redirect_uris_raw, str):
-        redirect_uris = [u.strip() for u in redirect_uris_raw.splitlines() if u.strip()]
-    else:
-        redirect_uris = [u.strip() for u in redirect_uris_raw if u.strip()]
-
-    if not redirect_uris:
-        return JSONResponse({"error": "At least one redirect URI required"}, status_code=400)
-
-    scope_str = " ".join(scopes) if isinstance(scopes, list) else scopes
-
-    from core.oauth import get_client_registry as _get_client_registry
-
-    registry = _get_client_registry()
-    client_id, client_secret = registry.create_client(
-        client_name=client_name,
-        redirect_uris=redirect_uris,
-        allowed_scopes=scope_str.split() if isinstance(scope_str, str) else scopes,
-        owner_user_id=user_session["user_id"],
-    )
-    client = registry.get_client(client_id)
-
-    return JSONResponse(
-        {
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "client_name": client.client_name,
-            "redirect_uris": client.redirect_uris,
-            "scope": client.scope,
-        }
-    )
+    """POST /api/dashboard/user-oauth-clients/create — Forwards to unified create endpoint."""
+    return await dashboard_oauth_clients_create(request)
 
 
 async def dashboard_user_oauth_clients_delete(request: Request) -> Response:
-    """DELETE /api/dashboard/user-oauth-clients/{client_id} — Delete user's own OAuth client."""
-    user_session, redirect = _require_user_session(request)
-    if redirect:
-        return JSONResponse({"error": "Unauthorized"}, status_code=401)
-
-    client_id = request.path_params.get("client_id", "")
-
-    from core.oauth import get_client_registry as _get_client_registry
-
-    registry = _get_client_registry()
-    client = registry.get_client(client_id)
-
-    if not client:
-        return JSONResponse({"error": "Client not found"}, status_code=404)
-
-    # Only allow deleting own clients
-    if client.owner_user_id != user_session["user_id"]:
-        return JSONResponse({"error": "Access denied"}, status_code=403)
-
-    registry.delete_client(client_id)
-    return JSONResponse({"success": True})
+    """DELETE /api/dashboard/user-oauth-clients/{client_id} — Forwards to unified delete endpoint."""
+    return await dashboard_oauth_clients_delete(request)
 
 
 async def get_service_page_data(plugin_type: str) -> dict | None:

@@ -4,8 +4,8 @@ Uses REST APIs:
 - Export API (GET /export/events, /export/charts) for raw data export
 - Insights API (GET /insights/:projectId/*) for analytics queries
 
-Note: project_id is optional if configured in environment variables.
-When not provided, the default project_id from OPENPANEL_SITE1_PROJECT_ID is used.
+Note: project_id is optional if configured in the site settings.
+When not provided, the default project_id from the site configuration is used.
 
 Requires 'read' or 'root' mode client for Export API.
 """

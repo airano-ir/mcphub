@@ -228,6 +228,14 @@
                             <p class="text-gray-500 text-sm mt-2">
                                 {% if lang == 'fa' %}فیلترها را پاک کنید{% else %}Try clearing the filters{% endif %}
                             </p>
+                            {% else %}
+                            <p class="text-gray-500 text-sm mt-2">
+                                {% if lang == 'fa' %}
+                                سایت‌ها از طریق <a href="/dashboard/sites{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="text-primary-400 hover:underline">صفحه سایت‌ها</a> مدیریت می‌شوند.
+                                {% else %}
+                                Sites are managed via the <a href="/dashboard/sites" class="text-primary-400 hover:underline">My Sites</a> page.
+                                {% endif %}
+                            </p>
                             {% endif %}
                         </td>
                     </tr>

@@ -1,148 +1,29 @@
 """
-Project Manager
+Project Manager (Legacy)
 
-Discovers and manages project instances from environment variables.
-Handles plugin lifecycle and tool registration.
+Retained for backward compatibility with HealthMonitor.
+Sites are now managed via the web dashboard (DB-based).
 """
 
 import logging
-import os
-import re
 from typing import Any
 
-from plugins import BasePlugin, registry
+from plugins import BasePlugin
 
 logger = logging.getLogger(__name__)
 
 
 class ProjectManager:
     """
-    Manage multiple project instances.
+    Legacy project manager — retained for HealthMonitor compatibility.
 
-    Projects are discovered from environment variables:
-    - {PLUGIN_TYPE}_{PROJECT_ID}_{CONFIG_KEY}
-
-    Example:
-        WORDPRESS_SITE1_URL=https://example.com
-        WORDPRESS_SITE1_USERNAME=admin
-        WORDPRESS_SITE1_APP_PASSWORD=xxxx
-        WORDPRESS_SITE2_URL=https://other.com
-        ...
+    Sites are now managed via the web dashboard and stored in SQLite.
     """
 
     def __init__(self):
         """Initialize project manager."""
         self.projects: dict[str, BasePlugin] = {}
         self.logger = logging.getLogger("ProjectManager")
-
-    def discover_projects(self) -> None:
-        """
-        Discover projects from environment variables.
-
-        Scans environment for project configurations and creates
-        plugin instances.
-        """
-        self.logger.info("Starting project discovery...")
-
-        # Get all registered plugin types
-        plugin_types = registry.get_registered_types()
-
-        for plugin_type in plugin_types:
-            self._discover_plugin_type(plugin_type)
-
-        self.logger.info(f"Discovery complete. Found {len(self.projects)} projects.")
-
-    def _discover_plugin_type(self, plugin_type: str) -> None:
-        """
-        Discover all projects of a specific plugin type.
-
-        Args:
-            plugin_type: Type of plugin (e.g., 'wordpress')
-        """
-        prefix = plugin_type.upper() + "_"
-
-        # Build list of longer prefixes from other plugin types to avoid collisions.
-        # e.g. WORDPRESS_ must not match WORDPRESS_ADVANCED_ env vars.
-        plugin_types = registry.get_registered_types()
-        longer_prefixes = [
-            pt.upper() + "_"
-            for pt in plugin_types
-            if pt != plugin_type and pt.upper().startswith(plugin_type.upper() + "_")
-        ]
-
-        # Find all project IDs for this plugin type
-        project_ids = set()
-        env_pattern = re.compile(f"^{prefix}([A-Z0-9_]+?)_(.+)$")
-
-        for env_key in os.environ.keys():
-            # Skip env vars that belong to a more specific plugin type
-            if any(env_key.startswith(lp) for lp in longer_prefixes):
-                continue
-
-            match = env_pattern.match(env_key)
-            if match:
-                project_id = match.group(1).lower()
-                project_ids.add(project_id)
-
-        # Create plugin instance for each project
-        for project_id in project_ids:
-            try:
-                config = self._load_project_config(plugin_type, project_id)
-                if config:
-                    self._create_project_instance(plugin_type, project_id, config)
-            except Exception as e:
-                self.logger.debug(f"Legacy ProjectManager: skipped {plugin_type}/{project_id}: {e}")
-
-    def _load_project_config(self, plugin_type: str, project_id: str) -> dict[str, Any] | None:
-        """
-        Load configuration for a project from environment.
-
-        Args:
-            plugin_type: Plugin type
-            project_id: Project ID
-
-        Returns:
-            Dict with configuration or None if incomplete
-        """
-        prefix = f"{plugin_type.upper()}_{project_id.upper()}_"
-        config = {}
-
-        # Collect all config keys for this project
-        for env_key, env_value in os.environ.items():
-            if env_key.startswith(prefix):
-                # Extract config key (everything after prefix)
-                config_key = env_key[len(prefix) :].lower()
-                config[config_key] = env_value
-
-        if not config:
-            return None
-
-        self.logger.debug(f"Loaded config for {plugin_type}/{project_id}: {list(config.keys())}")
-        return config
-
-    def _create_project_instance(
-        self, plugin_type: str, project_id: str, config: dict[str, Any]
-    ) -> None:
-        """
-        Create a plugin instance for a project.
-
-        Args:
-            plugin_type: Plugin type
-            project_id: Project ID
-            config: Project configuration
-        """
-        try:
-            # Create plugin instance
-            plugin = registry.create_instance(plugin_type, project_id, config)
-
-            # Store with full identifier
-            full_id = f"{plugin_type}_{project_id}"
-            self.projects[full_id] = plugin
-
-            self.logger.info(f"Created project: {full_id}")
-
-        except Exception as e:
-            raise Exception(f"Failed to instantiate {plugin_type}/{project_id}: {e}")
 
     def get_project(self, full_id: str) -> BasePlugin | None:
         """
@@ -255,5 +136,4 @@ def get_project_manager() -> ProjectManager:
     global _project_manager
     if _project_manager is None:
         _project_manager = ProjectManager()
-        _project_manager.discover_projects()
     return _project_manager
