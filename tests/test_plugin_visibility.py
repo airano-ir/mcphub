@@ -78,11 +78,11 @@ class TestIsPluginPublic:
             os.environ.pop("ENABLED_PLUGINS", None)
             assert is_plugin_public("supabase") is True
 
-    def test_default_gitea_not_public(self):
-        """Gitea is not public by default."""
+    def test_default_gitea_public(self):
+        """Gitea is public by default (since F.16)."""
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("ENABLED_PLUGINS", None)
-            assert is_plugin_public("gitea") is False
+            assert is_plugin_public("gitea") is True
 
     def test_default_wordpress_advanced_not_public(self):
         """WordPress Advanced is not public by default."""
@@ -118,8 +118,9 @@ class TestSiteApiIntegration:
         assert "wordpress" in fields
         assert "woocommerce" in fields
         assert "supabase" in fields
+        assert "gitea" in fields
+        assert "openpanel" in fields
         assert "wordpress_advanced" not in fields
-        assert "gitea" not in fields
         assert "n8n" not in fields
 
     def test_get_user_plugin_names_filtered(self):
@@ -133,8 +134,9 @@ class TestSiteApiIntegration:
         assert "wordpress" in names
         assert "woocommerce" in names
         assert "supabase" in names
+        assert "gitea" in names
+        assert "openpanel" in names
         assert "wordpress_advanced" not in names
-        assert "gitea" not in names
 
     def test_custom_env_changes_fields(self):
         """Custom ENABLED_PLUGINS changes which credential fields are returned."""
