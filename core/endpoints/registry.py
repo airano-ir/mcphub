@@ -149,11 +149,7 @@ class EndpointRegistry:
             tool_count = 0
 
             if mcp:
-                # Try to get tool count from FastMCP
-                try:
-                    tool_count = len(mcp._tool_manager._tools)
-                except AttributeError:
-                    pass
+                tool_count = self.factory._tool_counts.get(path, 0)
 
             endpoints.append(
                 EndpointInfo(

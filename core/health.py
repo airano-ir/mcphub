@@ -23,7 +23,6 @@ from pathlib import Path
 from typing import Any
 
 from core.audit_log import AuditLogger
-from core.project_manager import ProjectManager
 from core.site_manager import SiteManager
 
 logger = logging.getLogger(__name__)
@@ -130,7 +129,6 @@ class HealthMonitor:
 
     def __init__(
         self,
-        project_manager: ProjectManager,
         audit_logger: AuditLogger | None = None,
         metrics_retention_hours: int = 24,
         max_metrics_per_project: int = 1000,
@@ -140,13 +138,11 @@ class HealthMonitor:
         Initialize health monitor.
 
         Args:
-            project_manager: Project manager instance
             audit_logger: Optional audit logger for logging health events
             metrics_retention_hours: Hours to retain historical metrics
             max_metrics_per_project: Maximum metrics to store per project
-            site_manager: Optional SiteManager for comprehensive site discovery
+            site_manager: SiteManager for site discovery
         """
-        self.project_manager = project_manager
         self.site_manager = site_manager
         self.audit_logger = audit_logger
         self.metrics_retention_hours = metrics_retention_hours
@@ -410,15 +406,7 @@ class HealthMonitor:
         start_time = time.time()
 
         try:
-            # Get plugin instance from ProjectManager
-            plugin = self.project_manager.projects.get(project_id)
-
-            if plugin:
-                # Perform health check via plugin instance
-                health_result = await plugin.health_check()
-            elif self.site_manager:
-                # Site exists in SiteManager but not legacy ProjectManager
-                # Create a temporary plugin instance for a proper health check
+            if self.site_manager:
                 health_result = await self._site_manager_health_check(project_id)
             else:
                 return ProjectHealthStatus(
@@ -524,7 +512,7 @@ class HealthMonitor:
 
     async def _site_manager_health_check(self, project_id: str) -> dict[str, Any]:
         """
-        Health check for sites managed by SiteManager (not in legacy ProjectManager).
+        Health check for a site via SiteManager.
 
         Creates a temporary plugin instance and calls its health_check() method,
         falling back to a basic HTTP check if plugin instantiation fails.
@@ -650,8 +638,8 @@ class HealthMonitor:
         """
         health_statuses = {}
 
-        # Collect all known project/site IDs from both sources
-        all_project_ids = set(self.project_manager.projects.keys())
+        # Collect all known site IDs from SiteManager
+        all_project_ids = set()
         if self.site_manager:
             for site_info in self.site_manager.list_all_sites():
                 all_project_ids.add(site_info["full_id"])
@@ -860,7 +848,6 @@ def get_health_monitor() -> HealthMonitor | None:
 
 
 def initialize_health_monitor(
-    project_manager: ProjectManager,
     audit_logger: AuditLogger | None = None,
     site_manager: SiteManager | None = None,
     **kwargs,
@@ -869,16 +856,13 @@ def initialize_health_monitor(
     Initialize the global health monitor.
 
     Args:
-        project_manager: Project manager instance
         audit_logger: Optional audit logger
-        site_manager: Optional SiteManager for comprehensive site discovery
+        site_manager: SiteManager for site discovery
         **kwargs: Additional configuration options
 
     Returns:
         HealthMonitor instance
     """
     global _health_monitor
-    _health_monitor = HealthMonitor(
-        project_manager, audit_logger, site_manager=site_manager, **kwargs
-    )
+    _health_monitor = HealthMonitor(audit_logger=audit_logger, site_manager=site_manager, **kwargs)
     return _health_monitor

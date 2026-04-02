@@ -48,6 +48,7 @@ class MCPEndpointFactory:
         self.tool_registry = tool_registry
         self.middleware_classes = middleware_classes or []
         self.endpoints: dict[str, FastMCP] = {}
+        self._tool_counts: dict[str, int] = {}
         self._tool_handlers: dict[str, Callable] = {}
 
     def register_tool_handler(self, tool_name: str, handler: Callable):
@@ -92,8 +93,9 @@ class MCPEndpointFactory:
             for middleware in custom_middleware:
                 mcp.add_middleware(middleware)
 
-        # Store endpoint
+        # Store endpoint and tool count
         self.endpoints[config.path] = mcp
+        self._tool_counts[config.path] = len(tools)
 
         logger.info(f"  - Endpoint {config.path} created successfully")
 
@@ -282,9 +284,7 @@ class MCPEndpointFactory:
         """
         info = []
         for path, mcp in self.endpoints.items():
-            # Get tool count
-            # Note: This requires accessing FastMCP internals
-            tool_count = len(mcp._tool_manager._tools) if hasattr(mcp, "_tool_manager") else 0
+            tool_count = self._tool_counts.get(path, 0)
 
             info.append(
                 {

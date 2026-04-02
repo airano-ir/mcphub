@@ -24,7 +24,7 @@ if sys.platform == "win32":
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from core import AuditLogger, ProjectManager, initialize_health_monitor
+from core import AuditLogger, initialize_health_monitor
 
 
 async def test_health_monitor():
@@ -35,11 +35,9 @@ async def test_health_monitor():
 
     # Initialize components
     print("\n1. Initializing components...")
-    project_manager = ProjectManager()
     audit_logger = AuditLogger()
 
     health_monitor = initialize_health_monitor(
-        project_manager=project_manager,
         audit_logger=audit_logger,
         metrics_retention_hours=24,
         max_metrics_per_project=1000,

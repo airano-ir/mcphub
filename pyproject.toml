@@ -1,6 +1,6 @@
 [project]
 name = "mcphub-server"
-version = "3.4.0"
+version = "3.5.0"
 description = "AI-native management hub for WordPress, WooCommerce, and self-hosted services via Model Context Protocol (MCP)"
 authors = [
     {name = "MCP Hub", email = "contact@mcphub.dev"}
@@ -28,7 +28,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "fastmcp>=2.14.0,<3.0.0",
+    "fastmcp>=3.0.0,<4.0.0",
     "httpx>=0.25.0",
     "aiohttp>=3.9.0",
     "pydantic>=2.5.0",
@@ -69,7 +69,7 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = ["server", "server_multi"]
+py-modules = ["server"]
 
 [tool.setuptools.packages.find]
 include = ["core*", "plugins*"]
@@ -208,7 +208,6 @@ unfixable = []
 "tests/*" = ["S101", "B007"]
 "tests/legacy/*" = ["E402", "B007", "F401"]
 "server.py" = ["E402", "F405", "F403", "UP045", "B023"]  # Late imports + star imports + dynamic types
-"server_multi.py" = ["E402", "F405", "F403", "UP045"]
 "core/__init__.py" = ["F401", "F403"]  # Re-exports
 "plugins/__init__.py" = ["F401"]
 "plugins/*/__init__.py" = ["F401", "F403", "F405"]

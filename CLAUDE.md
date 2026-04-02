@@ -69,7 +69,6 @@ All configured in `pyproject.toml`:
 
 ```
 ├── server.py              # Primary entry point
-├── server_multi.py        # Alternative multi-endpoint server
 ├── core/                  # Layer 1: Core system modules
 ├── plugins/               # Layer 2: Plugin system (9 plugins)
 ├── core/templates/        # Jinja2 templates (dashboard + OAuth)
@@ -93,8 +92,6 @@ Layer 3: API & Web UI   (server.py + core/dashboard/) — FastMCP server, Starle
 ### Entry Points
 
 - **`server.py`** (~3500 lines) — Primary entry point. Handles FastMCP server, Starlette routes, middleware, plugins.
-- **`server_multi.py`** — Alternative multi-endpoint server (legacy, predates unified `server.py` endpoints).
-
 ### Multi-Endpoint Architecture
 
 ```
@@ -171,10 +168,6 @@ Web UI at the server root, built with Starlette + Jinja2 + HTMX + Tailwind CSS. 
 **Admin pages**: Login, Home, Projects, API Keys, OAuth Clients, Audit Logs, Health, Settings.
 **User pages**: Login (OAuth), Home, My Sites (list/add/edit/test/delete), Connect (API keys + config snippets + OAuth clients), Profile.
 
-### Legacy Modules (Deprecated)
-
-`core/project_manager.py` (retained for HealthMonitor compatibility), `core/site_registry.py`, `core/unified_tools.py` — kept for backward compatibility. New code should use `SiteManager`, `ToolRegistry`, and `ToolGenerator` instead.
-
 ## Commit Style
 
 ```
@@ -197,7 +190,6 @@ v4 development cycle with 15 phases. See `docs/ROADMAP.md` (Track F) and `.claud
 ## Gotchas
 
 - Test files exist in both `tests/` (proper) and root directory (legacy `test_*.py`). Run `pytest tests/` for organized tests only.
-- `server_multi.py` is the alternative multi-endpoint entry point; `server.py` is the primary
 - `wordpress-plugin/` contains companion WP plugins (openpanel, airano-mcp-seo-bridge) — these are PHP, not Python
 - `env.example` has "FUTURE" labels for Supabase/Gitea but both are fully implemented
 - 4 plugins are tested for public use: WordPress, WooCommerce, Supabase, OpenPanel. Others are admin-only or disabled.

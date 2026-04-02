@@ -850,9 +850,7 @@ async def get_all_projects(
         is_admin = False
         current_user_id = None
         if user_session:
-            if hasattr(user_session, "user_type") and user_session.user_type == "master":
-                is_admin = True
-            elif isinstance(user_session, dict) and user_session.get("role") == "admin":
+            if hasattr(user_session, "user_type") and user_session.user_type == "master" or isinstance(user_session, dict) and user_session.get("role") == "admin":
                 is_admin = True
             elif isinstance(user_session, dict) and "user_id" in user_session:
                 current_user_id = user_session["user_id"]

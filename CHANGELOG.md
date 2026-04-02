@@ -5,6 +5,25 @@ All notable changes to MCP Hub will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.5.0] — 2026-04-02
+
+### FastMCP Upgrade & Legacy Cleanup (Track F.15)
+
+Major cleanup release: upgraded to FastMCP 3.x, removed all legacy modules, and simplified the architecture.
+
+#### Changed
+- **FastMCP 3.x**: Upgraded from `fastmcp>=2.14.0,<3.0.0` to `fastmcp>=3.0.0,<4.0.0`
+- **HealthMonitor refactored**: Removed `ProjectManager` dependency — now uses `SiteManager` exclusively for site discovery and health checks
+- **Endpoint introspection**: Replaced internal `_tool_manager._tools` access with tracked `_tool_counts` dict in `MCPEndpointFactory`
+
+#### Removed
+- **`server_multi.py`**: Legacy multi-endpoint server entry point (replaced by unified `server.py` since v3.0)
+- **`core/project_manager.py`**: Legacy project manager shell — HealthMonitor no longer depends on it
+- **Legacy exports**: Removed `ProjectManager` and `get_project_manager` from `core/__init__.py`
+- References from `pyproject.toml` (py-modules, ruff per-file-ignores), community build script, and documentation
+
+---
+
 ## [3.4.0] — 2026-03-31
 
 ### OpenPanel Plugin — Public Release (Track F.10)

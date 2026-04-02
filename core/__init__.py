@@ -37,14 +37,9 @@ from core.health import (
     initialize_health_monitor,
 )
 
-# Project and Site Management
-from core.project_manager import ProjectManager, get_project_manager
-
 # Rate Limiting
 from core.rate_limiter import RateLimitConfig, RateLimiter, get_rate_limiter
 from core.site_manager import SiteConfig, SiteManager, get_site_manager
-
-# Legacy (kept for backward compatibility, will be removed in v2.0)
 from core.tool_generator import ToolGenerator
 
 # Tool Management (Option B architecture)
@@ -56,9 +51,7 @@ __all__ = [
     "get_auth_manager",
     "APIKeyManager",
     "get_api_key_manager",
-    # Project/Site Management
-    "ProjectManager",
-    "get_project_manager",
+    # Site Management
     "SiteManager",
     "SiteConfig",
     "get_site_manager",

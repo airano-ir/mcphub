@@ -1,6 +1,5 @@
 """Tests for Admin System Unification (F.4)."""
 
-
 from core.dashboard.auth import (
     DashboardSession,
     get_session_display_info,

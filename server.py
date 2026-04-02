@@ -51,7 +51,6 @@ from core import (
     get_api_key_manager,
     get_audit_logger,
     get_auth_manager,
-    get_project_manager,
     get_rate_limiter,
     # Core architecture modules
     get_site_manager,
@@ -67,6 +66,8 @@ from core.dashboard.routes import (
     api_get_config,
     api_list_keys,
     api_list_sites,
+    # K.5: Settings routes
+    api_save_setting,
     api_test_site,
     api_update_site,
     # E.2: OAuth Social Login routes
@@ -108,8 +109,6 @@ from core.dashboard.routes import (
     # F.3: Service pages
     dashboard_service_page,
     dashboard_services_list,
-    # K.5: Settings routes
-    api_save_setting,
     dashboard_settings_page,
     # E.3: Site Management pages
     dashboard_sites_add,
@@ -299,7 +298,6 @@ logger.info("Jinja2 template engine initialized")
 # Initialize managers
 auth_manager = get_auth_manager()
 api_key_manager = get_api_key_manager()
-project_manager = get_project_manager()
 audit_logger = get_audit_logger()
 csrf_manager = get_csrf_manager()
 
@@ -1106,7 +1104,6 @@ from core import initialize_health_monitor
 
 # Initialize health monitor
 health_monitor = initialize_health_monitor(
-    project_manager=project_manager,
     audit_logger=audit_logger,
     site_manager=site_manager,
     metrics_retention_hours=24,
@@ -1385,15 +1382,11 @@ async def get_project_info(project_id: str) -> str:
     import json
 
     try:
-        # Try legacy ProjectManager first
-        info = project_manager.get_project_info(project_id)
-
-        # Fallback to SiteManager if legacy finds nothing
-        if info is None:
-            for site_data in site_manager.list_all_sites():
-                if site_data["full_id"] == project_id:
-                    info = site_data
-                    break
+        info = None
+        for site_data in site_manager.list_all_sites():
+            if site_data["full_id"] == project_id:
+                info = site_data
+                break
 
         if info is None:
             return f"Project '{project_id}' not found. Use list_projects to see available projects."
@@ -3783,12 +3776,11 @@ Use get_endpoints() to see all available MCP endpoints."""
         import json
 
         try:
-            info = project_manager.get_project_info(project_id)
-            if info is None:
-                for site_data in site_manager.list_all_sites():
-                    if site_data["full_id"] == project_id:
-                        info = site_data
-                        break
+            info = None
+            for site_data in site_manager.list_all_sites():
+                if site_data["full_id"] == project_id:
+                    info = site_data
+                    break
             if info is None:
                 return f"Project '{project_id}' not found. Use list_projects to see available projects."
             return json.dumps(info, indent=2)
