@@ -1,0 +1,36 @@
+{
+  "$schema": "https://glama.ai/mcp/schemas/server.json",
+  "maintainers": ["airano-ir"],
+  "name": "mcphub",
+  "display_name": "MCP Hub",
+  "description": "Unified MCP server for managing WordPress, WooCommerce, Gitea, n8n, Supabase, OpenPanel, Appwrite, and Directus with 565 tools, multi-site support, and OAuth 2.1 authentication.",
+  "repository": "https://github.com/airano-ir/mcphub",
+  "homepage": "https://mcp.palebluedot.live",
+  "version": "3.5.0",
+  "license": "MIT",
+  "runtime": "python",
+  "transport": ["stdio", "streamable-http"],
+  "categories": ["developer-tools", "cms", "databases", "automation"],
+  "keywords": ["mcp", "wordpress", "woocommerce", "supabase", "gitea", "n8n", "openpanel", "appwrite", "directus", "self-hosted", "multi-site"],
+  "author": {
+    "name": "airano-ir",
+    "url": "https://github.com/airano-ir"
+  },
+  "capabilities": {
+    "tools": true,
+    "prompts": false,
+    "resources": false
+  },
+  "relatedServers": [
+    {
+      "name": "WordPress MCP",
+      "url": "https://glama.ai/mcp/servers/developer-in-world/wordpress-mcp",
+      "description": "WordPress REST API MCP server"
+    },
+    {
+      "name": "Supabase MCP",
+      "url": "https://glama.ai/mcp/servers/supabase-community/supabase-mcp",
+      "description": "Official Supabase MCP server"
+    }
+  ]
+}
