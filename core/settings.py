@@ -3,7 +3,7 @@
 Usage:
     from core.settings import get_setting
 
-    enabled = await get_setting("ENABLED_PLUGINS", "wordpress,woocommerce,supabase,openpanel")
+    enabled = await get_setting("ENABLED_PLUGINS", "wordpress,woocommerce,supabase,openpanel,gitea")
     max_sites = int(await get_setting("MAX_SITES_PER_USER", "10"))
 """
 
@@ -17,7 +17,7 @@ _cached_plugins: set[str] | None = None
 
 # Default values for all managed settings
 SETTING_DEFAULTS: dict[str, str] = {
-    "ENABLED_PLUGINS": "wordpress,woocommerce,supabase,openpanel",
+    "ENABLED_PLUGINS": "wordpress,woocommerce,supabase,openpanel,gitea",
     "MAX_SITES_PER_USER": "10",
     "USER_RATE_LIMIT_PER_MIN": "30",
     "USER_RATE_LIMIT_PER_HR": "500",

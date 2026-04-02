@@ -295,6 +295,25 @@ def get_tool_specifications() -> list[dict[str, Any]]:
             },
             "scope": "write",
         },
+        {
+            "name": "delete_label",
+            "method_name": "delete_label",
+            "description": "Delete a label from a repository.",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "owner": {"type": "string", "description": "Repository owner", "minLength": 1},
+                    "repo": {"type": "string", "description": "Repository name", "minLength": 1},
+                    "label_id": {
+                        "type": "integer",
+                        "description": "Label ID to delete",
+                        "minimum": 1,
+                    },
+                },
+                "required": ["owner", "repo", "label_id"],
+            },
+            "scope": "write",
+        },
         # === MILESTONES ===
         {
             "name": "list_milestones",
@@ -496,6 +515,13 @@ async def create_label(
     data = {"name": name, "color": color, "description": description}
     label = await client.create_label(owner, repo, data)
     result = {"success": True, "message": f"Label '{name}' created successfully", "label": label}
+    return json.dumps(result, indent=2)
+
+
+async def delete_label(client: GiteaClient, owner: str, repo: str, label_id: int) -> str:
+    """Delete a label"""
+    await client.delete_label(owner, repo, label_id)
+    result = {"success": True, "message": f"Label {label_id} deleted successfully"}
     return json.dumps(result, indent=2)
 
 

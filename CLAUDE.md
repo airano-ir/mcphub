@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**MCP Hub** — a Python MCP (Model Context Protocol) server that manages multiple self-hosted services through a unified plugin architecture. Supports 9 plugin types (WordPress, WooCommerce, WordPress Advanced, Gitea, n8n, Supabase, OpenPanel, Appwrite, Directus) with 565 tools total. The tool count stays constant regardless of how many sites are configured.
+**MCP Hub** — a Python MCP (Model Context Protocol) server that manages multiple self-hosted services through a unified plugin architecture. Supports 9 plugin types (WordPress, WooCommerce, WordPress Advanced, Gitea, n8n, Supabase, OpenPanel, Appwrite, Directus) with 567 tools total. The tool count stays constant regardless of how many sites are configured.
 
 ## Quick Setup
 
@@ -185,14 +185,14 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 
 v4 development cycle with 15 phases. See `docs/ROADMAP.md` (Track F) and `.claude/plans/structured-popping-adleman.md` for full plan.
 
-**Active plugins for public users**: WordPress, WooCommerce, Supabase, OpenPanel (configurable via `ENABLED_PLUGINS` env var)
+**Active plugins for public users**: WordPress, WooCommerce, Supabase, OpenPanel, Gitea (configurable via `ENABLED_PLUGINS` env var)
 
 ## Gotchas
 
 - Test files exist in both `tests/` (proper) and root directory (legacy `test_*.py`). Run `pytest tests/` for organized tests only.
 - `wordpress-plugin/` contains companion WP plugins (openpanel, airano-mcp-seo-bridge) — these are PHP, not Python
 - `env.example` has "FUTURE" labels for Supabase/Gitea but both are fully implemented
-- 4 plugins are tested for public use: WordPress, WooCommerce, Supabase, OpenPanel. Others are admin-only or disabled.
+- 5 plugins are tested for public use: WordPress, WooCommerce, Supabase, OpenPanel, Gitea. Others are admin-only or disabled.
 - OAuth Clients (Client ID/Secret) are for MCP endpoint auth, NOT the same as GitHub/Google dashboard login
 - All sites stored in SQLite (`core/database.py`), managed via web dashboard
 - Dashboard templates live in `core/templates/` (included in pip package as `package_data`)
@@ -208,4 +208,4 @@ v4 development cycle with 15 phases. See `docs/ROADMAP.md` (Track F) and `.claud
 - Required env vars: `MASTER_API_KEY`, `OAUTH_JWT_SECRET_KEY`, `OAUTH_BASE_URL`
 - OAuth env vars: `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `PUBLIC_URL`
 - User limits: `MAX_SITES_PER_USER=10`, `USER_RATE_LIMIT_PER_MIN=30`, `USER_RATE_LIMIT_PER_HR=500`
-- Plugin visibility: `ENABLED_PLUGINS=wordpress,woocommerce,supabase,openpanel` (default)
+- Plugin visibility: `ENABLED_PLUGINS=wordpress,woocommerce,supabase,openpanel,gitea` (default)

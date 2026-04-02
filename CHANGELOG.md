@@ -5,6 +5,24 @@ All notable changes to MCP Hub will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.6.0] — 2026-04-02
+
+### Gitea Plugin — Public Release (Track F.16)
+
+Gitea plugin fully reviewed, tested, and published for public use. Two missing tools added, comprehensive test suite created.
+
+#### Added
+- **`update_webhook` tool**: Update existing webhook configuration, events, and active status (admin scope)
+- **`delete_label` tool**: Delete labels from repositories (write scope)
+- **`tests/test_gitea_plugin.py`**: Comprehensive test suite — 85+ tests covering client init, headers, tool specs, all 5 handler groups, health check, and plugin delegation
+
+#### Changed
+- **Gitea plugin now public**: Added `gitea` to `DEFAULT_PUBLIC_PLUGINS` — available to all OAuth users
+- **Tool count**: 565 → 567 (added update_webhook + delete_label)
+- **env.example**: Updated default `ENABLED_PLUGINS` to include `gitea`
+
+---
+
 ## [3.5.0] — 2026-04-02
 
 ### FastMCP Upgrade & Legacy Cleanup (Track F.15)

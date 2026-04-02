@@ -159,6 +159,79 @@ def get_tool_specifications() -> list[dict[str, Any]]:
             },
             "scope": "read",
         },
+        {
+            "name": "update_webhook",
+            "method_name": "update_webhook",
+            "description": "Update an existing webhook's configuration, events, or active status.",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "owner": {"type": "string", "description": "Repository owner", "minLength": 1},
+                    "repo": {"type": "string", "description": "Repository name", "minLength": 1},
+                    "webhook_id": {
+                        "type": "integer",
+                        "description": "Webhook ID to update",
+                        "minimum": 1,
+                    },
+                    "url": {
+                        "anyOf": [{"type": "string", "format": "uri"}, {"type": "null"}],
+                        "description": "New webhook URL",
+                    },
+                    "events": {
+                        "anyOf": [
+                            {
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "enum": [
+                                        "create",
+                                        "delete",
+                                        "fork",
+                                        "push",
+                                        "issues",
+                                        "issue_assign",
+                                        "issue_label",
+                                        "issue_milestone",
+                                        "issue_comment",
+                                        "pull_request",
+                                        "pull_request_assign",
+                                        "pull_request_label",
+                                        "pull_request_milestone",
+                                        "pull_request_comment",
+                                        "pull_request_review_approved",
+                                        "pull_request_review_rejected",
+                                        "pull_request_review_comment",
+                                        "pull_request_sync",
+                                        "wiki",
+                                        "repository",
+                                        "release",
+                                    ],
+                                },
+                            },
+                            {"type": "null"},
+                        ],
+                        "description": "Updated list of events to trigger webhook",
+                    },
+                    "content_type": {
+                        "anyOf": [
+                            {"type": "string", "enum": ["json", "form"]},
+                            {"type": "null"},
+                        ],
+                        "description": "Content type for webhook payload",
+                    },
+                    "secret": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Secret for webhook signature verification",
+                    },
+                    "active": {
+                        "anyOf": [{"type": "boolean"}, {"type": "null"}],
+                        "description": "Activate or deactivate webhook",
+                    },
+                },
+                "required": ["owner", "repo", "webhook_id"],
+            },
+            "scope": "admin",
+        },
     ]
 
 
@@ -219,4 +292,41 @@ async def get_webhook(client: GiteaClient, owner: str, repo: str, webhook_id: in
     """Get webhook details"""
     webhook = await client.get_webhook(owner, repo, webhook_id)
     result = {"success": True, "webhook": webhook}
+    return json.dumps(result, indent=2)
+
+
+async def update_webhook(
+    client: GiteaClient,
+    owner: str,
+    repo: str,
+    webhook_id: int,
+    url: str | None = None,
+    events: list[str] | None = None,
+    content_type: str | None = None,
+    secret: str | None = None,
+    active: bool | None = None,
+) -> str:
+    """Update a webhook"""
+    data: dict = {}
+    if events is not None:
+        data["events"] = events
+    if active is not None:
+        data["active"] = active
+
+    config: dict = {}
+    if url is not None:
+        config["url"] = url
+    if content_type is not None:
+        config["content_type"] = content_type
+    if secret is not None:
+        config["secret"] = secret
+    if config:
+        data["config"] = config
+
+    webhook = await client.update_webhook(owner, repo, webhook_id, data)
+    result = {
+        "success": True,
+        "message": f"Webhook {webhook_id} updated successfully",
+        "webhook": webhook,
+    }
     return json.dumps(result, indent=2)

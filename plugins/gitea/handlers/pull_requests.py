@@ -526,12 +526,13 @@ async def merge_pull_request(
     delete_branch_after_merge: bool = False,
 ) -> str:
     """Merge a pull request"""
-    data = {
-        "Do": method,
-        "MergeTitleField": title,
-        "MergeMessageField": message,
-        "delete_branch_after_merge": delete_branch_after_merge,
-    }
+    data: dict = {"Do": method}
+    if title is not None:
+        data["MergeTitleField"] = title
+    if message is not None:
+        data["MergeMessageField"] = message
+    if delete_branch_after_merge:
+        data["delete_branch_after_merge"] = True
     merge_result = await client.merge_pull_request(owner, repo, pr_number, data)
     result = {
         "success": True,

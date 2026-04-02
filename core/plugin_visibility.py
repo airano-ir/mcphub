@@ -8,14 +8,14 @@ Usage:
     from core.plugin_visibility import get_public_plugin_types, is_plugin_public
 
     public_types = get_public_plugin_types()  # {"wordpress", "woocommerce", "supabase"}
-    if is_plugin_public("gitea"):  # False
+    if is_plugin_public("gitea"):  # True
         ...
 """
 
 import os
 
 # Default plugins available to public (OAuth) users
-DEFAULT_PUBLIC_PLUGINS = {"wordpress", "woocommerce", "supabase", "openpanel"}
+DEFAULT_PUBLIC_PLUGINS = {"wordpress", "woocommerce", "supabase", "openpanel", "gitea"}
 
 
 def _parse_plugins(val: str) -> set[str]:
