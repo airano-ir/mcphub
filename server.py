@@ -1885,6 +1885,24 @@ def register_project_tools():
     except Exception as e:
         logger.error(f"Failed to generate Directus tools: {e}", exc_info=True)
 
+    # Generate tools for Coolify (Phase F.17 - Deployment Management)
+    logger.info("Generating Coolify tools from plugin specifications...")
+    try:
+        from plugins.coolify.plugin import CoolifyPlugin
+
+        coolify_tools = tool_generator.generate_tools(CoolifyPlugin, "coolify")
+        logger.info(f"Generated {len(coolify_tools)} Coolify tools from ToolGenerator")
+
+        # Register Coolify tools in ToolRegistry
+        for tool_def in coolify_tools:
+            try:
+                tool_registry.register(tool_def)
+            except Exception as e:
+                logger.error(f"Failed to register Coolify tool {tool_def.name}: {e}")
+
+    except Exception as e:
+        logger.error(f"Failed to generate Coolify tools: {e}", exc_info=True)
+
     logger.info(f"Registered {tool_registry.get_count()} tools in ToolRegistry")
 
     # Register tools with FastMCP

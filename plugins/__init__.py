@@ -11,6 +11,7 @@ v2.3.0 (Phase G): Supabase Self-Hosted Plugin added
 
 from plugins.appwrite.plugin import AppwritePlugin
 from plugins.base import BasePlugin, PluginRegistry
+from plugins.coolify.plugin import CoolifyPlugin
 from plugins.directus.plugin import DirectusPlugin
 from plugins.gitea.plugin import GiteaPlugin
 from plugins.n8n.plugin import N8nPlugin
@@ -33,6 +34,7 @@ registry.register("supabase", SupabasePlugin)
 registry.register("openpanel", OpenPanelPlugin)
 registry.register("appwrite", AppwritePlugin)
 registry.register("directus", DirectusPlugin)
+registry.register("coolify", CoolifyPlugin)
 
 __all__ = [
     "BasePlugin",
@@ -47,4 +49,5 @@ __all__ = [
     "OpenPanelPlugin",
     "AppwritePlugin",
     "DirectusPlugin",
+    "CoolifyPlugin",
 ]

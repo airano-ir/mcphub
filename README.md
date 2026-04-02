@@ -13,8 +13,8 @@ Connect your sites, stores, repos, and databases — manage them all through Cla
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776ab.svg)](https://www.python.org/)
 [![PyPI](https://img.shields.io/pypi/v/mcphub-server.svg)](https://pypi.org/project/mcphub-server/)
 [![Docker](https://img.shields.io/docker/v/airano/mcphub?label=docker)](https://hub.docker.com/r/airano/mcphub)
-[![Tests: 481 passing](https://img.shields.io/badge/tests-481%20passing-brightgreen.svg)]()
-[![Tools: 565](https://img.shields.io/badge/tools-565-orange.svg)]()
+[![Tests: 686 passing](https://img.shields.io/badge/tests-686%20passing-brightgreen.svg)]()
+[![Tools: 596](https://img.shields.io/badge/tools-596-orange.svg)]()
 [![CI](https://github.com/airano-ir/mcphub/actions/workflows/ci.yml/badge.svg)](https://github.com/airano-ir/mcphub/actions/workflows/ci.yml)
 
 </div>
@@ -25,7 +25,7 @@ Connect your sites, stores, repos, and databases — manage them all through Cla
 
 WordPress powers 43% of the web. WooCommerce runs 36% of online stores. Yet **no MCP server existed** for managing them through AI — until now.
 
-MCP Hub is the first MCP server that lets you manage WordPress, WooCommerce, and 7 other self-hosted services through any AI assistant. Instead of clicking through dashboards, just tell your AI what to do:
+MCP Hub is the first MCP server that lets you manage WordPress, WooCommerce, and 8 other self-hosted services through any AI assistant. Instead of clicking through dashboards, just tell your AI what to do:
 
 > *"Update the SEO meta description for all WooCommerce products that don't have one"*
 >
@@ -62,8 +62,9 @@ MCP Hub is the first MCP server that lets you manage WordPress, WooCommerce, and
 | **OpenPanel** | 42 | Events, export, insights, profiles, projects, system |
 | **Appwrite** | 100 | Databases, auth, storage, functions, teams, messaging |
 | **Directus** | 100 | Collections, items, users, files, flows, permissions |
+| **Coolify** | 30 | Applications, deployments, servers, env vars, logs |
 | **System** | 24 | Health monitoring, API keys, OAuth management, audit |
-| **Total** | **565** | Constant count — scales to unlimited sites |
+| **Total** | **596** | Constant count — scales to unlimited sites |
 
 ---
 
@@ -164,6 +165,7 @@ MASTER_API_KEY=your-secure-key-here
 | OpenPanel | URL, Client ID, Client Secret | OpenPanel Dashboard → Project Settings |
 | Appwrite | URL, API Key, Project ID | Appwrite Console → Settings → API Keys |
 | Directus | URL, Static Token | Directus Admin → Settings |
+| Coolify | URL, API Token | Coolify → Keys & Tokens → API tokens |
 
 </details>
 
@@ -276,11 +278,12 @@ MCP Hub supports **Open Dynamic Client Registration** (RFC 7591). ChatGPT can au
 /openpanel/mcp              → OpenPanel tools (42 tools)
 /appwrite/mcp               → Appwrite tools (100 tools)
 /directus/mcp               → Directus tools (100 tools)
+/coolify/mcp                → Coolify tools (30 tools)
 /project/{alias}/mcp        → Per-project endpoint (auto-injects site)
 /u/{user_id}/{alias}/mcp    → Per-user endpoint (hosted/OAuth users)
 ```
 
-**Recommendation**: Use plugin-specific endpoints instead of `/mcp` (565 tools) to minimize token usage.
+**Recommendation**: Use plugin-specific endpoints instead of `/mcp` (596 tools) to minimize token usage.
 
 | Endpoint | Use Case | Tools |
 |----------|----------|------:|

@@ -207,6 +207,15 @@ PLUGIN_CREDENTIAL_FIELDS: dict[str, list[dict[str, Any]]] = {
             "hint": "Directus → Settings → User → Static Token",
         },
     ],
+    "coolify": [
+        {
+            "name": "token",
+            "label": "API Token",
+            "type": "password",
+            "required": True,
+            "hint": "Coolify → Keys & Tokens → API tokens → Create",
+        },
+    ],
 }
 
 # Plugin display names for UI
@@ -220,6 +229,7 @@ PLUGIN_DISPLAY_NAMES: dict[str, str] = {
     "openpanel": "OpenPanel",
     "appwrite": "Appwrite",
     "directus": "Directus",
+    "coolify": "Coolify",
 }
 
 # Health check endpoints per plugin type
@@ -233,6 +243,7 @@ _HEALTH_ENDPOINTS: dict[str, dict[str, Any]] = {
     "openpanel": {"path": "/healthcheck", "method": "GET"},
     "appwrite": {"path": "/v1/health", "method": "GET"},
     "directus": {"path": "/server/health", "method": "GET"},
+    "coolify": {"path": "/api/v1/version", "method": "GET"},
 }
 
 
@@ -354,7 +365,7 @@ async def validate_site_connection(
     elif plugin_type == "appwrite":
         headers["X-Appwrite-Project"] = credentials.get("project_id", "")
         headers["X-Appwrite-Key"] = credentials.get("api_key", "")
-    elif plugin_type == "directus":
+    elif plugin_type in ("directus", "coolify"):
         headers["Authorization"] = f"Bearer {credentials.get('token', '')}"
     elif plugin_type == "openpanel":
         headers["openpanel-client-id"] = credentials.get("client_id", "")

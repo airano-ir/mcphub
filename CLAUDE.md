@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**MCP Hub** — a Python MCP (Model Context Protocol) server that manages multiple self-hosted services through a unified plugin architecture. Supports 9 plugin types (WordPress, WooCommerce, WordPress Advanced, Gitea, n8n, Supabase, OpenPanel, Appwrite, Directus) with 567 tools total. The tool count stays constant regardless of how many sites are configured.
+**MCP Hub** — a Python MCP (Model Context Protocol) server that manages multiple self-hosted services through a unified plugin architecture. Supports 10 plugin types (WordPress, WooCommerce, WordPress Advanced, Gitea, n8n, Supabase, OpenPanel, Appwrite, Directus, Coolify) with 597 tools total. The tool count stays constant regardless of how many sites are configured.
 
 ## Quick Setup
 
@@ -116,7 +116,7 @@ plugins/{name}/
 └── schemas/        # Pydantic models for validation
 ```
 
-**Registered plugins**: wordpress, woocommerce, wordpress_advanced, gitea, n8n, supabase, openpanel, appwrite, directus
+**Registered plugins**: wordpress, woocommerce, wordpress_advanced, gitea, n8n, supabase, openpanel, appwrite, directus, coolify
 
 **Plugin visibility** (Track F.1): Public users only see plugins listed in `ENABLED_PLUGINS` env var (default: `wordpress,woocommerce,supabase`). Admin sees all. Controlled by `core/plugin_visibility.py`.
 
