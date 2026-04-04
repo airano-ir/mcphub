@@ -267,3 +267,163 @@ class CoolifyClient:
     async def validate_server(self, uuid: str) -> dict:
         """Validate server connectivity and configuration."""
         return await self.request("GET", f"servers/{uuid}/validate")
+
+    # --- Projects ---
+
+    async def list_projects(self) -> list[dict]:
+        """List all projects."""
+        return await self.request("GET", "projects")
+
+    async def get_project(self, uuid: str) -> dict:
+        """Get project by UUID."""
+        return await self.request("GET", f"projects/{uuid}")
+
+    async def create_project(self, data: dict) -> dict:
+        """Create a new project."""
+        return await self.request("POST", "projects", json_data=data)
+
+    async def update_project(self, uuid: str, data: dict) -> dict:
+        """Update project by UUID."""
+        return await self.request("PATCH", f"projects/{uuid}", json_data=data)
+
+    async def delete_project(self, uuid: str) -> dict:
+        """Delete project by UUID."""
+        return await self.request("DELETE", f"projects/{uuid}")
+
+    # --- Environments ---
+
+    async def list_environments(self, project_uuid: str) -> list[dict]:
+        """List environments in a project."""
+        return await self.request("GET", f"projects/{project_uuid}/environments")
+
+    async def get_environment(self, project_uuid: str, environment_name: str) -> dict:
+        """Get environment by name."""
+        return await self.request("GET", f"projects/{project_uuid}/environments/{environment_name}")
+
+    async def create_environment(self, project_uuid: str, data: dict) -> dict:
+        """Create environment in a project."""
+        return await self.request("POST", f"projects/{project_uuid}/environments", json_data=data)
+
+    # --- Databases ---
+
+    async def list_databases(self) -> list[dict]:
+        """List all databases."""
+        return await self.request("GET", "databases")
+
+    async def get_database(self, uuid: str) -> dict:
+        """Get database by UUID."""
+        return await self.request("GET", f"databases/{uuid}")
+
+    async def update_database(self, uuid: str, data: dict) -> dict:
+        """Update database by UUID."""
+        return await self.request("PATCH", f"databases/{uuid}", json_data=data)
+
+    async def delete_database(
+        self,
+        uuid: str,
+        delete_configurations: bool = True,
+        delete_volumes: bool = True,
+        docker_cleanup: bool = True,
+    ) -> dict:
+        """Delete database by UUID."""
+        params = {
+            "delete_configurations": str(delete_configurations).lower(),
+            "delete_volumes": str(delete_volumes).lower(),
+            "docker_cleanup": str(docker_cleanup).lower(),
+        }
+        return await self.request("DELETE", f"databases/{uuid}", params=params)
+
+    async def start_database(self, uuid: str) -> dict:
+        """Start database."""
+        return await self.request("GET", f"databases/{uuid}/start")
+
+    async def stop_database(self, uuid: str) -> dict:
+        """Stop database."""
+        return await self.request("GET", f"databases/{uuid}/stop")
+
+    async def restart_database(self, uuid: str) -> dict:
+        """Restart database."""
+        return await self.request("GET", f"databases/{uuid}/restart")
+
+    async def create_database(self, db_type: str, data: dict) -> dict:
+        """Create a database of given type (postgresql, mysql, mariadb, mongodb, redis, clickhouse)."""
+        return await self.request("POST", f"databases/{db_type}", json_data=data)
+
+    async def get_database_backups(self, uuid: str) -> dict:
+        """Get database backups."""
+        return await self.request("GET", f"databases/{uuid}/backups")
+
+    async def create_database_backup(self, uuid: str) -> dict:
+        """Create a manual database backup."""
+        return await self.request("POST", f"databases/{uuid}/backups")
+
+    async def list_backup_executions(self) -> list[dict]:
+        """List all backup executions."""
+        return await self.request("GET", "databases/backup-executions")
+
+    # --- Services ---
+
+    async def list_services(self) -> list[dict]:
+        """List all services."""
+        return await self.request("GET", "services")
+
+    async def get_service(self, uuid: str) -> dict:
+        """Get service by UUID."""
+        return await self.request("GET", f"services/{uuid}")
+
+    async def create_service(self, data: dict) -> dict:
+        """Create a service from template."""
+        return await self.request("POST", "services", json_data=data)
+
+    async def update_service(self, uuid: str, data: dict) -> dict:
+        """Update service by UUID."""
+        return await self.request("PATCH", f"services/{uuid}", json_data=data)
+
+    async def delete_service(
+        self,
+        uuid: str,
+        delete_configurations: bool = True,
+        delete_volumes: bool = True,
+        docker_cleanup: bool = True,
+    ) -> dict:
+        """Delete service by UUID."""
+        params = {
+            "delete_configurations": str(delete_configurations).lower(),
+            "delete_volumes": str(delete_volumes).lower(),
+            "docker_cleanup": str(docker_cleanup).lower(),
+        }
+        return await self.request("DELETE", f"services/{uuid}", params=params)
+
+    async def start_service(self, uuid: str) -> dict:
+        """Start service."""
+        return await self.request("GET", f"services/{uuid}/start")
+
+    async def stop_service(self, uuid: str) -> dict:
+        """Stop service."""
+        return await self.request("GET", f"services/{uuid}/stop")
+
+    async def restart_service(self, uuid: str) -> dict:
+        """Restart service."""
+        return await self.request("GET", f"services/{uuid}/restart")
+
+    # --- Service Environment Variables ---
+
+    async def list_service_envs(self, uuid: str) -> list[dict]:
+        """List service environment variables."""
+        return await self.request("GET", f"services/{uuid}/envs")
+
+    async def create_service_env(self, uuid: str, data: dict) -> dict:
+        """Create service environment variable."""
+        return await self.request("POST", f"services/{uuid}/envs", json_data=data)
+
+    async def update_service_env(self, uuid: str, data: dict) -> dict:
+        """Update service environment variable."""
+        return await self.request("PATCH", f"services/{uuid}/envs", json_data=data)
+
+    async def update_service_envs_bulk(self, uuid: str, data: list[dict]) -> dict:
+        """Bulk update service environment variables."""
+        return await self.request("PATCH", f"services/{uuid}/envs/bulk", json_data={"data": data})
+
+    async def delete_service_env(self, uuid: str, env_uuid: str) -> dict:
+        """Delete service environment variable."""
+        return await self.request("DELETE", f"services/{uuid}/envs/{env_uuid}")

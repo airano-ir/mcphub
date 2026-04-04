@@ -75,7 +75,7 @@ class TestCoolifyPlugin:
     def test_tool_specifications(self):
         """Test that tool specifications are returned."""
         specs = CoolifyPlugin.get_tool_specifications()
-        assert len(specs) == 30  # 17 apps + 5 deployments + 8 servers
+        assert len(specs) == 67  # 17 apps + 16 dbs + 5 deploys + 8 projects + 8 servers + 13 svcs
 
         # Check all specs have required fields
         for spec in specs:

@@ -18,8 +18,11 @@ class CoolifyPlugin(BasePlugin):
 
     Provides Coolify deployment management capabilities including:
     - Application management (CRUD, lifecycle, env vars, logs)
+    - Database management (PostgreSQL, MySQL, MariaDB, MongoDB, Redis, ClickHouse, backups)
     - Deployment control (list, cancel, deploy by tag/UUID)
+    - Project & environment management (CRUD)
     - Server management (CRUD, resources, domains, validation)
+    - Service management (CRUD, lifecycle, env vars)
     """
 
     @staticmethod
@@ -60,8 +63,11 @@ class CoolifyPlugin(BasePlugin):
         specs = []
 
         specs.extend(handlers.applications.get_tool_specifications())
+        specs.extend(handlers.databases.get_tool_specifications())
         specs.extend(handlers.deployments.get_tool_specifications())
+        specs.extend(handlers.projects.get_tool_specifications())
         specs.extend(handlers.servers.get_tool_specifications())
+        specs.extend(handlers.services.get_tool_specifications())
 
         return specs
 
@@ -77,8 +83,11 @@ class CoolifyPlugin(BasePlugin):
         """
         handler_modules = [
             handlers.applications,
+            handlers.databases,
             handlers.deployments,
+            handlers.projects,
             handlers.servers,
+            handlers.services,
         ]
 
         for module in handler_modules:
