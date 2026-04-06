@@ -1,0 +1,493 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}{% if lang == 'fa' %}کلیدهای API{% else %}API Keys{% endif %} - MCP Hub{% endblock %}
+{% block page_title %}{% if lang == 'fa' %}کلیدهای API{% else %}API Keys{% endif %}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    {% if is_admin %}
+    {# ── Admin view: full filters, all project keys ── #}
+    <div class="flex flex-wrap items-center justify-between gap-4">
+        <p class="text-gray-500 dark:text-gray-400 text-sm">
+            {% if lang == 'fa' %}مدیریت کلیدهای API (Admin){% else %}Manage project API keys (admin){% endif %}
+        </p>
+        <button onclick="openCreateModal()"
+            class="px-4 py-2 bg-primary-600 hover:bg-primary-700 rounded-lg text-white text-sm font-medium transition-colors flex items-center">
+            <svg class="w-5 h-5 {% if lang == 'fa' %}ml-2{% else %}mr-2{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            {% if lang == 'fa' %}ایجاد کلید جدید{% else %}Create New Key{% endif %}
+        </button>
+    </div>
+
+    <!-- Admin Filters -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+        <form method="GET" class="flex flex-wrap items-center gap-4">
+            {% if lang and lang != 'en' %}<input type="hidden" name="lang" value="{{ lang }}">{% endif %}
+            <div class="flex items-center gap-2">
+                <label class="text-sm text-gray-500 dark:text-gray-400">{{ t.filter }}:</label>
+                <select name="project" onchange="this.form.submit()"
+                    class="bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500">
+                    <option value="">{% if lang == 'fa' %}همه پروژه‌ها{% else %}All Projects{% endif %}</option>
+                    <option value="*" {% if selected_project == '*' %}selected{% endif %}>{% if lang == 'fa' %}کلیدهای عمومی (*){% else %}Global Keys (*){% endif %}</option>
+                    {% for project in available_projects %}
+                    <option value="{{ project.full_id }}" {% if selected_project == project.full_id %}selected{% endif %}>
+                        {{ project.plugin_type }}: {{ project.alias or project.site_id }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex items-center gap-2">
+                <label class="text-sm text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}وضعیت:{% else %}Status:{% endif %}</label>
+                <select name="status" onchange="this.form.submit()"
+                    class="bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500">
+                    <option value="active" {% if selected_status == 'active' %}selected{% endif %}>{% if lang == 'fa' %}فعال{% else %}Active{% endif %}</option>
+                    <option value="all" {% if selected_status == 'all' %}selected{% endif %}>{% if lang == 'fa' %}همه{% else %}All{% endif %}</option>
+                    <option value="revoked" {% if selected_status == 'revoked' %}selected{% endif %}>{% if lang == 'fa' %}لغو شده{% else %}Revoked{% endif %}</option>
+                </select>
+            </div>
+            <div class="flex-1 min-w-[200px]">
+                <input type="text" name="search" value="{{ search_query }}"
+                    placeholder="{% if lang == 'fa' %}جستجو...{% else %}Search description...{% endif %}"
+                    class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500">
+            </div>
+            <button type="submit" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 rounded-lg text-white text-sm transition-colors">{{ t.search }}</button>
+            {% if search_query or selected_project or selected_status != 'active' %}
+            <a href="/dashboard/keys{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}"
+               class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-gray-800 dark:text-white text-sm transition-colors">{{ t['clear'] }}</a>
+            {% endif %}
+        </form>
+    </div>
+
+    <!-- Admin Keys Table -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 dark:bg-gray-700/50">
+                    <tr>
+                        <th class="px-6 py-4 text-{{ 'right' if lang == 'fa' else 'left' }} text-sm font-medium text-gray-700 dark:text-gray-300">{% if lang == 'fa' %}شناسه{% else %}Key ID{% endif %}</th>
+                        <th class="px-6 py-4 text-{{ 'right' if lang == 'fa' else 'left' }} text-sm font-medium text-gray-700 dark:text-gray-300">{% if lang == 'fa' %}پروژه{% else %}Project{% endif %}</th>
+                        <th class="px-6 py-4 text-{{ 'right' if lang == 'fa' else 'left' }} text-sm font-medium text-gray-700 dark:text-gray-300">{% if lang == 'fa' %}دسترسی{% else %}Scope{% endif %}</th>
+                        <th class="px-6 py-4 text-{{ 'right' if lang == 'fa' else 'left' }} text-sm font-medium text-gray-700 dark:text-gray-300">{% if lang == 'fa' %}توضیحات{% else %}Description{% endif %}</th>
+                        <th class="px-6 py-4 text-{{ 'right' if lang == 'fa' else 'left' }} text-sm font-medium text-gray-700 dark:text-gray-300">{% if lang == 'fa' %}وضعیت{% else %}Status{% endif %}</th>
+                        <th class="px-6 py-4 text-{{ 'right' if lang == 'fa' else 'left' }} text-sm font-medium text-gray-700 dark:text-gray-300">{% if lang == 'fa' %}استفاده{% else %}Usage{% endif %}</th>
+                        <th class="px-6 py-4 text-{{ 'right' if lang == 'fa' else 'left' }} text-sm font-medium text-gray-700 dark:text-gray-300">{% if lang == 'fa' %}عملیات{% else %}Actions{% endif %}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                    {% if api_keys %}
+                    {% for key in api_keys %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors {% if key.revoked %}opacity-50{% endif %}">
+                        <td class="px-6 py-4">
+                            <div class="flex items-center">
+                                <span class="text-sm text-gray-700 dark:text-gray-300 font-mono">{{ key.key_id[:12] }}...</span>
+                                <button onclick="copyToClipboard('{{ key.key_id }}')" class="{% if lang == 'fa' %}mr-2{% else %}ml-2{% endif %} text-gray-400 hover:text-white transition-colors" title="Copy ID">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                </button>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            {% if key.project_id == '*' %}
+                            <span class="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded-lg font-medium">{% if lang == 'fa' %}همه پروژه‌ها{% else %}All Projects{% endif %}</span>
+                            {% else %}<span class="text-sm text-gray-700 dark:text-gray-300">{{ key.project_id }}</span>{% endif %}
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex flex-wrap gap-1">
+                                {% for scope in key.scope.split() %}
+                                <span class="px-2 py-0.5 {% if scope == 'admin' %}bg-red-500/20 text-red-400{% elif scope == 'write' %}bg-orange-500/20 text-orange-400{% else %}bg-blue-500/20 text-blue-400{% endif %} text-xs rounded font-medium">{{ scope }}</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4"><span class="text-sm text-gray-500 dark:text-gray-400">{{ key.description or '-' }}</span></td>
+                        <td class="px-6 py-4">
+                            {% if key.revoked %}<div class="flex items-center"><span class="w-2 h-2 bg-red-500 rounded-full {% if lang == 'fa' %}ml-2{% else %}mr-2{% endif %}"></span><span class="text-sm text-red-400">{% if lang == 'fa' %}لغو شده{% else %}Revoked{% endif %}</span></div>
+                            {% else %}<div class="flex items-center"><span class="w-2 h-2 bg-green-500 rounded-full status-pulse {% if lang == 'fa' %}ml-2{% else %}mr-2{% endif %}"></span><span class="text-sm text-green-400">{% if lang == 'fa' %}فعال{% else %}Active{% endif %}</span></div>{% endif %}
+                        </td>
+                        <td class="px-6 py-4"><span class="text-sm text-gray-700 dark:text-gray-300">{{ key.usage_count }}</span></td>
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-2">
+                                {% if not key.revoked %}
+                                <button onclick="openRevokeModal('{{ key.key_id }}', '{{ key.description or key.key_id[:12] }}')"
+                                    class="p-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg text-red-400 transition-colors" title="{% if lang == 'fa' %}لغو{% else %}Revoke{% endif %}">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                                </button>
+                                {% endif %}
+                                <button onclick="openDeleteModal('{{ key.key_id }}', '{{ key.description or key.key_id[:12] }}')"
+                                    class="p-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-gray-400 hover:text-white transition-colors" title="{% if lang == 'fa' %}حذف{% else %}Delete{% endif %}">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr><td colspan="7" class="px-6 py-12 text-center">
+                        <svg class="w-12 h-12 mx-auto mb-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+                        <p class="text-gray-500 dark:text-gray-400">{% if lang == 'fa' %}کلید API یافت نشد{% else %}No API keys found{% endif %}</p>
+                        <button onclick="openCreateModal()" class="mt-4 px-4 py-2 bg-primary-600 hover:bg-primary-700 rounded-lg text-white text-sm transition-colors">{% if lang == 'fa' %}ایجاد اولین کلید{% else %}Create First Key{% endif %}</button>
+                    </td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+        {% if total_pages > 1 %}
+        <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <p class="text-sm text-gray-500 dark:text-gray-400">
+                {% if lang == 'fa' %}نمایش {{ ((page_number-1)*per_page)+1 }} تا {{ [page_number*per_page, total_count]|min }} از {{ total_count }}{% else %}Showing {{ ((page_number-1)*per_page)+1 }}–{{ [page_number*per_page, total_count]|min }} of {{ total_count }}{% endif %}
+            </p>
+            <div class="flex items-center gap-2">
+                {% if page_number > 1 %}<a href="?page={{ page_number-1 }}{% if selected_project %}&project={{ selected_project }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if lang and lang != 'en' %}&lang={{ lang }}{% endif %}" class="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-sm text-gray-800 dark:text-white">{% if lang == 'fa' %}قبلی{% else %}Previous{% endif %}</a>{% endif %}
+                {% for p in range(1, total_pages+1) %}{% if p == page_number %}<span class="px-3 py-1.5 bg-primary-600 rounded-lg text-sm text-white">{{ p }}</span>{% elif p == 1 or p == total_pages or (p >= page_number-2 and p <= page_number+2) %}<a href="?page={{ p }}{% if selected_project %}&project={{ selected_project }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if lang and lang != 'en' %}&lang={{ lang }}{% endif %}" class="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-sm text-gray-800 dark:text-white">{{ p }}</a>{% endif %}{% endfor %}
+                {% if page_number < total_pages %}<a href="?page={{ page_number+1 }}{% if selected_project %}&project={{ selected_project }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if lang and lang != 'en' %}&lang={{ lang }}{% endif %}" class="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-sm text-gray-800 dark:text-white">{% if lang == 'fa' %}بعدی{% else %}Next{% endif %}</a>{% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    {% else %}
+    {# ── User view: personal keys with scope selector ── #}
+    <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+            <p class="text-gray-500 dark:text-gray-400 text-sm">
+                {% if lang == 'fa' %}کلیدهای API شخصی برای دسترسی به MCP{% else %}Your personal API keys for MCP access{% endif %}
+            </p>
+            <p class="text-gray-400 dark:text-gray-500 text-xs mt-1">
+                {% if lang == 'fa' %}فیلتر ابزارهای هر سایت در <a href="/dashboard/sites{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="underline">تنظیمات سایت</a> انجام می‌شود.{% else %}Per-site tool filters are configured in <a href="/dashboard/sites{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="underline">Site Settings</a>.{% endif %}
+            </p>
+        </div>
+        <button onclick="openCreateModal()"
+            class="px-4 py-2 bg-primary-600 hover:bg-primary-700 rounded-lg text-white text-sm font-medium transition-colors flex items-center">
+            <svg class="w-5 h-5 {% if lang == 'fa' %}ml-2{% else %}mr-2{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            {% if lang == 'fa' %}ایجاد کلید جدید{% else %}Create New Key{% endif %}
+        </button>
+    </div>
+
+    <!-- User Keys Table -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 dark:bg-gray-700/50">
+                    <tr>
+                        <th class="px-6 py-4 text-{{ 'right' if lang == 'fa' else 'left' }} text-sm font-medium text-gray-500 dark:text-gray-300">{% if lang == 'fa' %}نام{% else %}Name{% endif %}</th>
+                        <th class="px-6 py-4 text-{{ 'right' if lang == 'fa' else 'left' }} text-sm font-medium text-gray-500 dark:text-gray-300">Prefix</th>
+                        <th class="px-6 py-4 text-{{ 'right' if lang == 'fa' else 'left' }} text-sm font-medium text-gray-500 dark:text-gray-300">{% if lang == 'fa' %}دسترسی{% else %}Scope{% endif %}</th>
+                        <th class="px-6 py-4 text-{{ 'right' if lang == 'fa' else 'left' }} text-sm font-medium text-gray-500 dark:text-gray-300">Uses</th>
+                        <th class="px-6 py-4 text-{{ 'right' if lang == 'fa' else 'left' }} text-sm font-medium text-gray-500 dark:text-gray-300">{{ t.actions }}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                    {% if user_keys %}
+                    {% for key in user_keys %}
+                    <tr id="ukey-{{ key.id }}">
+                        <td class="px-6 py-4 text-gray-900 dark:text-white">{{ key.name }}</td>
+                        <td class="px-6 py-4 text-gray-500 dark:text-gray-400 font-mono text-sm">mhu_{{ key.key_prefix }}...</td>
+                        <td class="px-6 py-4">
+                            {% set scopes = (key.scopes or 'read write admin').split() %}
+                            <div class="flex flex-wrap gap-1">
+                            {% for s in scopes %}
+                            <span class="px-2 py-0.5 {% if s == 'admin' %}bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400{% elif s == 'write' %}bg-orange-100 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400{% elif s == 'deploy' %}bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400{% else %}bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400{% endif %} text-xs rounded font-medium">{{ s }}</span>
+                            {% endfor %}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-gray-500 dark:text-gray-400 text-sm">{{ key.use_count }}</td>
+                        <td class="px-6 py-4">
+                            <button onclick="deleteUserKey('{{ key.id }}')" class="text-sm text-red-600 dark:text-red-400 hover:text-red-500">{{ t.delete }}</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr><td colspan="5" class="px-6 py-12 text-center">
+                        <p class="text-gray-500 dark:text-gray-400 mb-4">{{ t.no_api_keys }}</p>
+                        <button onclick="openCreateModal()" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 rounded-lg text-white text-sm transition-colors">{% if lang == 'fa' %}ایجاد اولین کلید{% else %}Create First Key{% endif %}</button>
+                    </td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{# ── Modals ── #}
+
+<!-- Create Key Modal -->
+<div id="createModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 w-full max-w-md mx-4">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                {% if lang == 'fa' %}ایجاد کلید API جدید{% else %}Create New API Key{% endif %}
+            </h3>
+        </div>
+        {% if is_admin %}
+        {# Admin create form — posts to existing admin endpoint #}
+        <form id="createKeyForm" method="POST" action="/api/dashboard/api-keys/create" class="p-6 space-y-4">
+            {% if lang and lang != 'en' %}<input type="hidden" name="lang" value="{{ lang }}">{% endif %}
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{% if lang == 'fa' %}پروژه{% else %}Project{% endif %}</label>
+                <select name="project_id" required class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500">
+                    <option value="*">{% if lang == 'fa' %}همه پروژه‌ها (*){% else %}All Projects (*){% endif %}</option>
+                    {% for project in available_projects %}
+                    <option value="{{ project.full_id }}">{{ project.plugin_type }}: {{ project.alias or project.site_id }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{% if lang == 'fa' %}سطح دسترسی{% else %}Scope{% endif %}</label>
+                <div class="space-y-2">
+                    <label class="flex items-center"><input type="checkbox" name="scope_read" value="read" checked class="rounded text-primary-600"><span class="ml-2 text-sm text-gray-700 dark:text-gray-300">read</span></label>
+                    <label class="flex items-center"><input type="checkbox" name="scope_write" value="write" class="rounded text-primary-600"><span class="ml-2 text-sm text-gray-700 dark:text-gray-300">write</span></label>
+                    <label class="flex items-center"><input type="checkbox" name="scope_admin" value="admin" class="rounded text-primary-600"><span class="ml-2 text-sm text-gray-700 dark:text-gray-300">admin</span></label>
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{% if lang == 'fa' %}توضیحات (اختیاری){% else %}Description (optional){% endif %}</label>
+                <input type="text" name="description" placeholder="{% if lang == 'fa' %}مثال: CI/CD{% else %}e.g., CI/CD key{% endif %}"
+                    class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{% if lang == 'fa' %}انقضا{% else %}Expiration{% endif %}</label>
+                <select name="expires_in_days" class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500">
+                    <option value="">{% if lang == 'fa' %}بدون انقضا{% else %}Never expires{% endif %}</option>
+                    <option value="7">7 {% if lang == 'fa' %}روز{% else %}days{% endif %}</option>
+                    <option value="30">30 {% if lang == 'fa' %}روز{% else %}days{% endif %}</option>
+                    <option value="90">90 {% if lang == 'fa' %}روز{% else %}days{% endif %}</option>
+                    <option value="365">1 {% if lang == 'fa' %}سال{% else %}year{% endif %}</option>
+                </select>
+            </div>
+        </form>
+        {% else %}
+        {# User create form — uses /api/keys via JS #}
+        <div class="p-6 space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{% if lang == 'fa' %}نام کلید{% else %}Key Name{% endif %}</label>
+                <input type="text" id="new-key-name" placeholder="{% if lang == 'fa' %}مثال: Claude Desktop{% else %}e.g., Claude Desktop{% endif %}"
+                    class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{% if lang == 'fa' %}سطح دسترسی{% else %}Scope{% endif %}</label>
+                <select id="new-key-scope" class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
+                    <option value="read">Read — {% if lang == 'fa' %}فقط خواندن{% else %}view-only{% endif %}</option>
+                    <option value="read:sensitive">Read + Sensitive — {% if lang == 'fa' %}خواندن + داده حساس{% else %}logs, envs{% endif %}</option>
+                    <option value="deploy">Deploy — {% if lang == 'fa' %}start/stop/restart{% else %}start/stop/restart{% endif %}</option>
+                    <option value="write">Write — {% if lang == 'fa' %}نوشتن + lifecycle{% else %}create/update + lifecycle{% endif %}</option>
+                    <option value="read write admin" selected>Full Access — {% if lang == 'fa' %}دسترسی کامل{% else %}all tools{% endif %}</option>
+                </select>
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-1.5">
+                    {% if lang == 'fa' %}فیلتر ابزار هر سایت در تنظیمات سایت انجام می‌شود.{% else %}Per-site tool filters are set in Site Settings.{% endif %}
+                </p>
+            </div>
+        </div>
+        {% endif %}
+        <div class="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+            <button onclick="closeCreateModal()" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-gray-800 dark:text-white text-sm">{% if lang == 'fa' %}انصراف{% else %}Cancel{% endif %}</button>
+            <button onclick="submitCreate()" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 rounded-lg text-white text-sm">{% if lang == 'fa' %}ایجاد کلید{% else %}Create Key{% endif %}</button>
+        </div>
+    </div>
+</div>
+
+<!-- New Key Display Modal -->
+<div id="newKeyModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 w-full max-w-lg mx-4">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                {% if lang == 'fa' %}کلید API ایجاد شد{% else %}API Key Created{% endif %}
+            </h3>
+        </div>
+        <div class="p-6 space-y-4">
+            <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+                <p class="text-sm text-yellow-400">{% if lang == 'fa' %}این کلید فقط یکبار نمایش داده می‌شود.{% else %}This key will only be shown once. Save it now!{% endif %}</p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-400 mb-2">API Key</label>
+                <div class="flex items-center gap-2">
+                    <input type="text" id="newKeyValue" readonly class="flex-1 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 text-gray-900 dark:text-white font-mono text-sm">
+                    <button onclick="copyNewKey()" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 rounded-lg text-white text-sm">{% if lang == 'fa' %}کپی{% else %}Copy{% endif %}</button>
+                </div>
+            </div>
+        </div>
+        <div class="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+            <button onclick="closeNewKeyModal()" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 rounded-lg text-white text-sm">{% if lang == 'fa' %}بستن{% else %}Done{% endif %}</button>
+        </div>
+    </div>
+</div>
+
+{% if is_admin %}
+<!-- Revoke Modal -->
+<div id="revokeModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 w-full max-w-md mx-4">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700"><h3 class="text-lg font-semibold text-gray-900 dark:text-white">{% if lang == 'fa' %}لغو کلید API{% else %}Revoke API Key{% endif %}</h3></div>
+        <div class="p-6"><p class="text-gray-700 dark:text-gray-300">{% if lang == 'fa' %}آیا مطمئنید که می‌خواهید کلید <span id="revokeKeyName" class="font-mono text-white"></span> را لغو کنید؟{% else %}Are you sure you want to revoke <span id="revokeKeyName" class="font-mono text-white"></span>?{% endif %}</p></div>
+        <div class="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+            <button onclick="closeRevokeModal()" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-gray-800 dark:text-white text-sm">{% if lang == 'fa' %}انصراف{% else %}Cancel{% endif %}</button>
+            <button id="confirmRevokeBtn" class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-white text-sm">{% if lang == 'fa' %}لغو کلید{% else %}Revoke{% endif %}</button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Modal -->
+<div id="deleteModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 w-full max-w-md mx-4">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700"><h3 class="text-lg font-semibold text-gray-900 dark:text-white">{% if lang == 'fa' %}حذف کلید API{% else %}Delete API Key{% endif %}</h3></div>
+        <div class="p-6"><p class="text-gray-700 dark:text-gray-300">{% if lang == 'fa' %}آیا مطمئنید که می‌خواهید کلید <span id="deleteKeyName" class="font-mono text-white"></span> را حذف کنید؟{% else %}Are you sure you want to delete <span id="deleteKeyName" class="font-mono text-white"></span>?{% endif %}</p></div>
+        <div class="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+            <button onclick="closeDeleteModal()" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-gray-800 dark:text-white text-sm">{% if lang == 'fa' %}انصراف{% else %}Cancel{% endif %}</button>
+            <button id="confirmDeleteBtn" class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-white text-sm">{% if lang == 'fa' %}حذف{% else %}Delete{% endif %}</button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    const isAdmin = {{ 'true' if is_admin else 'false' }};
+    const lang = '{{ lang }}';
+    let currentRevokeKeyId = null;
+    let currentDeleteKeyId = null;
+
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(() => showToast(lang === 'fa' ? 'کپی شد!' : 'Copied!'));
+    }
+    window.copyToClipboard = copyToClipboard;
+
+    function showToast(msg) {
+        const t = document.createElement('div');
+        t.className = 'fixed bottom-4 right-4 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white text-sm z-50';
+        t.textContent = msg;
+        document.body.appendChild(t);
+        setTimeout(() => t.remove(), 2000);
+    }
+
+    function openCreateModal() {
+        document.getElementById('createModal').classList.remove('hidden');
+        document.getElementById('createModal').classList.add('flex');
+    }
+    window.openCreateModal = openCreateModal;
+
+    function closeCreateModal() {
+        document.getElementById('createModal').classList.add('hidden');
+        document.getElementById('createModal').classList.remove('flex');
+    }
+    window.closeCreateModal = closeCreateModal;
+
+    function closeNewKeyModal() {
+        document.getElementById('newKeyModal').classList.add('hidden');
+        document.getElementById('newKeyModal').classList.remove('flex');
+        location.reload();
+    }
+    window.closeNewKeyModal = closeNewKeyModal;
+
+    function copyNewKey() {
+        copyToClipboard(document.getElementById('newKeyValue').value);
+    }
+    window.copyNewKey = copyNewKey;
+
+    function showNewKey(key) {
+        document.getElementById('newKeyValue').value = key;
+        document.getElementById('newKeyModal').classList.remove('hidden');
+        document.getElementById('newKeyModal').classList.add('flex');
+    }
+
+    async function submitCreate() {
+        if (isAdmin) {
+            // Admin: collect scopes + submit form via JS
+            const form = document.getElementById('createKeyForm');
+            const formData = new FormData(form);
+            const scopes = [];
+            if (form.querySelector('[name="scope_read"]')?.checked) scopes.push('read');
+            if (form.querySelector('[name="scope_write"]')?.checked) scopes.push('write');
+            if (form.querySelector('[name="scope_admin"]')?.checked) scopes.push('admin');
+            if (scopes.length === 0) { alert(lang === 'fa' ? 'حداقل یک دسترسی انتخاب کنید' : 'Select at least one scope'); return; }
+            const data = {
+                project_id: formData.get('project_id'),
+                scope: scopes.join(' '),
+                description: formData.get('description') || null,
+                expires_in_days: formData.get('expires_in_days') ? parseInt(formData.get('expires_in_days')) : null,
+            };
+            const r = await fetch('/api/dashboard/api-keys/create', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+                body: JSON.stringify(data),
+            });
+            const res = await r.json();
+            if (res.error) { alert(res.error); return; }
+            closeCreateModal();
+            showNewKey(res.key);
+        } else {
+            // User: POST to /api/keys
+            const name = document.getElementById('new-key-name').value.trim();
+            const scope = document.getElementById('new-key-scope').value;
+            if (!name) { alert(lang === 'fa' ? 'نام کلید الزامی است' : 'Key name is required'); return; }
+            const r = await fetch('/api/keys', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, scopes: scope }),
+            });
+            const res = await r.json();
+            if (!r.ok) { alert(res.error || 'Failed'); return; }
+            closeCreateModal();
+            showNewKey(res.key.key);
+        }
+    }
+    window.submitCreate = submitCreate;
+
+    async function deleteUserKey(keyId) {
+        if (!confirm(lang === 'fa' ? 'این کلید حذف شود؟' : 'Delete this key?')) return;
+        const r = await fetch('/api/keys/' + keyId, { method: 'DELETE' });
+        if (r.ok) {
+            const row = document.getElementById('ukey-' + keyId);
+            if (row) row.remove();
+        }
+    }
+    window.deleteUserKey = deleteUserKey;
+
+    {% if is_admin %}
+    function openRevokeModal(keyId, keyName) {
+        currentRevokeKeyId = keyId;
+        document.getElementById('revokeKeyName').textContent = keyName;
+        document.getElementById('revokeModal').classList.remove('hidden');
+        document.getElementById('revokeModal').classList.add('flex');
+    }
+    window.openRevokeModal = openRevokeModal;
+
+    function closeRevokeModal() {
+        document.getElementById('revokeModal').classList.add('hidden');
+        document.getElementById('revokeModal').classList.remove('flex');
+    }
+    window.closeRevokeModal = closeRevokeModal;
+
+    document.getElementById('confirmRevokeBtn').onclick = async function() {
+        if (!currentRevokeKeyId) return;
+        const r = await fetch('/api/dashboard/api-keys/' + currentRevokeKeyId + '/revoke', { method: 'POST', credentials: 'same-origin' });
+        if (r.ok) location.reload();
+        else { const d = await r.json(); alert(d.error || 'Failed'); }
+    };
+
+    function openDeleteModal(keyId, keyName) {
+        currentDeleteKeyId = keyId;
+        document.getElementById('deleteKeyName').textContent = keyName;
+        document.getElementById('deleteModal').classList.remove('hidden');
+        document.getElementById('deleteModal').classList.add('flex');
+    }
+    window.openDeleteModal = openDeleteModal;
+
+    function closeDeleteModal() {
+        document.getElementById('deleteModal').classList.add('hidden');
+        document.getElementById('deleteModal').classList.remove('flex');
+    }
+    window.closeDeleteModal = closeDeleteModal;
+
+    document.getElementById('confirmDeleteBtn').onclick = async function() {
+        if (!currentDeleteKeyId) return;
+        const r = await fetch('/api/dashboard/api-keys/' + currentDeleteKeyId, { method: 'DELETE', credentials: 'same-origin' });
+        if (r.ok) location.reload();
+        else { const d = await r.json(); alert(d.error || 'Failed'); }
+    };
+    {% endif %}
+})();
+</script>
+{% endblock %}

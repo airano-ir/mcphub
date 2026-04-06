@@ -1,0 +1,134 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}{{ site.alias }} - MCP Hub{% endblock %}
+{% block page_title %}{{ site.alias }}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+    <div class="flex items-center gap-4 mb-6">
+        <a href="/dashboard/sites{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}"
+            class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+        </a>
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
+            {{ site.alias }}
+            <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300">
+                {{ plugin_names.get(site.plugin_type, site.plugin_type) }}
+            </span>
+        </h2>
+        <a href="/dashboard/sites/{{ site.id }}/edit{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}"
+           class="ml-auto text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
+            {% if lang == 'fa' %}ویرایش{% else %}Edit{% endif %}
+        </a>
+    </div>
+
+    <!-- MCP Endpoint URL -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+        <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-3">
+            {% if lang == 'fa' %}آدرس MCP{% else %}MCP Endpoint{% endif %}
+        </h3>
+        <div class="flex items-center gap-2">
+            <code id="mcp-url" class="flex-1 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2 text-sm font-mono text-gray-800 dark:text-gray-200 overflow-x-auto">
+                {{ mcp_url }}
+            </code>
+            <button onclick="copyMcpUrl()" class="flex-shrink-0 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white text-sm transition-colors">
+                {% if lang == 'fa' %}کپی{% else %}Copy{% endif %}
+            </button>
+        </div>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+            {% if lang == 'fa' %}
+            برای احراز هویت از کلید API (Bearer) یا OAuth استفاده کنید.
+            {% else %}
+            Authenticate with an API key (Bearer token) or OAuth.
+            {% endif %}
+        </p>
+    </div>
+
+    <!-- Config Snippets -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+        <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-4">
+            {% if lang == 'fa' %}نمونه کدهای پیکربندی{% else %}Configuration Snippets{% endif %}
+        </h3>
+
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {% if lang == 'fa' %}انتخاب کلاینت{% else %}Select Client{% endif %}
+            </label>
+            <select id="config-client" onchange="updateConfig()"
+                    class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
+                {% for client in clients %}
+                <option value="{{ client.id }}">{{ client.label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="relative">
+            <pre id="config-output" class="bg-gray-100 dark:bg-gray-900 rounded-lg p-4 text-sm text-gray-700 dark:text-gray-300 overflow-x-auto border border-gray-200 dark:border-gray-700 min-h-[100px]">{% if lang == 'fa' %}در حال بارگذاری...{% else %}Loading...{% endif %}</pre>
+            <button onclick="copyConfig()" id="copy-config-btn"
+                class="absolute top-2 right-2 text-xs bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 px-3 py-1 rounded transition-colors">
+                {% if lang == 'fa' %}کپی{% else %}Copy{% endif %}
+            </button>
+        </div>
+
+        <div id="transport-note" class="mt-4 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-lg p-4">
+            <p class="text-sm text-blue-700 dark:text-blue-400">
+                {% if lang == 'fa' %}
+                <strong>نکته:</strong> از <code>streamableHttp</code> برای Claude Desktop و <code>http</code> برای VS Code/Claude Code استفاده کنید.
+                {% else %}
+                <strong>Note:</strong> Use <code>streamableHttp</code> for Claude Desktop, <code>http</code> for VS Code/Claude Code.
+                {% endif %}
+            </p>
+        </div>
+
+        <div id="bearer-hint" class="mt-3 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                {% if lang == 'fa' %}
+                <strong>API Key:</strong> از صفحه <a href="/dashboard/keys{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="underline">کلیدها</a> بسازید:
+                {% else %}
+                <strong>API Key:</strong> Create one on the <a href="/dashboard/keys{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="underline">API Keys</a> page:
+                {% endif %}
+            </p>
+            <code class="block bg-gray-100 dark:bg-gray-900 px-3 py-1.5 rounded text-xs font-mono text-gray-800 dark:text-gray-200">"Authorization": "Bearer mhu_YOUR_API_KEY_HERE"</code>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const siteAlias = "{{ site.alias }}";
+    const WEB_CLIENTS = ['claude_connectors', 'chatgpt'];
+
+    async function updateConfig() {
+        const client = document.getElementById('config-client')?.value;
+        if (!client) return;
+        const isWeb = WEB_CLIENTS.includes(client);
+        document.getElementById('transport-note').style.display = isWeb ? 'none' : '';
+        document.getElementById('bearer-hint').style.display = isWeb ? 'none' : '';
+        try {
+            const r = await fetch('/api/config/' + siteAlias + '?client=' + client);
+            const data = await r.json();
+            document.getElementById('config-output').textContent = r.ok ? data.config : '{% if lang == "fa" %}خطا در بارگذاری{% else %}Error loading config{% endif %}';
+        } catch (_) {
+            document.getElementById('config-output').textContent = '{% if lang == "fa" %}خطای شبکه{% else %}Network error{% endif %}';
+        }
+    }
+
+    function copyMcpUrl() {
+        navigator.clipboard.writeText(document.getElementById('mcp-url').textContent.trim());
+    }
+
+    function copyConfig() {
+        const text = document.getElementById('config-output').textContent;
+        navigator.clipboard.writeText(text);
+        const btn = document.getElementById('copy-config-btn');
+        const orig = btn.textContent;
+        btn.textContent = '{% if lang == "fa" %}کپی شد!{% else %}Copied!{% endif %}';
+        setTimeout(() => btn.textContent = orig, 2000);
+    }
+
+    document.addEventListener('DOMContentLoaded', updateConfig);
+</script>
+{% endblock %}

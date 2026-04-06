@@ -11,6 +11,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
     return [
         {
             "name": "list_services",
+            "category": "read",
             "method_name": "list_services",
             "description": "List all Coolify services.",
             "schema": {
@@ -21,6 +22,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "get_service",
+            "category": "read",
             "method_name": "get_service",
             "description": "Get details of a specific Coolify service by UUID.",
             "schema": {
@@ -38,6 +40,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "create_service",
+            "category": "crud",
             "method_name": "create_service",
             "description": (
                 "Create a Coolify service from a predefined template. "
@@ -94,6 +97,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "update_service",
+            "category": "crud",
             "method_name": "update_service",
             "description": "Update a Coolify service settings.",
             "schema": {
@@ -123,6 +127,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "delete_service",
+            "category": "system",
             "method_name": "delete_service",
             "description": (
                 "Delete a Coolify service permanently. "
@@ -158,6 +163,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "start_service",
+            "category": "lifecycle",
             "method_name": "start_service",
             "description": "Start a Coolify service.",
             "schema": {
@@ -175,6 +181,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "stop_service",
+            "category": "lifecycle",
             "method_name": "stop_service",
             "description": "Stop a running Coolify service.",
             "schema": {
@@ -192,6 +199,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "restart_service",
+            "category": "lifecycle",
             "method_name": "restart_service",
             "description": "Restart a Coolify service.",
             "schema": {
@@ -209,6 +217,8 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "list_service_envs",
+            "category": "read_sensitive",
+            "sensitivity": "sensitive",
             "method_name": "list_service_envs",
             "description": "List environment variables for a Coolify service.",
             "schema": {
@@ -226,6 +236,8 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "create_service_env",
+            "category": "env",
+            "sensitivity": "sensitive",
             "method_name": "create_service_env",
             "description": "Create an environment variable for a Coolify service.",
             "schema": {
@@ -257,6 +269,8 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "update_service_env",
+            "category": "env",
+            "sensitivity": "sensitive",
             "method_name": "update_service_env",
             "description": "Update an environment variable for a Coolify service.",
             "schema": {
@@ -287,6 +301,8 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "update_service_envs_bulk",
+            "category": "env",
+            "sensitivity": "sensitive",
             "method_name": "update_service_envs_bulk",
             "description": "Bulk update environment variables for a Coolify service.",
             "schema": {
@@ -317,6 +333,8 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "delete_service_env",
+            "category": "env",
+            "sensitivity": "sensitive",
             "method_name": "delete_service_env",
             "description": "Delete an environment variable from a Coolify service.",
             "schema": {

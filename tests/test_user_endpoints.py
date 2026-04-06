@@ -85,12 +85,12 @@ def _clear_rate_limits():
 
 @pytest.fixture(autouse=True)
 def _clear_tool_cache():
-    """Clear the tool schema cache between tests."""
-    import core.user_endpoints as mod
+    """No-op: the per-plugin tool schema cache was removed in F.7.
 
-    mod._tool_schema_cache.clear()
+    Retained so the rest of the test fixtures stay unchanged; the scope-filter
+    pipeline runs on every ``tools/list`` call so there is nothing to clear.
+    """
     yield
-    mod._tool_schema_cache.clear()
 
 
 @pytest.fixture

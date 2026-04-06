@@ -11,6 +11,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
     return [
         {
             "name": "list_applications",
+            "category": "read",
             "method_name": "list_applications",
             "description": "List all Coolify applications. Optionally filter by tag name.",
             "schema": {
@@ -26,6 +27,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "get_application",
+            "category": "read",
             "method_name": "get_application",
             "description": "Get details of a specific Coolify application by UUID.",
             "schema": {
@@ -43,6 +45,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "create_application_public",
+            "category": "crud",
             "method_name": "create_application_public",
             "description": (
                 "Create a Coolify application from a public Git repository. "
@@ -113,6 +116,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "create_application_dockerfile",
+            "category": "crud",
             "method_name": "create_application_dockerfile",
             "description": (
                 "Create a Coolify application from a Dockerfile (without git). "
@@ -170,6 +174,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "create_application_docker_image",
+            "category": "crud",
             "method_name": "create_application_docker_image",
             "description": (
                 "Create a Coolify application from a Docker image. "
@@ -233,6 +238,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "create_application_compose",
+            "category": "crud",
             "method_name": "create_application_compose",
             "description": (
                 "Create a Coolify application from Docker Compose. "
@@ -278,6 +284,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "update_application",
+            "category": "crud",
             "method_name": "update_application",
             "description": (
                 "Update a Coolify application settings. Supports name, description, "
@@ -357,6 +364,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "delete_application",
+            "category": "system",
             "method_name": "delete_application",
             "description": (
                 "Delete a Coolify application permanently. "
@@ -397,6 +405,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "start_application",
+            "category": "lifecycle",
             "method_name": "start_application",
             "description": "Deploy/start a Coolify application. Triggers a new deployment.",
             "schema": {
@@ -424,6 +433,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "stop_application",
+            "category": "lifecycle",
             "method_name": "stop_application",
             "description": "Stop a running Coolify application.",
             "schema": {
@@ -446,6 +456,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "restart_application",
+            "category": "lifecycle",
             "method_name": "restart_application",
             "description": "Restart a Coolify application.",
             "schema": {
@@ -463,6 +474,8 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "get_application_logs",
+            "category": "read_sensitive",
+            "sensitivity": "sensitive",
             "method_name": "get_application_logs",
             "description": "Get logs for a Coolify application.",
             "schema": {
@@ -487,6 +500,8 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "list_application_envs",
+            "category": "read_sensitive",
+            "sensitivity": "sensitive",
             "method_name": "list_application_envs",
             "description": "List environment variables for a Coolify application.",
             "schema": {
@@ -504,6 +519,8 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "create_application_env",
+            "category": "env",
+            "sensitivity": "sensitive",
             "method_name": "create_application_env",
             "description": "Create an environment variable for a Coolify application.",
             "schema": {
@@ -550,6 +567,8 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "update_application_env",
+            "category": "env",
+            "sensitivity": "sensitive",
             "method_name": "update_application_env",
             "description": "Update an environment variable for a Coolify application.",
             "schema": {
@@ -592,6 +611,8 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "update_application_envs_bulk",
+            "category": "env",
+            "sensitivity": "sensitive",
             "method_name": "update_application_envs_bulk",
             "description": "Bulk update environment variables for a Coolify application.",
             "schema": {
@@ -625,6 +646,8 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "delete_application_env",
+            "category": "env",
+            "sensitivity": "sensitive",
             "method_name": "delete_application_env",
             "description": "Delete an environment variable from a Coolify application.",
             "schema": {

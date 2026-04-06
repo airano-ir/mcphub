@@ -10,6 +10,7 @@ def _create_db_spec(db_type: str, description: str) -> dict[str, Any]:
     """Generate a create_* tool spec for a database type."""
     return {
         "name": f"create_{db_type}",
+        "category": "crud",
         "method_name": f"create_{db_type}",
         "description": description,
         "schema": {
@@ -55,6 +56,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
     specs = [
         {
             "name": "list_databases",
+            "category": "read",
             "method_name": "list_databases",
             "description": "List all Coolify databases.",
             "schema": {
@@ -65,6 +67,8 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "get_database",
+            "category": "read_sensitive",
+            "sensitivity": "sensitive",
             "method_name": "get_database",
             "description": "Get details of a specific Coolify database by UUID.",
             "schema": {
@@ -82,6 +86,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "update_database",
+            "category": "crud",
             "method_name": "update_database",
             "description": "Update a Coolify database settings.",
             "schema": {
@@ -119,6 +124,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "delete_database",
+            "category": "system",
             "method_name": "delete_database",
             "description": (
                 "Delete a Coolify database permanently. "
@@ -154,6 +160,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "start_database",
+            "category": "lifecycle",
             "method_name": "start_database",
             "description": "Start a Coolify database.",
             "schema": {
@@ -171,6 +178,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "stop_database",
+            "category": "lifecycle",
             "method_name": "stop_database",
             "description": "Stop a running Coolify database.",
             "schema": {
@@ -188,6 +196,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "restart_database",
+            "category": "lifecycle",
             "method_name": "restart_database",
             "description": "Restart a Coolify database.",
             "schema": {
@@ -222,6 +231,8 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         [
             {
                 "name": "get_database_backups",
+                "category": "backup",
+                "sensitivity": "sensitive",
                 "method_name": "get_database_backups",
                 "description": "Get backup configuration and history for a Coolify database.",
                 "schema": {
@@ -239,6 +250,8 @@ def get_tool_specifications() -> list[dict[str, Any]]:
             },
             {
                 "name": "create_database_backup",
+                "category": "backup",
+                "sensitivity": "sensitive",
                 "method_name": "create_database_backup",
                 "description": "Create a manual backup of a Coolify database.",
                 "schema": {
@@ -256,6 +269,8 @@ def get_tool_specifications() -> list[dict[str, Any]]:
             },
             {
                 "name": "list_backup_executions",
+                "category": "backup",
+                "sensitivity": "sensitive",
                 "method_name": "list_backup_executions",
                 "description": "List all backup executions across all databases.",
                 "schema": {

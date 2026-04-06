@@ -181,6 +181,9 @@ class ToolGenerator:
         description = spec["description"]
         schema = spec["schema"]
         scope = spec.get("scope", "read")
+        # F.7: optional category + sensitivity for scope-based visibility
+        category = spec.get("category", "read")
+        sensitivity = spec.get("sensitivity", "normal")
 
         # Create full tool name
         tool_name = f"{plugin_type}_{action_name}"
@@ -202,6 +205,8 @@ class ToolGenerator:
             handler=handler,
             required_scope=scope,
             plugin_type=plugin_type,
+            category=category,
+            sensitivity=sensitivity,
         )
 
     def _add_site_parameter(

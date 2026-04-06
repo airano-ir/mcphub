@@ -27,6 +27,10 @@ class ToolDefinition(BaseModel):
         handler: Async function that executes the tool
         required_scope: Required API key scope ("read", "write", "admin")
         plugin_type: Plugin type this tool belongs to (e.g., "wordpress")
+        category: Tool category for scope-based visibility filtering (F.7)
+            One of: "read", "read_sensitive", "lifecycle", "crud", "env",
+            "backup", "system". Defaults to "read" for backward compatibility.
+        sensitivity: "normal" or "sensitive" (logs, envs, backups, connection strings).
     """
 
     name: str = Field(..., description="Unique tool identifier")
@@ -40,6 +44,14 @@ class ToolDefinition(BaseModel):
         default="read", description="Required API key scope (read/write/admin)"
     )
     plugin_type: str = Field(..., description="Plugin type (wordpress, gitea, etc)")
+    category: str = Field(
+        default="read",
+        description="Tool category for scope-based visibility (F.7)",
+    )
+    sensitivity: str = Field(
+        default="normal",
+        description="Data sensitivity: normal or sensitive (F.7)",
+    )
 
     model_config = ConfigDict(arbitrary_types_allowed=True)  # Allow Callable type
 

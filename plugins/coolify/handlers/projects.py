@@ -11,6 +11,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
     return [
         {
             "name": "list_projects",
+            "category": "read",
             "method_name": "list_projects",
             "description": "List all Coolify projects.",
             "schema": {
@@ -21,6 +22,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "get_project",
+            "category": "read",
             "method_name": "get_project",
             "description": "Get details of a specific Coolify project by UUID.",
             "schema": {
@@ -38,6 +40,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "create_project",
+            "category": "crud",
             "method_name": "create_project",
             "description": (
                 "Create a new Coolify project. "
@@ -62,6 +65,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "update_project",
+            "category": "crud",
             "method_name": "update_project",
             "description": "Update a Coolify project name or description.",
             "schema": {
@@ -87,6 +91,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "delete_project",
+            "category": "system",
             "method_name": "delete_project",
             "description": (
                 "Delete a Coolify project permanently. "
@@ -107,6 +112,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "list_environments",
+            "category": "read",
             "method_name": "list_environments",
             "description": "List all environments in a Coolify project.",
             "schema": {
@@ -124,6 +130,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "get_environment",
+            "category": "read",
             "method_name": "get_environment",
             "description": ("Get details of a specific environment in a Coolify project by name."),
             "schema": {
@@ -146,6 +153,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "create_environment",
+            "category": "crud",
             "method_name": "create_environment",
             "description": "Create a new environment in a Coolify project.",
             "schema": {

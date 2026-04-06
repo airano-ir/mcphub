@@ -110,6 +110,47 @@
         </div>
     </form>
 </div>
+
+<!-- Tool Access Card -->
+<div id="tool-access-card" class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
+    <h3 class="text-base font-semibold text-gray-900 dark:text-white">
+        {% if lang == 'fa' %}دسترسی به ابزارها{% else %}Tool Access{% endif %}
+    </h3>
+    <div id="tool-access-loading" class="text-gray-400 dark:text-gray-500 text-sm">
+        {% if lang == 'fa' %}در حال بارگذاری...{% else %}Loading...{% endif %}
+    </div>
+    <div id="tool-access-content" class="hidden space-y-4">
+        <!-- Scope selector -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {% if lang == 'fa' %}سطح دسترسی{% else %}Access Scope{% endif %}
+            </label>
+            <select id="tool-scope-select"
+                class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <option value="read">{% if lang == 'fa' %}فقط خواندن (Read){% else %}Read{% endif %}</option>
+                <option value="read:sensitive">{% if lang == 'fa' %}خواندن + داده حساس{% else %}Read + Sensitive{% endif %}</option>
+                <option value="deploy">{% if lang == 'fa' %}استقرار (start/stop/restart){% else %}Deploy{% endif %}</option>
+                <option value="write">{% if lang == 'fa' %}نوشتن + Lifecycle{% else %}Write{% endif %}</option>
+                <option value="admin">{% if lang == 'fa' %}دسترسی کامل{% else %}Admin (all tools){% endif %}</option>
+                <option value="custom">{% if lang == 'fa' %}سفارشی (per-tool){% else %}Custom{% endif %}</option>
+            </select>
+            <p id="scope-desc" class="text-xs text-gray-500 dark:text-gray-400 mt-1.5"></p>
+        </div>
+
+        <!-- Status message for scope save -->
+        <div id="scope-status" class="hidden text-xs"></div>
+
+        <!-- Advanced: per-tool overrides -->
+        <details id="tool-overrides-section">
+            <summary class="cursor-pointer text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white select-none py-1">
+                {% if lang == 'fa' %}پیشرفته — انتخاب دستی ابزارها{% else %}Advanced — per-tool overrides{% endif %}
+            </summary>
+            <div id="tool-list" class="mt-3 space-y-4 border-t border-gray-200 dark:border-gray-700 pt-4"></div>
+        </details>
+    </div>
+</div>
+
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -168,5 +209,162 @@
             btn.disabled = false;
         }
     });
+
+    // ── Tool Access ──────────────────────────────────────────────
+    const SCOPE_DESCS = {
+        'read': '{% if lang == "fa" %}ابزارهای read-only (list/get) — بدون داده‌های حساس{% else %}Read-only list/get tools — no sensitive data{% endif %}',
+        'read:sensitive': '{% if lang == "fa" %}read + لاگ‌ها، بکاپ‌ها و متغیرهای محیطی{% else %}Read + logs, backups, and env vars{% endif %}',
+        'deploy': '{% if lang == "fa" %}read + start/stop/restart/deploy{% else %}Read + start/stop/restart/deploy{% endif %}',
+        'write': '{% if lang == "fa" %}read + lifecycle + ایجاد/بروزرسانی + env{% else %}Read + lifecycle + create/update + env{% endif %}',
+        'admin': '{% if lang == "fa" %}دسترسی کامل به همه ابزارها{% else %}Full access to all tools{% endif %}',
+        'custom': '{% if lang == "fa" %}بدون فیلتر سطح — فقط toggle‌های دستی اعمال می‌شوند{% else %}No scope filter — only per-tool toggles apply{% endif %}',
+    };
+    const CAT_LABELS = {
+        'read': '{% if lang == "fa" %}خواندن{% else %}Read{% endif %}',
+        'read_sensitive': '{% if lang == "fa" %}خواندن حساس{% else %}Sensitive Read{% endif %}',
+        'lifecycle': 'Lifecycle',
+        'crud': 'CRUD',
+        'env': '{% if lang == "fa" %}محیطی{% else %}Environment{% endif %}',
+        'backup': 'Backup',
+        'system': 'System',
+    };
+
+    function getCsrf() {
+        const m = document.cookie.match(/(?:^|;\s*)dashboard_csrf=([^;]+)/);
+        return m ? decodeURIComponent(m[1]) : '';
+    }
+
+    async function loadToolAccess() {
+        try {
+            const r = await fetch('/api/sites/' + siteId + '/tools');
+            if (!r.ok) { hideToolAccess(); return; }
+            const data = await r.json();
+            renderToolAccess(data);
+        } catch (_) { hideToolAccess(); }
+    }
+
+    function hideToolAccess() {
+        document.getElementById('tool-access-loading').textContent = '';
+    }
+
+    function renderToolAccess(data) {
+        const loading = document.getElementById('tool-access-loading');
+        const content = document.getElementById('tool-access-content');
+        loading.classList.add('hidden');
+        content.classList.remove('hidden');
+
+        // Set scope dropdown
+        const select = document.getElementById('tool-scope-select');
+        select.value = data.tool_scope || 'admin';
+        updateScopeDesc(data.tool_scope || 'admin');
+
+        // Scope change handler
+        select.onchange = async () => {
+            const scope = select.value;
+            updateScopeDesc(scope);
+            const statusEl = document.getElementById('scope-status');
+            statusEl.textContent = '{% if lang == "fa" %}در حال ذخیره...{% else %}Saving...{% endif %}';
+            statusEl.className = 'text-xs text-gray-400';
+            statusEl.classList.remove('hidden');
+            try {
+                const r = await fetch('/api/sites/' + siteId + '/tool-scope', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
+                    body: JSON.stringify({ scope }),
+                });
+                if (r.ok) {
+                    statusEl.textContent = '{% if lang == "fa" %}ذخیره شد{% else %}Saved{% endif %}';
+                    statusEl.className = 'text-xs text-green-500';
+                } else {
+                    statusEl.textContent = '{% if lang == "fa" %}خطا{% else %}Error saving{% endif %}';
+                    statusEl.className = 'text-xs text-red-500';
+                }
+            } catch (_) {
+                statusEl.textContent = '{% if lang == "fa" %}خطای شبکه{% else %}Network error{% endif %}';
+                statusEl.className = 'text-xs text-red-500';
+            }
+            setTimeout(() => statusEl.classList.add('hidden'), 2000);
+        };
+
+        // Render per-tool list grouped by category
+        const grouped = {};
+        for (const tool of data.tools) {
+            const cat = tool.category || 'read';
+            if (!grouped[cat]) grouped[cat] = [];
+            grouped[cat].push(tool);
+        }
+        const catOrder = ['read', 'read_sensitive', 'lifecycle', 'crud', 'env', 'backup', 'system'];
+        const container = document.getElementById('tool-list');
+        container.innerHTML = '';
+        for (const cat of catOrder) {
+            if (!grouped[cat]) continue;
+            const section = document.createElement('div');
+            section.className = 'space-y-1';
+            const header = document.createElement('p');
+            header.className = 'text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2';
+            header.textContent = CAT_LABELS[cat] || cat;
+            section.appendChild(header);
+            for (const tool of grouped[cat]) {
+                section.appendChild(renderToolRow(tool));
+            }
+            container.appendChild(section);
+        }
+    }
+
+    function updateScopeDesc(scope) {
+        const el = document.getElementById('scope-desc');
+        el.textContent = SCOPE_DESCS[scope] || '';
+    }
+
+    function renderToolRow(tool) {
+        const row = document.createElement('div');
+        row.id = 'tool-row-' + tool.name;
+        row.className = 'flex items-center justify-between py-1.5 px-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700/30';
+
+        const left = document.createElement('div');
+        left.className = 'flex items-center gap-2 flex-1 min-w-0';
+
+        const nameEl = document.createElement('span');
+        nameEl.className = 'text-sm text-gray-800 dark:text-gray-200 truncate font-mono';
+        nameEl.textContent = tool.name;
+        nameEl.title = tool.description || '';
+        left.appendChild(nameEl);
+
+        if (tool.sensitivity === 'sensitive') {
+            const badge = document.createElement('span');
+            badge.className = 'flex-shrink-0 px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400';
+            badge.textContent = '{% if lang == "fa" %}حساس{% else %}sensitive{% endif %}';
+            left.appendChild(badge);
+        }
+
+        // Toggle switch
+        const label = document.createElement('label');
+        label.className = 'relative inline-flex items-center cursor-pointer flex-shrink-0';
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.className = 'sr-only peer';
+        input.checked = tool.enabled !== false;
+        input.onchange = async () => {
+            const enabled = input.checked;
+            try {
+                const r = await fetch('/api/sites/' + siteId + '/tools/' + tool.name, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
+                    body: JSON.stringify({ enabled }),
+                });
+                if (!r.ok) { input.checked = !enabled; }
+            } catch (_) { input.checked = !enabled; }
+        };
+        const slider = document.createElement('div');
+        slider.className = 'w-9 h-5 bg-gray-300 dark:bg-gray-600 peer-checked:bg-blue-600 rounded-full peer peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 transition-colors after:content-[""] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4';
+        label.appendChild(input);
+        label.appendChild(slider);
+
+        row.appendChild(left);
+        row.appendChild(label);
+        return row;
+    }
+
+    document.addEventListener('DOMContentLoaded', loadToolAccess);
 </script>
 {% endblock %}

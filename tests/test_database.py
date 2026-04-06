@@ -538,6 +538,72 @@ class TestEmptyResults:
 # ---------------------------------------------------------------------------
 
 
+class TestSiteToolToggles:
+    """F.7b: per-site tool toggle and tool_scope helpers."""
+
+    @pytest.mark.unit
+    async def test_empty_toggles_by_default(self, db, site_row):
+        assert await db.get_site_tool_toggles(site_row["id"]) == {}
+
+    @pytest.mark.unit
+    async def test_set_and_get_toggle(self, db, site_row):
+        await db.set_site_tool_toggle(
+            site_row["id"], "coolify_list_applications", False, reason="not needed"
+        )
+        toggles = await db.get_site_tool_toggles(site_row["id"])
+        assert toggles == {"coolify_list_applications": False}
+
+    @pytest.mark.unit
+    async def test_toggle_is_upsert(self, db, site_row):
+        await db.set_site_tool_toggle(site_row["id"], "coolify_get_server", False)
+        await db.set_site_tool_toggle(site_row["id"], "coolify_get_server", True)
+        toggles = await db.get_site_tool_toggles(site_row["id"])
+        assert toggles == {"coolify_get_server": True}
+
+    @pytest.mark.unit
+    async def test_delete_toggle(self, db, site_row):
+        await db.set_site_tool_toggle(site_row["id"], "coolify_get_server", False)
+        removed = await db.delete_site_tool_toggle(site_row["id"], "coolify_get_server")
+        assert removed is True
+        assert await db.get_site_tool_toggles(site_row["id"]) == {}
+
+    @pytest.mark.unit
+    async def test_bulk_set(self, db, site_row):
+        n = await db.bulk_set_site_tool_toggles(
+            site_row["id"],
+            [("coolify_list_applications", False), ("coolify_start_application", False)],
+            reason="bulk:deploy",
+        )
+        assert n == 2
+        toggles = await db.get_site_tool_toggles(site_row["id"])
+        assert toggles == {
+            "coolify_list_applications": False,
+            "coolify_start_application": False,
+        }
+
+    @pytest.mark.unit
+    async def test_toggle_cascades_on_site_delete(self, db, user_row, site_row):
+        await db.set_site_tool_toggle(site_row["id"], "coolify_get_server", False)
+        await db.delete_site(site_row["id"], user_row["id"])
+        rows = await db.fetchall(
+            "SELECT * FROM site_tool_toggles WHERE site_id = ?", (site_row["id"],)
+        )
+        assert rows == []
+
+    @pytest.mark.unit
+    async def test_default_tool_scope_is_admin(self, db, site_row):
+        assert await db.get_site_tool_scope(site_row["id"]) == "admin"
+
+    @pytest.mark.unit
+    async def test_set_tool_scope(self, db, site_row):
+        await db.set_site_tool_scope(site_row["id"], "read")
+        assert await db.get_site_tool_scope(site_row["id"]) == "read"
+
+    @pytest.mark.unit
+    async def test_unknown_site_tool_scope_defaults_admin(self, db):
+        assert await db.get_site_tool_scope("does-not-exist") == "admin"
+
+
 class TestModuleHelpers:
     """Test get_database() and initialize_database() helpers."""
 

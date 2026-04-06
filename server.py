@@ -58,16 +58,22 @@ from core import (
     set_api_key_context,
 )
 from core.dashboard.routes import (
-    # E.3: Site Management routes
+    # F.7b: Per-site tool visibility
+    api_bulk_toggle_site_tools,
     api_create_key,
+    # E.3: Site Management routes
     api_create_site,
     api_delete_key,
     api_delete_site,
     api_get_config,
     api_list_keys,
+    api_list_site_tools,
     api_list_sites,
+    api_patch_site_tool,
     # K.5: Settings routes
     api_save_setting,
+    api_scope_presets,
+    api_set_site_tool_scope,
     api_test_site,
     api_update_site,
     # E.2: OAuth Social Login routes
@@ -80,7 +86,6 @@ from core.dashboard.routes import (
     dashboard_api_keys_create,
     dashboard_api_keys_delete,
     # K.3: API Keys routes
-    dashboard_api_keys_list,
     dashboard_api_keys_revoke,
     dashboard_api_project_detail,
     dashboard_api_projects,
@@ -88,11 +93,11 @@ from core.dashboard.routes import (
     # K.4: Audit Logs routes
     dashboard_audit_logs_list,
     # E.3: Dashboard pages
-    dashboard_connect_page,
-    # K.5: Health Monitoring routes
     dashboard_health_page,
     dashboard_health_projects_partial,
     dashboard_home,
+    # F.7b session 2: Unified keys page
+    dashboard_keys_unified,
     dashboard_login_page,
     dashboard_login_submit,
     dashboard_logout,
@@ -114,6 +119,7 @@ from core.dashboard.routes import (
     dashboard_sites_add,
     dashboard_sites_edit,
     dashboard_sites_list,
+    dashboard_sites_view,
     # Bug C: User OAuth client routes
     dashboard_user_oauth_clients_create,
     dashboard_user_oauth_clients_delete,
@@ -4783,6 +4789,7 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
         Route("/dashboard/profile", dashboard_profile_page, methods=["GET"]),
         Route("/dashboard/sites/add", dashboard_sites_add, methods=["GET"]),
         Route("/dashboard/sites/{id}/edit", dashboard_sites_edit, methods=["GET"]),
+        Route("/dashboard/sites/{id}", dashboard_sites_view, methods=["GET"]),
         Route("/dashboard/sites", dashboard_sites_list, methods=["GET"]),
         # Bug C: User OAuth client routes (must be before /dashboard/connect)
         Route(
@@ -4790,7 +4797,12 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
             dashboard_user_oauth_clients_list,
             methods=["GET"],
         ),
-        Route("/dashboard/connect", dashboard_connect_page, methods=["GET"]),
+        # F.7b session 2: /dashboard/connect → /dashboard/keys (301)
+        Route(
+            "/dashboard/connect",
+            lambda r: RedirectResponse("/dashboard/keys", status_code=301),
+            methods=["GET"],
+        ),
         # F.3: Service pages (must be before /dashboard catch-all)
         Route("/dashboard/services", dashboard_services_list, methods=["GET"]),
         Route("/dashboard/services/{plugin_type}", dashboard_service_page, methods=["GET"]),
@@ -4812,8 +4824,14 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
             dashboard_api_project_detail,
             methods=["GET"],
         ),
-        # Dashboard API Keys routes (Phase K.3)
-        Route("/dashboard/api-keys", dashboard_api_keys_list, methods=["GET"]),
+        # Dashboard API Keys routes (Phase K.3 + F.7b session 2: unified /dashboard/keys)
+        Route("/dashboard/keys", dashboard_keys_unified, methods=["GET"]),
+        # /dashboard/api-keys → /dashboard/keys (301)
+        Route(
+            "/dashboard/api-keys",
+            lambda r: RedirectResponse("/dashboard/keys", status_code=301),
+            methods=["GET"],
+        ),
         Route("/api/dashboard/api-keys/create", dashboard_api_keys_create, methods=["POST"]),
         Route(
             "/api/dashboard/api-keys/{key_id}/revoke", dashboard_api_keys_revoke, methods=["POST"]
@@ -4862,6 +4880,24 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
         Route("/api/keys/{id}", api_delete_key, methods=["DELETE"]),
         # Config snippet API (E.3)
         Route("/api/config/{alias}", api_get_config, methods=["GET"]),
+        # F.7b: Per-site tool visibility management
+        Route("/api/sites/{site_id}/tools", api_list_site_tools, methods=["GET"]),
+        Route(
+            "/api/sites/{site_id}/tools/bulk-toggle",
+            api_bulk_toggle_site_tools,
+            methods=["POST"],
+        ),
+        Route(
+            "/api/sites/{site_id}/tools/{tool_name}",
+            api_patch_site_tool,
+            methods=["PATCH"],
+        ),
+        Route(
+            "/api/sites/{site_id}/tool-scope",
+            api_set_site_tool_scope,
+            methods=["PATCH"],
+        ),
+        Route("/api/scope-presets", api_scope_presets, methods=["GET"]),
         # OAuth endpoints
         Route("/.well-known/oauth-authorization-server", oauth_metadata, methods=["GET"]),
         # Path-specific OAuth protected resource metadata (must come before root)

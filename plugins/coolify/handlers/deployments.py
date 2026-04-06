@@ -11,6 +11,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
     return [
         {
             "name": "list_deployments",
+            "category": "read",
             "method_name": "list_deployments",
             "description": "List all running deployments on the Coolify instance.",
             "schema": {
@@ -21,6 +22,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "get_deployment",
+            "category": "read",
             "method_name": "get_deployment",
             "description": "Get details of a specific deployment by UUID.",
             "schema": {
@@ -38,6 +40,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "cancel_deployment",
+            "category": "lifecycle",
             "method_name": "cancel_deployment",
             "description": "Cancel a running deployment.",
             "schema": {
@@ -55,6 +58,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "deploy",
+            "category": "lifecycle",
             "method_name": "deploy",
             "description": (
                 "Trigger deployment by tag name or resource UUID. "
@@ -82,6 +86,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "list_app_deployments",
+            "category": "read",
             "method_name": "list_app_deployments",
             "description": "List deployment history for a specific application.",
             "schema": {

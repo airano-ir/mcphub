@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 _DEFAULT_DATA_DIR = "/app/data" if Path("/app").exists() else "./data"
 
 # Schema version — increment when adding migrations
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 7
 
 # Initial schema DDL
 _SCHEMA_SQL = """\
@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS sites (
     status_msg  TEXT,
     last_health TEXT,
     last_tested_at TEXT,
+    tool_scope  TEXT NOT NULL DEFAULT 'admin',
     created_at  TEXT NOT NULL,
     UNIQUE(user_id, alias)
 );
@@ -100,6 +101,18 @@ CREATE TABLE IF NOT EXISTS schema_version (
     version     INTEGER PRIMARY KEY,
     applied_at  TEXT NOT NULL
 );
+
+-- F.7b: per-site tool toggles (scope-based visibility overrides)
+CREATE TABLE IF NOT EXISTS site_tool_toggles (
+    id          TEXT PRIMARY KEY,
+    site_id     TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+    tool_name   TEXT NOT NULL,
+    enabled     INTEGER NOT NULL DEFAULT 1,
+    reason      TEXT,
+    updated_at  TEXT NOT NULL,
+    UNIQUE(site_id, tool_name)
+);
+CREATE INDEX IF NOT EXISTS idx_site_tool_toggles_site ON site_tool_toggles(site_id);
 """
 
 # Migration registry: version -> SQL string
@@ -119,6 +132,38 @@ _MIGRATIONS: dict[int, str] = {
         "    value       TEXT NOT NULL,\n"
         "    updated_at  TEXT NOT NULL DEFAULT (datetime('now'))\n"
         ");\n"
+    ),
+    6: (
+        # F.7: per-user tool toggles for scope-based visibility & per-tool disable
+        "CREATE TABLE IF NOT EXISTS user_tool_toggles (\n"
+        "    id          TEXT PRIMARY KEY,\n"
+        "    user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,\n"
+        "    tool_name   TEXT NOT NULL,\n"
+        "    enabled     INTEGER NOT NULL DEFAULT 1,\n"
+        "    reason      TEXT,\n"
+        "    updated_at  TEXT NOT NULL,\n"
+        "    UNIQUE(user_id, tool_name)\n"
+        ");\n"
+        "CREATE INDEX IF NOT EXISTS idx_user_tool_toggles_user "
+        "ON user_tool_toggles(user_id);\n"
+    ),
+    7: (
+        # F.7b: move tool toggles from per-user to per-site and add a
+        # per-site preset column. user_tool_toggles was merged on Phase-1
+        # but never populated with real data — safe to drop.
+        "DROP TABLE IF EXISTS user_tool_toggles;\n"
+        "CREATE TABLE IF NOT EXISTS site_tool_toggles (\n"
+        "    id          TEXT PRIMARY KEY,\n"
+        "    site_id     TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,\n"
+        "    tool_name   TEXT NOT NULL,\n"
+        "    enabled     INTEGER NOT NULL DEFAULT 1,\n"
+        "    reason      TEXT,\n"
+        "    updated_at  TEXT NOT NULL,\n"
+        "    UNIQUE(site_id, tool_name)\n"
+        ");\n"
+        "CREATE INDEX IF NOT EXISTS idx_site_tool_toggles_site "
+        "ON site_tool_toggles(site_id);\n"
+        "ALTER TABLE sites ADD COLUMN tool_scope TEXT NOT NULL DEFAULT 'admin';\n"
     ),
 }
 
@@ -724,6 +769,121 @@ class Database:
         await self.execute(
             "UPDATE user_api_keys SET use_count = use_count + 1, last_used = ? WHERE id = ?",
             (_utc_now(), key_id),
+        )
+
+    # ------------------------------------------------------------------
+    # Site tool toggles & tool_scope (F.7b)
+    # ------------------------------------------------------------------
+
+    async def get_site_tool_toggles(self, site_id: str) -> dict[str, bool]:
+        """Get explicit tool toggle overrides for a site.
+
+        Only rows where a tool has been explicitly toggled are stored.
+        Tools not in the result are implicitly enabled.
+
+        Args:
+            site_id: Site UUID.
+
+        Returns:
+            Dict mapping ``tool_name`` → ``enabled`` (bool).
+        """
+        rows = await self.fetchall(
+            "SELECT tool_name, enabled FROM site_tool_toggles WHERE site_id = ?",
+            (site_id,),
+        )
+        return {row["tool_name"]: bool(row["enabled"]) for row in rows}
+
+    async def set_site_tool_toggle(
+        self,
+        site_id: str,
+        tool_name: str,
+        enabled: bool,
+        reason: str | None = None,
+    ) -> None:
+        """Upsert a single tool toggle for a site.
+
+        Args:
+            site_id: Site UUID.
+            tool_name: Fully-qualified tool name (e.g. ``coolify_list_applications``).
+            enabled: Whether the tool should be visible on this site.
+            reason: Optional note.
+        """
+        toggle_id = str(uuid.uuid4())
+        now = _utc_now()
+        await self.execute(
+            "INSERT INTO site_tool_toggles (id, site_id, tool_name, enabled, reason, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(site_id, tool_name) DO UPDATE SET "
+            "enabled = excluded.enabled, reason = excluded.reason, updated_at = excluded.updated_at",
+            (toggle_id, site_id, tool_name, 1 if enabled else 0, reason, now),
+        )
+
+    async def delete_site_tool_toggle(self, site_id: str, tool_name: str) -> bool:
+        """Delete a site's toggle for a tool (reverts to the default).
+
+        Args:
+            site_id: Site UUID.
+            tool_name: Fully-qualified tool name.
+
+        Returns:
+            True if a row was deleted.
+        """
+        cursor = await self.execute(
+            "DELETE FROM site_tool_toggles WHERE site_id = ? AND tool_name = ?",
+            (site_id, tool_name),
+        )
+        return cursor.rowcount > 0
+
+    async def bulk_set_site_tool_toggles(
+        self,
+        site_id: str,
+        toggles: list[tuple[str, bool]],
+        reason: str | None = None,
+    ) -> int:
+        """Upsert multiple tool toggles for a site in one transaction.
+
+        Args:
+            site_id: Site UUID.
+            toggles: List of ``(tool_name, enabled)`` pairs.
+            reason: Optional shared reason applied to every row.
+
+        Returns:
+            Number of rows affected.
+        """
+        if not toggles:
+            return 0
+        now = _utc_now()
+        rows = [
+            (str(uuid.uuid4()), site_id, tool_name, 1 if enabled else 0, reason, now)
+            for tool_name, enabled in toggles
+        ]
+        await self.executemany(
+            "INSERT INTO site_tool_toggles (id, site_id, tool_name, enabled, reason, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(site_id, tool_name) DO UPDATE SET "
+            "enabled = excluded.enabled, reason = excluded.reason, updated_at = excluded.updated_at",
+            rows,
+        )
+        return len(rows)
+
+    async def get_site_tool_scope(self, site_id: str) -> str:
+        """Return the site's ``tool_scope`` preset (defaults to ``'admin'``)."""
+        row = await self.fetchone("SELECT tool_scope FROM sites WHERE id = ?", (site_id,))
+        if row is None:
+            return "admin"
+        return row["tool_scope"] or "admin"
+
+    async def set_site_tool_scope(self, site_id: str, scope: str) -> None:
+        """Update the ``tool_scope`` preset for a site.
+
+        Args:
+            site_id: Site UUID.
+            scope: One of ``read``, ``read:sensitive``, ``deploy``,
+                ``write``, ``admin``, ``custom``.
+        """
+        await self.execute(
+            "UPDATE sites SET tool_scope = ? WHERE id = ?",
+            (scope, site_id),
         )
 
 

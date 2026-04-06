@@ -13,8 +13,8 @@ Connect your sites, stores, repos, and databases — manage them all through Cla
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776ab.svg)](https://www.python.org/)
 [![PyPI](https://img.shields.io/pypi/v/mcphub-server.svg)](https://pypi.org/project/mcphub-server/)
 [![Docker](https://img.shields.io/docker/v/airano/mcphub?label=docker)](https://hub.docker.com/r/airano/mcphub)
-[![Tests: 734 passing](https://img.shields.io/badge/tests-734%20passing-brightgreen.svg)]()
-[![Tools: 633](https://img.shields.io/badge/tools-633-orange.svg)]()
+[![Tests: 481 passing](https://img.shields.io/badge/tests-481%20passing-brightgreen.svg)]()
+[![Tools: 565](https://img.shields.io/badge/tools-565-orange.svg)]()
 [![CI](https://github.com/airano-ir/mcphub/actions/workflows/ci.yml/badge.svg)](https://github.com/airano-ir/mcphub/actions/workflows/ci.yml)
 
 </div>
@@ -265,7 +265,7 @@ MCP Hub supports **Open Dynamic Client Registration** (RFC 7591). ChatGPT can au
 ## Architecture
 
 ```
-/mcp                        → Admin endpoint (all 633 tools)
+/mcp                        → Admin endpoint (all 565 tools)
 /system/mcp                 → System tools only (24 tools)
 /wordpress/mcp              → WordPress tools (67 tools)
 /woocommerce/mcp            → WooCommerce tools (28 tools)
@@ -275,13 +275,12 @@ MCP Hub supports **Open Dynamic Client Registration** (RFC 7591). ChatGPT can au
 /supabase/mcp               → Supabase tools (70 tools)
 /openpanel/mcp              → OpenPanel tools (42 tools)
 /appwrite/mcp               → Appwrite tools (100 tools)
-/coolify/mcp                → Coolify tools (67 tools)
 /directus/mcp               → Directus tools (100 tools)
 /project/{alias}/mcp        → Per-project endpoint (auto-injects site)
 /u/{user_id}/{alias}/mcp    → Per-user endpoint (hosted/OAuth users)
 ```
 
-**Recommendation**: Use plugin-specific endpoints instead of `/mcp` (633 tools) to minimize token usage.
+**Recommendation**: Use plugin-specific endpoints instead of `/mcp` (565 tools) to minimize token usage.
 
 | Endpoint | Use Case | Tools |
 |----------|----------|------:|

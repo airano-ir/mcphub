@@ -160,6 +160,7 @@ DASHBOARD_TRANSLATIONS = {
         "admin_login": "Admin Login with API Key",
         "profile": "Profile",
         "admin_badge": "Admin",
+        "keys": "API Keys",
     },
     "fa": {
         # Navigation
@@ -265,6 +266,7 @@ DASHBOARD_TRANSLATIONS = {
         "admin_login": "ورود مدیر با کلید API",
         "profile": "پروفایل",
         "admin_badge": "مدیر",
+        "keys": "کلیدهای API",
     },
 }
 
@@ -2906,6 +2908,134 @@ async def dashboard_connect_page(request: Request) -> Response:
 
 
 # ======================================================================
+# Site View Route (F.7b session 2)
+# ======================================================================
+
+
+async def dashboard_sites_view(request: Request) -> Response:
+    """GET /dashboard/sites/{id} — Show site connect page with config snippets."""
+    user_session, redirect = _require_user_session(request)
+    if redirect:
+        return redirect
+
+    site_id = request.path_params.get("id", "")
+
+    from core.config_snippets import get_supported_clients
+    from core.site_api import PLUGIN_DISPLAY_NAMES as SITE_PLUGIN_NAMES
+    from core.site_api import get_user_site
+
+    site = await get_user_site(site_id, user_session["user_id"])
+    if site is None:
+        return RedirectResponse("/dashboard/sites?error=site_not_found", status_code=302)
+
+    accept_language = request.headers.get("accept-language")
+    query_lang = request.query_params.get("lang")
+    lang = detect_language(accept_language, query_lang)
+    t = get_translations(lang)
+
+    public_url = os.environ.get("PUBLIC_URL", "http://localhost:8000").rstrip("/")
+    mcp_url = f"{public_url}/u/{user_session['user_id']}/{site['alias']}/mcp"
+
+    return templates.TemplateResponse(
+        request,
+        "dashboard/sites/view.html",
+        {
+            "lang": lang,
+            "t": t,
+            "session": user_session,
+            "site": site,
+            "plugin_names": SITE_PLUGIN_NAMES,
+            "mcp_url": mcp_url,
+            "clients": get_supported_clients(),
+            "current_page": "my_sites",
+        },
+    )
+
+
+# ======================================================================
+# Unified Keys Route (F.7b session 2)
+# ======================================================================
+
+
+async def dashboard_keys_unified(request: Request) -> Response:
+    """GET /dashboard/keys — Unified API keys page (user or admin view)."""
+    accept_language = request.headers.get("accept-language")
+    query_lang = request.query_params.get("lang")
+    lang = detect_language(accept_language, query_lang)
+    t = get_translations(lang)
+
+    auth = get_dashboard_auth()
+    admin_session = auth.get_session_from_request(request)
+    user_session = auth.get_user_session_from_request(request)
+
+    if admin_session and is_admin_session(admin_session):
+        # Admin view — reuse existing admin keys logic
+        project_filter = request.query_params.get("project", "")
+        status_filter = request.query_params.get("status", "active")
+        search = request.query_params.get("search", "")
+        page = int(request.query_params.get("page", 1))
+
+        keys_data = await get_all_api_keys(
+            project_id=project_filter if project_filter else None,
+            status=status_filter,
+            search=search if search else None,
+            page=page,
+        )
+
+        from core.site_manager import get_site_manager
+
+        site_manager = get_site_manager()
+        available_projects = site_manager.list_all_sites()
+
+        return templates.TemplateResponse(
+            request,
+            "dashboard/keys/list.html",
+            {
+                "lang": lang,
+                "t": t,
+                "session": admin_session,
+                "is_admin": True,
+                "api_keys": keys_data["api_keys"],
+                "total_count": keys_data["total_count"],
+                "total_pages": keys_data["total_pages"],
+                "page_number": keys_data["current_page"],
+                "per_page": keys_data["per_page"],
+                "available_projects": available_projects,
+                "selected_project": project_filter,
+                "selected_status": status_filter,
+                "search_query": search,
+                "current_page": "keys",
+            },
+        )
+
+    if user_session:
+        # User view — personal keys
+        from core.user_keys import get_user_key_manager
+
+        user_keys = []
+        try:
+            key_mgr = get_user_key_manager()
+            user_keys = await key_mgr.list_keys(user_session["user_id"])
+        except RuntimeError:
+            pass
+
+        return templates.TemplateResponse(
+            request,
+            "dashboard/keys/list.html",
+            {
+                "lang": lang,
+                "t": t,
+                "session": user_session,
+                "is_admin": False,
+                "user_keys": user_keys,
+                "current_page": "keys",
+            },
+        )
+
+    return RedirectResponse(url="/auth/login", status_code=303)
+
+
+# ======================================================================
 # Site Management API Routes (E.3)
 # ======================================================================
 
@@ -3160,6 +3290,181 @@ async def api_delete_key(request: Request) -> Response:
         return JSONResponse({"error": "Key not found"}, status_code=404)
     except RuntimeError as e:
         return JSONResponse({"error": str(e)}, status_code=503)
+
+
+# ----------------------------------------------------------------------
+# F.7b: per-site tool visibility management
+# ----------------------------------------------------------------------
+
+
+_VALID_TOOL_SCOPES = {"read", "read:sensitive", "deploy", "write", "admin", "custom"}
+
+
+async def _require_owned_site(request: Request) -> tuple[dict | None, Response | None]:
+    """Resolve ``{site_id}`` path param → site row owned by the current user.
+
+    Returns ``(site, None)`` on success, or ``(None, error_response)``.
+    """
+    user_session, redirect = _require_user_session(request)
+    if redirect:
+        return None, JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    site_id = request.path_params.get("site_id", "")
+    if not site_id:
+        return None, JSONResponse({"error": "Missing site_id"}, status_code=400)
+
+    from core.database import get_database
+
+    try:
+        db = get_database()
+    except RuntimeError:
+        return None, JSONResponse({"error": "Database unavailable"}, status_code=503)
+
+    site = await db.get_site(site_id, user_session["user_id"])
+    if site is None:
+        return None, JSONResponse({"error": "Site not found"}, status_code=404)
+    return site, None
+
+
+async def api_list_site_tools(request: Request) -> Response:
+    """GET /api/sites/{site_id}/tools — list tools for a site with toggle state."""
+    site, err = await _require_owned_site(request)
+    if err:
+        return err
+    assert site is not None
+
+    from core.tool_access import get_tool_access_manager
+
+    access = get_tool_access_manager()
+    tools = await access.list_tools_for_site(site["id"], site["plugin_type"])
+    return JSONResponse(
+        {
+            "site_id": site["id"],
+            "plugin_type": site["plugin_type"],
+            "tool_scope": site.get("tool_scope", "admin"),
+            "tools": tools,
+        }
+    )
+
+
+async def api_patch_site_tool(request: Request) -> Response:
+    """PATCH /api/sites/{site_id}/tools/{tool_name} — toggle a single tool."""
+    site, err = await _require_owned_site(request)
+    if err:
+        return err
+    assert site is not None
+
+    tool_name = request.path_params.get("tool_name", "")
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+
+    if "enabled" not in body or not isinstance(body["enabled"], bool):
+        return JSONResponse({"error": "Missing boolean 'enabled' field"}, status_code=400)
+
+    from core.tool_access import get_tool_access_manager
+    from core.tool_registry import get_tool_registry
+
+    tool_def = get_tool_registry().get_by_name(tool_name)
+    if tool_def is None:
+        return JSONResponse({"error": f"Unknown tool '{tool_name}'"}, status_code=404)
+    if tool_def.plugin_type != site["plugin_type"]:
+        return JSONResponse(
+            {"error": f"Tool '{tool_name}' does not belong to this site's plugin"},
+            status_code=400,
+        )
+
+    access = get_tool_access_manager()
+    try:
+        await access.toggle_tool(
+            site["id"],
+            tool_name,
+            bool(body["enabled"]),
+            body.get("reason"),
+        )
+    except RuntimeError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=503)
+
+    return JSONResponse({"ok": True, "tool_name": tool_name, "enabled": body["enabled"]})
+
+
+async def api_bulk_toggle_site_tools(request: Request) -> Response:
+    """POST /api/sites/{site_id}/tools/bulk-toggle — toggle a category set."""
+    site, err = await _require_owned_site(request)
+    if err:
+        return err
+    assert site is not None
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+
+    scope = body.get("scope")
+    enabled = body.get("enabled")
+    if not isinstance(scope, str) or not isinstance(enabled, bool):
+        return JSONResponse(
+            {"error": "Body must contain string 'scope' and bool 'enabled'"},
+            status_code=400,
+        )
+
+    from core.tool_access import get_tool_access_manager
+
+    access = get_tool_access_manager()
+    try:
+        affected = await access.bulk_toggle_by_scope(
+            site["id"], scope, enabled, plugin_type=site["plugin_type"]
+        )
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    except RuntimeError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=503)
+
+    return JSONResponse({"ok": True, "affected": affected})
+
+
+async def api_set_site_tool_scope(request: Request) -> Response:
+    """PATCH /api/sites/{site_id}/tool-scope — update the site's scope preset."""
+    site, err = await _require_owned_site(request)
+    if err:
+        return err
+    assert site is not None
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+
+    scope = body.get("scope")
+    if not isinstance(scope, str) or scope not in _VALID_TOOL_SCOPES:
+        return JSONResponse(
+            {
+                "error": (
+                    "Body must contain 'scope' with one of: "
+                    + ", ".join(sorted(_VALID_TOOL_SCOPES))
+                )
+            },
+            status_code=400,
+        )
+
+    from core.database import get_database
+
+    db = get_database()
+    await db.set_site_tool_scope(site["id"], scope)
+    return JSONResponse({"ok": True, "site_id": site["id"], "tool_scope": scope})
+
+
+async def api_scope_presets(request: Request) -> Response:
+    """GET /api/scope-presets — static scope → categories mapping."""
+    user_session, redirect = _require_user_session(request)
+    if redirect:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    del user_session
+
+    from core.tool_access import SCOPE_TO_CATEGORIES
+
+    return JSONResponse({"presets": {k: sorted(v) for k, v in SCOPE_TO_CATEGORIES.items()}})
 
 
 async def api_get_config(request: Request) -> Response:
@@ -3471,8 +3776,11 @@ def register_dashboard_routes(mcp):
         dashboard_project_detail
     )
 
-    # API Keys routes
-    mcp.custom_route("/dashboard/api-keys", methods=["GET"])(dashboard_api_keys_list)
+    # API Keys routes (unified — /dashboard/keys replaces /dashboard/api-keys and /dashboard/connect)
+    mcp.custom_route("/dashboard/keys", methods=["GET"])(dashboard_keys_unified)
+    mcp.custom_route("/dashboard/api-keys", methods=["GET"])(
+        lambda r: RedirectResponse("/dashboard/keys", status_code=301)
+    )
 
     # OAuth Clients routes
     mcp.custom_route("/dashboard/oauth-clients", methods=["GET"])(dashboard_oauth_clients_list)
@@ -3519,7 +3827,11 @@ def register_dashboard_routes(mcp):
     mcp.custom_route("/dashboard/sites", methods=["GET"])(dashboard_sites_list)
     mcp.custom_route("/dashboard/sites/add", methods=["GET"])(dashboard_sites_add)
     mcp.custom_route("/dashboard/sites/{id}/edit", methods=["GET"])(dashboard_sites_edit)
-    mcp.custom_route("/dashboard/connect", methods=["GET"])(dashboard_connect_page)
+    mcp.custom_route("/dashboard/sites/{id}", methods=["GET"])(dashboard_sites_view)
+    # /dashboard/connect → /dashboard/keys (301)
+    mcp.custom_route("/dashboard/connect", methods=["GET"])(
+        lambda r: RedirectResponse("/dashboard/keys", status_code=301)
+    )
 
     # Service pages (F.3)
     mcp.custom_route("/dashboard/services", methods=["GET"])(dashboard_services_list)

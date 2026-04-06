@@ -11,6 +11,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
     return [
         {
             "name": "list_servers",
+            "category": "read",
             "method_name": "list_servers",
             "description": "List all servers registered in the Coolify instance.",
             "schema": {
@@ -21,6 +22,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "get_server",
+            "category": "read",
             "method_name": "get_server",
             "description": "Get details of a specific server by UUID, including settings.",
             "schema": {
@@ -38,6 +40,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "create_server",
+            "category": "system",
             "method_name": "create_server",
             "description": (
                 "Register a new server in Coolify. "
@@ -98,6 +101,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "update_server",
+            "category": "crud",
             "method_name": "update_server",
             "description": "Update server configuration.",
             "schema": {
@@ -142,6 +146,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "delete_server",
+            "category": "system",
             "method_name": "delete_server",
             "description": "Delete a server from Coolify. This cannot be undone!",
             "schema": {
@@ -159,6 +164,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "get_server_resources",
+            "category": "read",
             "method_name": "get_server_resources",
             "description": (
                 "Get all resources (applications, databases, services) "
@@ -179,6 +185,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "get_server_domains",
+            "category": "read",
             "method_name": "get_server_domains",
             "description": "Get all domains configured on a specific server.",
             "schema": {
@@ -196,6 +203,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "validate_server",
+            "category": "read",
             "method_name": "validate_server",
             "description": "Validate server connectivity and configuration.",
             "schema": {

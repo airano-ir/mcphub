@@ -27,6 +27,8 @@ from typing import Any
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+from core.tool_registry import ToolDefinition
+
 logger = logging.getLogger(__name__)
 
 # Per-user rate limiting defaults
@@ -35,9 +37,6 @@ USER_RATE_LIMIT_PER_HR = int(os.getenv("USER_RATE_LIMIT_PER_HR", "500"))
 
 # In-memory rate limit tracking: user_id -> list of timestamps
 _rate_limits: dict[str, list[float]] = {}
-
-# Cache for tool schemas per plugin type (computed once)
-_tool_schema_cache: dict[str, list[dict[str, Any]]] = {}
 
 
 def _check_user_rate_limit(user_id: str) -> tuple[bool, str]:
@@ -71,24 +70,15 @@ def _check_user_rate_limit(user_id: str) -> tuple[bool, str]:
     return True, ""
 
 
-def _get_tools_for_plugin(plugin_type: str) -> list[dict[str, Any]]:
-    """Get MCP tool definitions for a plugin type (cached).
+def _tools_to_mcp_schema(tools: list[ToolDefinition]) -> list[dict[str, Any]]:
+    """Convert ToolDefinition objects into MCP ``tools/list`` response shape.
 
-    Returns tool schemas with the ``site`` parameter removed
-    (auto-injected for user endpoints).
+    Strips the auto-injected ``site`` parameter, since user endpoints bind a
+    single site per alias.
     """
-    if plugin_type in _tool_schema_cache:
-        return _tool_schema_cache[plugin_type]
-
-    from core.tool_registry import get_tool_registry
-
-    registry = get_tool_registry()
-    tools = registry.get_by_plugin_type(plugin_type)
-
     result = []
     for tool_def in tools:
         schema = deepcopy(tool_def.input_schema)
-        # Remove 'site' parameter (auto-injected)
         if "properties" in schema:
             schema["properties"].pop("site", None)
         if "required" in schema and "site" in schema["required"]:
@@ -101,9 +91,22 @@ def _get_tools_for_plugin(plugin_type: str) -> list[dict[str, Any]]:
                 "inputSchema": schema,
             }
         )
-
-    _tool_schema_cache[plugin_type] = result
     return result
+
+
+async def _get_visible_tools_for_site(
+    site_id: str,
+    key_scopes: list[str],
+    plugin_type: str,
+) -> list[dict[str, Any]]:
+    """Return tools/list payload filtered by key scope + site scope + toggles (F.7b)."""
+    from core.tool_access import get_tool_access_manager
+
+    access = get_tool_access_manager()
+    tools = await access.get_visible_tools(
+        site_id=site_id, key_scopes=key_scopes, plugin_type=plugin_type
+    )
+    return _tools_to_mcp_schema(tools)
 
 
 async def _execute_tool(
@@ -353,7 +356,7 @@ async def user_mcp_handler(request: Request) -> Response:
         return Response(status_code=204)
 
     elif method == "tools/list":
-        tools = _get_tools_for_plugin(site["plugin_type"])
+        tools = await _get_visible_tools_for_site(site["id"], key_scopes, site["plugin_type"])
         return JSONResponse(_jsonrpc_result(req_id, {"tools": tools}))
 
     elif method == "tools/call":
@@ -378,18 +381,55 @@ async def user_mcp_handler(request: Request) -> Response:
         required_scope = tool_def.required_scope
         # key_scopes is set during authentication (both mhu_ and JWT paths)
 
+        # F.7b: enforce category-based scope allowlist in addition to the
+        # legacy read/write/admin hierarchy. A tool is allowed only if BOTH
+        #   (a) the legacy hierarchy grants it, AND
+        #   (b) the tool's category is in BOTH the key-scope set AND the
+        #       site's stored tool_scope set (the narrower layer wins).
+        from core.tool_access import KNOWN_CATEGORIES, SCOPE_CUSTOM, scopes_to_categories
+
         scope_hierarchy = {"read": 1, "write": 2, "admin": 3}
         required_level = scope_hierarchy.get(required_scope, 0)
         key_level = max([scope_hierarchy.get(s, 0) for s in key_scopes] + [0])
+        legacy_ok = key_level >= required_level
 
-        if key_level < required_level:
+        key_cats = scopes_to_categories(key_scopes)
+        key_category_ok = tool_def.category not in KNOWN_CATEGORIES or tool_def.category in key_cats
+
+        # Site-level scope check (skipped for "custom" preset).
+        site_scope = site.get("tool_scope") or "admin"
+        if site_scope and site_scope != SCOPE_CUSTOM:
+            site_cats = scopes_to_categories([site_scope])
+            site_category_ok = (
+                tool_def.category not in KNOWN_CATEGORIES or tool_def.category in site_cats
+            )
+        else:
+            site_category_ok = True
+
+        if not (legacy_ok and key_category_ok and site_category_ok):
             return JSONResponse(
                 _jsonrpc_error(
                     req_id,
                     -32600,
-                    f"Insufficient scope. Tool '{tool_name}' requires '{required_scope}' scope.",
+                    f"Insufficient scope. Tool '{tool_name}' requires "
+                    f"scope '{required_scope}' (category '{tool_def.category}').",
                 )
             )
+
+        # F.7b: honour per-site tool toggles — a disabled tool cannot be called
+        # even if scopes would otherwise allow it.
+        try:
+            toggles = await db.get_site_tool_toggles(site["id"])
+            if not toggles.get(tool_name, True):
+                return JSONResponse(
+                    _jsonrpc_error(
+                        req_id,
+                        -32600,
+                        f"Tool '{tool_name}' is disabled for this site.",
+                    )
+                )
+        except Exception as exc:  # non-fatal — fall through on DB errors
+            logger.warning("Failed to check site tool toggles for %s: %s", site["id"], exc)
 
         # Decrypt credentials
         try:

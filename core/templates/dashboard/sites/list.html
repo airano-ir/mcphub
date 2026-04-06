@@ -80,6 +80,10 @@
                                     id="test-btn-{{ site.id }}">
                                 {{ t.test_connection }}
                             </button>
+                            <a href="/dashboard/sites/{{ site.id }}{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}"
+                               class="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-500">
+                                {{ t.get('connect', 'Connect') }}
+                            </a>
                             <a href="/dashboard/sites/{{ site.id }}/edit{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}"
                                class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
                                 {{ t.edit }}
