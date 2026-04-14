@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**MCP Hub** — a Python MCP (Model Context Protocol) server that manages multiple self-hosted services through a unified plugin architecture. Supports 10 plugin types (WordPress, WooCommerce, WordPress Advanced, Gitea, n8n, Supabase, OpenPanel, Appwrite, Directus, Coolify) with 597 tools total. The tool count stays constant regardless of how many sites are configured.
+**MCP Hub** — a Python MCP (Model Context Protocol) server that manages multiple self-hosted services through a unified plugin architecture. Supports 10 plugin types (WordPress, WooCommerce, WordPress Advanced, Gitea, n8n, Supabase, OpenPanel, Appwrite, Directus, Coolify) with 633 tools total. The tool count stays constant regardless of how many sites are configured.
 
 ## Quick Setup
 
@@ -70,7 +70,7 @@ All configured in `pyproject.toml`:
 ```
 ├── server.py              # Primary entry point
 ├── core/                  # Layer 1: Core system modules
-├── plugins/               # Layer 2: Plugin system (9 plugins)
+├── plugins/               # Layer 2: Plugin system (10 plugins)
 ├── core/templates/        # Jinja2 templates (dashboard + OAuth)
 ├── tests/                 # Organized test suite
 ├── scripts/               # Setup & deployment scripts
@@ -85,7 +85,7 @@ All configured in `pyproject.toml`:
 
 ```
 Layer 1: Core System    (core/)      — Auth, site discovery, tool registry, health, rate limiting
-Layer 2: Plugin System  (plugins/)   — 9 plugin types, each with handlers + schemas
+Layer 2: Plugin System  (plugins/)   — 10 plugin types, each with handlers + schemas
 Layer 3: API & Web UI   (server.py + core/dashboard/) — FastMCP server, Starlette routes, dashboard
 ```
 

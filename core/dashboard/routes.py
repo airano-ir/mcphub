@@ -2913,16 +2913,22 @@ async def dashboard_connect_page(request: Request) -> Response:
 
 
 async def dashboard_sites_view(request: Request) -> Response:
-    """GET /dashboard/sites/{id} — Show site connect page with config snippets."""
+    """GET /dashboard/sites/{id} — Unified site management page (F.7c).
+
+    Combines connection settings, tool access, and connect/config snippets
+    into a single page with 3 sections.
+    """
     user_session, redirect = _require_user_session(request)
     if redirect:
         return redirect
 
     site_id = request.path_params.get("id", "")
 
+    import json
+
     from core.config_snippets import get_supported_clients
-    from core.site_api import PLUGIN_DISPLAY_NAMES as SITE_PLUGIN_NAMES
-    from core.site_api import get_user_site
+    from core.site_api import get_user_credential_fields, get_user_plugin_names, get_user_site
+    from core.tool_access import get_scope_presets_for_plugin
 
     site = await get_user_site(site_id, user_session["user_id"])
     if site is None:
@@ -2936,15 +2942,23 @@ async def dashboard_sites_view(request: Request) -> Response:
     public_url = os.environ.get("PUBLIC_URL", "http://localhost:8000").rstrip("/")
     mcp_url = f"{public_url}/u/{user_session['user_id']}/{site['alias']}/mcp"
 
+    plugin_fields = get_user_credential_fields()
+    plugin_names = get_user_plugin_names()
+    scope_presets = get_scope_presets_for_plugin(site["plugin_type"])
+
     return templates.TemplateResponse(
         request,
-        "dashboard/sites/view.html",
+        "dashboard/sites/manage.html",
         {
             "lang": lang,
             "t": t,
             "session": user_session,
             "site": site,
-            "plugin_names": SITE_PLUGIN_NAMES,
+            "plugin_names": plugin_names,
+            "plugin_fields": plugin_fields,
+            "plugin_fields_json": json.dumps(plugin_fields),
+            "scope_presets": scope_presets,
+            "scope_presets_json": json.dumps(scope_presets),
             "mcp_url": mcp_url,
             "clients": get_supported_clients(),
             "current_page": "my_sites",
@@ -3009,7 +3023,9 @@ async def dashboard_keys_unified(request: Request) -> Response:
         )
 
     if user_session:
-        # User view — personal keys
+        # User view — personal keys + config snippets
+        from core.config_snippets import get_supported_clients
+        from core.site_api import get_user_sites
         from core.user_keys import get_user_key_manager
 
         user_keys = []
@@ -3018,6 +3034,8 @@ async def dashboard_keys_unified(request: Request) -> Response:
             user_keys = await key_mgr.list_keys(user_session["user_id"])
         except RuntimeError:
             pass
+
+        sites = await get_user_sites(user_session["user_id"])
 
         return templates.TemplateResponse(
             request,
@@ -3028,6 +3046,8 @@ async def dashboard_keys_unified(request: Request) -> Response:
                 "session": user_session,
                 "is_admin": False,
                 "user_keys": user_keys,
+                "sites": sites,
+                "clients": get_supported_clients(),
                 "current_page": "keys",
             },
         )
@@ -3153,43 +3173,13 @@ async def api_test_site(request: Request) -> Response:
 
 
 async def dashboard_sites_edit(request: Request) -> Response:
-    """GET /dashboard/sites/{id}/edit — Render the Edit Site form."""
-    user_session, redirect = _require_user_session(request)
-    if redirect:
-        return redirect
-
+    """GET /dashboard/sites/{id}/edit — Redirect to unified site page (F.7c)."""
     site_id = request.path_params.get("id", "")
-
-    from core.site_api import get_user_credential_fields, get_user_plugin_names, get_user_site
-
-    site = await get_user_site(site_id, user_session["user_id"])
-    if site is None:
-        return RedirectResponse("/dashboard/sites?error=site_not_found", status_code=302)
-
-    accept_language = request.headers.get("accept-language")
     query_lang = request.query_params.get("lang")
-    lang = detect_language(accept_language, query_lang)
-    t = get_translations(lang)
-
-    import json
-
-    plugin_fields = get_user_credential_fields()
-    plugin_names = get_user_plugin_names()
-
-    return templates.TemplateResponse(
-        request,
-        "dashboard/sites/edit.html",
-        {
-            "lang": lang,
-            "t": t,
-            "session": user_session,
-            "site": site,
-            "plugin_fields": plugin_fields,
-            "plugin_fields_json": json.dumps(plugin_fields),
-            "plugin_names": plugin_names,
-            "current_page": "my_sites",
-        },
-    )
+    url = f"/dashboard/sites/{site_id}"
+    if query_lang:
+        url += f"?lang={query_lang}"
+    return RedirectResponse(url, status_code=301)
 
 
 async def api_update_site(request: Request) -> Response:
@@ -3243,11 +3233,25 @@ async def api_create_key(request: Request) -> Response:
 
     try:
         key_mgr = get_user_key_manager()
+
+        # Validate site_id if provided (must belong to user)
+        site_id = body.get("site_id")
+        if site_id:
+            from core.database import get_database
+
+            db = get_database()
+            site = await db.get_site(site_id, user_session["user_id"])
+            if site is None:
+                return JSONResponse({"error": "Site not found"}, status_code=404)
+
+        # F.7c: All user keys get full access — tool visibility is controlled
+        # per-site via tool_scope and per-tool toggles.
         result = await key_mgr.create_key(
             user_id=user_session["user_id"],
             name=body.get("name", "Default"),
-            scopes=body.get("scopes", "read write admin"),
+            scopes="read write admin",
             expires_in_days=body.get("expires_in_days"),
+            site_id=site_id,
         )
         return JSONResponse({"key": result})
     except RuntimeError as e:
@@ -3828,9 +3832,9 @@ def register_dashboard_routes(mcp):
     mcp.custom_route("/dashboard/sites/add", methods=["GET"])(dashboard_sites_add)
     mcp.custom_route("/dashboard/sites/{id}/edit", methods=["GET"])(dashboard_sites_edit)
     mcp.custom_route("/dashboard/sites/{id}", methods=["GET"])(dashboard_sites_view)
-    # /dashboard/connect → /dashboard/keys (301)
+    # /dashboard/connect → /dashboard/sites (F.7c: sites page has connect info now)
     mcp.custom_route("/dashboard/connect", methods=["GET"])(
-        lambda r: RedirectResponse("/dashboard/keys", status_code=301)
+        lambda r: RedirectResponse("/dashboard/sites", status_code=301)
     )
 
     # Service pages (F.3)

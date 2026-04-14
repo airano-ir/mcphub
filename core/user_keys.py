@@ -49,8 +49,8 @@ class UserKeyManager:
     """
 
     def __init__(self) -> None:
-        # Cache: raw_key -> (key_id, user_id, scopes, cached_at)
-        self._cache: dict[str, tuple[str, str, str, float]] = {}
+        # Cache: raw_key -> (key_id, user_id, scopes, site_id, cached_at)
+        self._cache: dict[str, tuple[str, str, str, str | None, float]] = {}
 
     async def create_key(
         self,
@@ -58,6 +58,7 @@ class UserKeyManager:
         name: str,
         scopes: str = "read write admin",
         expires_in_days: int | None = None,
+        site_id: str | None = None,
     ) -> dict[str, Any]:
         """Create a new API key for a user.
 
@@ -66,10 +67,11 @@ class UserKeyManager:
             name: Human label (e.g. "Claude Desktop").
             scopes: Access scopes (default: "read write admin" for full access).
             expires_in_days: Optional expiry in days from now. None = never.
+            site_id: Optional site UUID to scope key to a single site.
 
         Returns:
             Dict with ``key`` (plaintext, shown once), ``key_id``, ``name``,
-            ``scopes``, ``created_at``, ``expires_at``.
+            ``scopes``, ``created_at``, ``expires_at``, ``site_id``.
         """
         from core.database import get_database
 
@@ -89,9 +91,10 @@ class UserKeyManager:
             name=name,
             scopes=scopes,
             expires_at=expires_at,
+            site_id=site_id,
         )
 
-        logger.info("Created user API key %s for user %s", row["id"], user_id)
+        logger.info("Created user API key %s for user %s (site=%s)", row["id"], user_id, site_id)
         return {
             "key": raw_key,  # shown once
             "key_id": row["id"],
@@ -99,6 +102,7 @@ class UserKeyManager:
             "scopes": row["scopes"],
             "created_at": row["created_at"],
             "expires_at": row["expires_at"],
+            "site_id": row.get("site_id"),
         }
 
     async def validate_key(self, api_key: str) -> dict[str, Any] | None:
@@ -118,7 +122,7 @@ class UserKeyManager:
         # Check cache first
         cached = self._cache.get(api_key)
         if cached is not None:
-            key_id, user_id, scopes, cached_at = cached
+            key_id, user_id, scopes, site_id, cached_at = cached
             if time.time() - cached_at < _CACHE_TTL_SECONDS:
                 # Update usage in background (fire-and-forget via DB)
                 try:
@@ -130,7 +134,7 @@ class UserKeyManager:
                     asyncio.create_task(db.update_api_key_usage(key_id))
                 except Exception:
                     pass  # Non-critical
-                return {"key_id": key_id, "user_id": user_id, "scopes": scopes}
+                return {"key_id": key_id, "user_id": user_id, "scopes": scopes, "site_id": site_id}
             else:
                 del self._cache[api_key]
 
@@ -159,10 +163,12 @@ class UserKeyManager:
         await db.update_api_key_usage(row["id"])
 
         # Cache the result
+        site_id = row.get("site_id")
         self._cache[api_key] = (
             row["id"],
             row["user_id"],
             row["scopes"],
+            site_id,
             time.time(),
         )
 
@@ -170,6 +176,7 @@ class UserKeyManager:
             "key_id": row["id"],
             "user_id": row["user_id"],
             "scopes": row["scopes"],
+            "site_id": site_id,
         }
 
     async def list_keys(self, user_id: str) -> list[dict[str, Any]]:

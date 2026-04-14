@@ -165,3 +165,8 @@ pytest-cache-files-*/
 worktrees/
 /.agents
 uv.lock
+
+# planning-with-files skill artifacts (session-local)
+task_plan.md
+findings.md
+progress.md

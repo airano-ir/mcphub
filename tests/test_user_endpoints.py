@@ -112,6 +112,8 @@ def mock_key_mgr():
 def mock_db():
     """Patch get_database to return a mock."""
     db = AsyncMock()
+    db.get_site_tool_scope = AsyncMock(return_value="admin")
+    db.get_site_tool_toggles = AsyncMock(return_value={})
     db.get_site_by_alias = AsyncMock(
         return_value={
             "id": "site-uuid-001",
@@ -148,6 +150,10 @@ def mock_tool_registry():
     tool_def = MagicMock()
     tool_def.name = "wordpress_list_posts"
     tool_def.description = "List WordPress posts"
+    tool_def.plugin_type = "wordpress"
+    tool_def.required_scope = "read"
+    tool_def.category = "read"
+    tool_def.sensitivity = "normal"
     tool_def.input_schema = {
         "type": "object",
         "properties": {
@@ -220,6 +226,62 @@ class TestAuthentication:
         assert response.status_code == 403
         body = json.loads(response.body)
         assert "does not match" in body["error"]["message"]
+
+    @pytest.mark.unit
+    async def test_site_scoped_key_wrong_site(self, mock_key_mgr, mock_db):
+        """Site-scoped key (site_id=A) used for site B should return 403."""
+        # Key is scoped to site-A
+        mock_key_mgr.validate_key.return_value = {
+            "key_id": "key-uuid-001",
+            "user_id": "user-uuid-001",
+            "scopes": "read write",
+            "site_id": "site-uuid-A",
+        }
+        # The site looked up by site_id (A) has alias "blog-a", but the request
+        # is for alias "myblog" (which is site-B in get_site_by_alias).
+        mock_db.get_site = AsyncMock(
+            return_value={
+                "id": "site-uuid-A",
+                "alias": "blog-a",
+                "user_id": "user-uuid-001",
+                "plugin_type": "wordpress",
+                "url": "https://blog-a.example.com",
+                "credentials": b"x",
+                "status": "active",
+            }
+        )
+        request = _make_request(alias="myblog")
+        response = await user_mcp_handler(request)
+        assert response.status_code == 403
+        body = json.loads(response.body)
+        assert "scoped to a different site" in body["error"]["message"]
+
+    @pytest.mark.unit
+    async def test_site_scoped_key_matching_site(self, mock_key_mgr, mock_db, mock_tool_registry):
+        """Site-scoped key used for the matching alias should pass auth."""
+        mock_key_mgr.validate_key.return_value = {
+            "key_id": "key-uuid-001",
+            "user_id": "user-uuid-001",
+            "scopes": "read write",
+            "site_id": "site-uuid-001",
+        }
+        mock_db.get_site = AsyncMock(
+            return_value={
+                "id": "site-uuid-001",
+                "alias": "myblog",
+                "user_id": "user-uuid-001",
+                "plugin_type": "wordpress",
+                "url": "https://myblog.example.com",
+                "credentials": b"x",
+                "status": "active",
+            }
+        )
+        request = _make_request(alias="myblog", method_name="tools/list")
+        response = await user_mcp_handler(request)
+        assert response.status_code == 200
+        body = json.loads(response.body)
+        assert "result" in body
+        assert "tools" in body["result"]
 
 
 # ── Site Lookup Tests ────────────────────────────────────────

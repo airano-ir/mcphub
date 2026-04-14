@@ -42,13 +42,17 @@
                 </span>
                 {% endif %}
             </div>
-            <div class="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-500 dark:text-gray-400">
                 <span>{{ svc.tools_count }} {% if lang == 'fa' %}ابزار{% else %}tools{% endif %}</span>
                 <span>&middot;</span>
                 {% set read_count = svc.tools|selectattr('scope', 'equalto', 'read')|list|length %}
                 {% set write_count = svc.tools|selectattr('scope', 'equalto', 'write')|list|length %}
+                {% set admin_count = svc.tools|selectattr('scope', 'equalto', 'admin')|list|length %}
                 <span class="text-green-600 dark:text-green-400">{{ read_count }} read</span>
                 <span class="text-orange-600 dark:text-orange-400">{{ write_count }} write</span>
+                {% if admin_count > 0 %}
+                <span class="text-red-600 dark:text-red-400">{{ admin_count }} admin</span>
+                {% endif %}
             </div>
         </a>
         {% endfor %}

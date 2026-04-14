@@ -157,7 +157,7 @@ PLUGIN_CREDENTIAL_FIELDS: dict[str, list[dict[str, Any]]] = {
             "label": "Client ID",
             "type": "text",
             "required": True,
-            "hint": "OpenPanel Dashboard → Settings → Clients → Create client with 'root' mode for full access",
+            "hint": "Open your project on dashboard.openpanel.dev → Settings → Clients (URL: dashboard.openpanel.dev/{org}/{project-id}/settings/clients). Create a client in 'root' mode for full access.",
         },
         {
             "name": "client_secret",

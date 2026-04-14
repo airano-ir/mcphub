@@ -2,7 +2,7 @@
 
 **The AI-native management hub for WordPress, WooCommerce, and self-hosted services.**
 
-565 tools across 9 plugins. Connect your sites, stores, repos, and databases — manage them all through Claude, ChatGPT, Cursor, or any MCP client.
+633 tools across 10 plugins (incl. Coolify). Connect your sites, stores, repos, and databases — manage them all through Claude, ChatGPT, Cursor, or any MCP client.
 
 > **Don't want to self-host?** Try the hosted instance at **[mcp.palebluedot.live](https://mcp.palebluedot.live)** — log in with GitHub or Google, add your sites, and connect your AI client in minutes.
 
@@ -92,7 +92,7 @@ Use the most specific endpoint for your use case:
 | `/u/{user_id}/{alias}/mcp` | 22-100 | No (pre-scoped) | Hosted/OAuth users |
 | `/project/{alias}/mcp` | 22-100 | No (pre-scoped) | Single-site workflow |
 | `/{plugin}/mcp` | 23-101 | Yes | Multi-site management |
-| `/mcp` | 565 | Yes | Admin & discovery only |
+| `/mcp` | 633 | Yes | Admin & discovery only |
 
 Available plugin endpoints: `/wordpress/mcp`, `/woocommerce/mcp`, `/wordpress-advanced/mcp`, `/gitea/mcp`, `/n8n/mcp`, `/supabase/mcp`, `/openpanel/mcp`, `/appwrite/mcp`, `/directus/mcp`, `/system/mcp`
 

@@ -181,24 +181,41 @@ class TestScopesToCategories:
 
 
 class TestScopeFilter:
+    """F.7c: Coolify uses legacy category filter (plugin_type='coolify'),
+    other plugins use universal required_scope filter."""
+
     def test_read_scope_drops_lifecycle_crud_system(self, access_mgr):
-        out = {t.name for t in access_mgr.apply_scope_filter(_SAMPLE_TOOLS, ["read"])}
+        # Coolify tools filtered by category
+        coolify_tools = [t for t in _SAMPLE_TOOLS if t.plugin_type == "coolify"]
+        out = {
+            t.name
+            for t in access_mgr.apply_scope_filter(coolify_tools, ["read"], plugin_type="coolify")
+        }
         assert "coolify_list_applications" in out
-        assert "wordpress_list_posts" in out  # legacy default category
         assert "coolify_start_application" not in out
         assert "coolify_create_application_public" not in out
         assert "coolify_delete_server" not in out
         assert "coolify_get_application_logs" not in out
 
     def test_read_sensitive_includes_logs_and_backups(self, access_mgr):
-        out = {t.name for t in access_mgr.apply_scope_filter(_SAMPLE_TOOLS, ["read:sensitive"])}
+        coolify_tools = [t for t in _SAMPLE_TOOLS if t.plugin_type == "coolify"]
+        out = {
+            t.name
+            for t in access_mgr.apply_scope_filter(
+                coolify_tools, ["read:sensitive"], plugin_type="coolify"
+            )
+        }
         assert "coolify_get_application_logs" in out
         assert "coolify_get_database_backups" in out
         assert "coolify_start_application" not in out
         assert "coolify_create_application_public" not in out
 
     def test_deploy_scope_includes_lifecycle_only(self, access_mgr):
-        out = {t.name for t in access_mgr.apply_scope_filter(_SAMPLE_TOOLS, ["deploy"])}
+        coolify_tools = [t for t in _SAMPLE_TOOLS if t.plugin_type == "coolify"]
+        out = {
+            t.name
+            for t in access_mgr.apply_scope_filter(coolify_tools, ["deploy"], plugin_type="coolify")
+        }
         assert "coolify_start_application" in out
         assert "coolify_stop_application" in out
         assert "coolify_list_applications" in out
@@ -206,7 +223,11 @@ class TestScopeFilter:
         assert "coolify_delete_server" not in out
 
     def test_write_scope_excludes_system(self, access_mgr):
-        out = {t.name for t in access_mgr.apply_scope_filter(_SAMPLE_TOOLS, ["write"])}
+        coolify_tools = [t for t in _SAMPLE_TOOLS if t.plugin_type == "coolify"]
+        out = {
+            t.name
+            for t in access_mgr.apply_scope_filter(coolify_tools, ["write"], plugin_type="coolify")
+        }
         assert "coolify_create_application_public" in out
         assert "coolify_start_application" in out
         assert "coolify_create_application_env" in out
@@ -214,8 +235,21 @@ class TestScopeFilter:
         assert "coolify_get_application_logs" not in out
 
     def test_admin_keeps_everything(self, access_mgr):
-        out = {t.name for t in access_mgr.apply_scope_filter(_SAMPLE_TOOLS, ["admin"])}
+        out = {
+            t.name
+            for t in access_mgr.apply_scope_filter(_SAMPLE_TOOLS, ["admin"], plugin_type="coolify")
+        }
         assert out == {t.name for t in _SAMPLE_TOOLS}
+
+    def test_universal_read_filters_by_required_scope(self, access_mgr):
+        """Non-Coolify plugins use universal required_scope filter."""
+        wp_tools = [t for t in _SAMPLE_TOOLS if t.plugin_type == "wordpress"]
+        out = {
+            t.name
+            for t in access_mgr.apply_scope_filter(wp_tools, ["read"], plugin_type="wordpress")
+        }
+        # All wordpress sample tools have required_scope="read"
+        assert "wordpress_list_posts" in out
 
 
 # ---------------------------------------------------------------------------

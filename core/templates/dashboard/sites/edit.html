@@ -229,11 +229,6 @@
         'system': 'System',
     };
 
-    function getCsrf() {
-        const m = document.cookie.match(/(?:^|;\s*)dashboard_csrf=([^;]+)/);
-        return m ? decodeURIComponent(m[1]) : '';
-    }
-
     async function loadToolAccess() {
         try {
             const r = await fetch('/api/sites/' + siteId + '/tools');
@@ -269,7 +264,7 @@
             try {
                 const r = await fetch('/api/sites/' + siteId + '/tool-scope', {
                     method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ scope }),
                 });
                 if (r.ok) {
@@ -349,7 +344,7 @@
             try {
                 const r = await fetch('/api/sites/' + siteId + '/tools/' + tool.name, {
                     method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ enabled }),
                 });
                 if (!r.ok) { input.checked = !enabled; }

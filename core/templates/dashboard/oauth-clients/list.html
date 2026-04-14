@@ -220,24 +220,14 @@ https://claude.com/api/mcp/auth_callback</textarea>
             </div>
 
             <div>
-                <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">{% if lang == 'fa' %}دامنه‌ها{% else %}Scopes{% endif %}</label>
-                <div class="flex flex-wrap gap-2">
-                    <label class="flex items-center gap-2">
-                        <input type="checkbox" name="scopes" value="read" checked class="rounded bg-gray-700 border-gray-600 text-primary-500">
-                        <span class="text-sm text-gray-700 dark:text-gray-300">read</span>
-                    </label>
-                    <label class="flex items-center gap-2">
-                        <input type="checkbox" name="scopes" value="write" checked class="rounded bg-gray-700 border-gray-600 text-primary-500">
-                        <span class="text-sm text-gray-700 dark:text-gray-300">write</span>
-                    </label>
-                    <label class="flex items-center gap-2">
-                        <input type="checkbox" name="scopes" value="admin" checked class="rounded bg-gray-700 border-gray-600 text-primary-500">
-                        <span class="text-sm text-gray-700 dark:text-gray-300">admin</span>
-                    </label>
+                <div class="flex items-center gap-3">
+                    <span class="px-3 py-1 bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 text-sm font-medium rounded-lg">
+                        {% if lang == 'fa' %}دسترسی کامل{% else %}Full Access{% endif %}
+                    </span>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                        {% if lang == 'fa' %}دسترسی ابزار در تنظیمات هر سایت کنترل می‌شود.{% else %}Tool access is controlled per-site in Site Settings.{% endif %}
+                    </p>
                 </div>
-                <p class="text-xs text-gray-500 mt-1">
-                    {% if lang == 'fa' %}admin: دسترسی کامل به همه عملیات{% else %}admin: Full access to all operations{% endif %}
-                </p>
             </div>
 
             <div class="flex justify-end gap-3 pt-4">
@@ -426,10 +416,8 @@ https://claude.com/api/mcp/auth_callback</textarea>
         e.preventDefault();
 
         var formData = new FormData(this);
-        var scopes = [];
-        document.querySelectorAll('input[name="scopes"]:checked').forEach(function(cb) {
-            scopes.push(cb.value);
-        });
+        // F.7c: All clients get full scope — tool access controlled per-site
+        var scopes = ['read', 'write', 'admin'];
 
         // Parse redirect URIs (one per line)
         var redirectUrisText = formData.get('redirect_uris') || '';

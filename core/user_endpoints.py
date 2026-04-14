@@ -240,6 +240,28 @@ async def user_mcp_handler(request: Request) -> Response:
                 _jsonrpc_error(None, -32600, "API key does not match user"),
                 status_code=403,
             )
+
+        # Check site-scoped key: if key is scoped to a site, it can only
+        # be used for that specific site's alias.
+        key_site_id = key_info.get("site_id")
+        if key_site_id:
+            try:
+                from core.database import get_database
+
+                db = get_database()
+                site = await db.get_site(key_site_id, user_id)
+                if site is None or site.get("alias") != alias:
+                    return JSONResponse(
+                        _jsonrpc_error(
+                            None,
+                            -32600,
+                            "API key is scoped to a different site",
+                        ),
+                        status_code=403,
+                    )
+            except RuntimeError:
+                pass  # DB unavailable — allow through
+
         key_scopes = key_info.get("scopes", "read").split()
     else:
         # Try OAuth JWT token (issued after consent flow via GitHub/Google login)

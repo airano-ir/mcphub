@@ -1,4 +1,4 @@
-"""Smoke tests for sites edit page Tool Access section and sites view page (F.7b session 2)."""
+"""Smoke tests for unified site management page (F.7c redesign)."""
 
 from __future__ import annotations
 
@@ -73,37 +73,49 @@ def client(monkeypatch, user_row, patched_db, patched_access):
     return tc
 
 
-class TestSitesEditToolAccess:
-    def test_edit_page_renders_without_500(self, client, coolify_site):
+class TestSitesEditRedirect:
+    def test_edit_page_redirects_to_manage(self, client, coolify_site):
+        """F.7c: /sites/{id}/edit now redirects to unified /sites/{id}."""
         r = client.get(f"/dashboard/sites/{coolify_site['id']}/edit")
-        assert r.status_code == 200
-
-    def test_edit_page_contains_tool_access_card(self, client, coolify_site):
-        r = client.get(f"/dashboard/sites/{coolify_site['id']}/edit")
-        assert r.status_code == 200
-        assert "tool-access-card" in r.text or "Tool Access" in r.text
-
-    def test_edit_page_has_scope_select(self, client, coolify_site):
-        r = client.get(f"/dashboard/sites/{coolify_site['id']}/edit")
-        assert r.status_code == 200
-        assert "tool-scope-select" in r.text
+        assert r.status_code == 301
+        assert f"/dashboard/sites/{coolify_site['id']}" in r.headers["location"]
 
 
-class TestSitesViewPage:
-    def test_view_page_renders_without_500(self, client, coolify_site):
+class TestUnifiedSiteManagePage:
+    def test_manage_page_renders_without_500(self, client, coolify_site):
         r = client.get(f"/dashboard/sites/{coolify_site['id']}")
         assert r.status_code == 200
 
-    def test_view_page_shows_mcp_url(self, client, coolify_site):
+    def test_manage_page_has_connection_section(self, client, coolify_site):
+        r = client.get(f"/dashboard/sites/{coolify_site['id']}")
+        assert r.status_code == 200
+        assert "connection-section" in r.text
+
+    def test_manage_page_has_tool_access_section(self, client, coolify_site):
+        r = client.get(f"/dashboard/sites/{coolify_site['id']}")
+        assert r.status_code == 200
+        assert "tool-access-content" in r.text or "Tool Access" in r.text
+
+    def test_manage_page_has_scope_tiers(self, client, coolify_site):
+        r = client.get(f"/dashboard/sites/{coolify_site['id']}")
+        assert r.status_code == 200
+        assert "scope-tiers" in r.text
+
+    def test_manage_page_shows_mcp_url(self, client, coolify_site):
         r = client.get(f"/dashboard/sites/{coolify_site['id']}")
         assert r.status_code == 200
         assert "mcp-url" in r.text
         assert coolify_site["alias"] in r.text
 
-    def test_view_page_has_client_selector(self, client, coolify_site):
+    def test_manage_page_has_config_snippets(self, client, coolify_site):
         r = client.get(f"/dashboard/sites/{coolify_site['id']}")
         assert r.status_code == 200
         assert "config-client" in r.text
+
+    def test_manage_page_has_quick_key_create(self, client, coolify_site):
+        r = client.get(f"/dashboard/sites/{coolify_site['id']}")
+        assert r.status_code == 200
+        assert "quick-key-btn" in r.text
 
     def test_nonexistent_site_redirects(self, client):
         r = client.get("/dashboard/sites/nonexistent-id")

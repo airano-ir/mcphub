@@ -13,8 +13,8 @@ Connect your sites, stores, repos, and databases — manage them all through Cla
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776ab.svg)](https://www.python.org/)
 [![PyPI](https://img.shields.io/pypi/v/mcphub-server.svg)](https://pypi.org/project/mcphub-server/)
 [![Docker](https://img.shields.io/docker/v/airano/mcphub?label=docker)](https://hub.docker.com/r/airano/mcphub)
-[![Tests: 481 passing](https://img.shields.io/badge/tests-481%20passing-brightgreen.svg)]()
-[![Tools: 565](https://img.shields.io/badge/tools-565-orange.svg)]()
+[![Tests: 828 passing](https://img.shields.io/badge/tests-828%20passing-brightgreen.svg)]()
+[![Tools: 633](https://img.shields.io/badge/tools-633-orange.svg)]()
 [![CI](https://github.com/airano-ir/mcphub/actions/workflows/ci.yml/badge.svg)](https://github.com/airano-ir/mcphub/actions/workflows/ci.yml)
 
 </div>
@@ -49,21 +49,22 @@ MCP Hub is the first MCP server that lets you manage WordPress, WooCommerce, and
 
 ---
 
-## 565 Tools Across 9 Plugins
+## 633 Tools Across 10 Plugins
 
 | Plugin | Tools | What You Can Do |
 |--------|-------|-----------------|
 | **WordPress** | 67 | Posts, pages, media, users, menus, taxonomies, SEO (Rank Math/Yoast) |
 | **WooCommerce** | 28 | Products, orders, customers, coupons, reports, shipping |
 | **WordPress Advanced** | 22 | Database ops, bulk operations, WP-CLI, system management |
-| **Gitea** | 56 | Repos, issues, pull requests, releases, webhooks, organizations |
+| **Gitea** | 58 | Repos, issues, pull requests, releases, webhooks, organizations, labels |
 | **n8n** | 56 | Workflows, executions, credentials, variables, audit |
 | **Supabase** | 70 | Database, auth, storage, edge functions, realtime |
 | **OpenPanel** | 42 | Events, export, insights, profiles, projects, system |
 | **Appwrite** | 100 | Databases, auth, storage, functions, teams, messaging |
 | **Directus** | 100 | Collections, items, users, files, flows, permissions |
-| **System** | 24 | Health monitoring, API keys, OAuth management, audit |
-| **Total** | **565** | Constant count — scales to unlimited sites |
+| **Coolify** | 67 | Applications, deployments, servers, projects, databases, services |
+| **System** | 23 | Health monitoring, API keys, OAuth management, audit |
+| **Total** | **633** | Constant count — scales to unlimited sites |
 
 ---
 
@@ -265,29 +266,30 @@ MCP Hub supports **Open Dynamic Client Registration** (RFC 7591). ChatGPT can au
 ## Architecture
 
 ```
-/mcp                        → Admin endpoint (all 565 tools)
-/system/mcp                 → System tools only (24 tools)
+/mcp                        → Admin endpoint (all 633 tools)
+/system/mcp                 → System tools only (23 tools)
 /wordpress/mcp              → WordPress tools (67 tools)
 /woocommerce/mcp            → WooCommerce tools (28 tools)
 /wordpress-advanced/mcp     → WordPress Advanced tools (22 tools)
-/gitea/mcp                  → Gitea tools (56 tools)
+/gitea/mcp                  → Gitea tools (58 tools)
 /n8n/mcp                    → n8n tools (56 tools)
 /supabase/mcp               → Supabase tools (70 tools)
 /openpanel/mcp              → OpenPanel tools (42 tools)
 /appwrite/mcp               → Appwrite tools (100 tools)
 /directus/mcp               → Directus tools (100 tools)
+/coolify/mcp                → Coolify tools (67 tools)
 /project/{alias}/mcp        → Per-project endpoint (auto-injects site)
 /u/{user_id}/{alias}/mcp    → Per-user endpoint (hosted/OAuth users)
 ```
 
-**Recommendation**: Use plugin-specific endpoints instead of `/mcp` (565 tools) to minimize token usage.
+**Recommendation**: Use plugin-specific endpoints instead of `/mcp` (633 tools) to minimize token usage.
 
 | Endpoint | Use Case | Tools |
 |----------|----------|------:|
 | `/u/{user_id}/{alias}/mcp` | Hosted users (OAuth login) | 22-100 |
 | `/project/{alias}/mcp` | Single-site workflow (recommended) | 22-100 |
 | `/{plugin}/mcp` | Multi-site management | 23-101 |
-| `/mcp` | Admin & discovery only | 565 |
+| `/mcp` | Admin & discovery only | 633 |
 
 ### Security
 
@@ -297,7 +299,7 @@ MCP Hub supports **Open Dynamic Client Registration** (RFC 7591). ChatGPT can au
 - **GDPR-compliant audit logging** with automatic sensitive data filtering
 - **Web dashboard** with real-time health monitoring (8 pages, EN/FA i18n)
 
-> **Compatibility Note**: MCP Hub requires FastMCP 2.x (`>=2.14.0,<3.0.0`). FastMCP 3.0 introduced breaking changes and is not yet supported. If you install dependencies manually, ensure you don't upgrade to FastMCP 3.x.
+> **Compatibility Note**: MCP Hub requires FastMCP 3.x (`>=3.0.0,<4.0.0`). The legacy multi-endpoint server and ProjectManager have been removed in v3.5.0.
 
 ### WordPress Plugin Requirements
 

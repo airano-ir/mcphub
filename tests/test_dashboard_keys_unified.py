@@ -69,11 +69,11 @@ class TestUnifiedKeysUserView:
         assert r.status_code == 301
         assert "/dashboard/keys" in r.headers["location"]
 
-    def test_user_view_has_scope_selector(self, user_client):
+    def test_user_view_has_full_access_badge(self, user_client):
         r = user_client.get("/dashboard/keys")
         assert r.status_code == 200
-        # Scope dropdown options should be present
-        assert "read:sensitive" in r.text or "Read" in r.text
+        # F.7c: No scope selector — shows "Full Access" badge instead
+        assert "Full Access" in r.text or "دسترسی کامل" in r.text
 
     def test_user_view_shows_create_button(self, user_client):
         r = user_client.get("/dashboard/keys")

@@ -185,12 +185,13 @@
                         <td class="px-6 py-4 text-gray-900 dark:text-white">{{ key.name }}</td>
                         <td class="px-6 py-4 text-gray-500 dark:text-gray-400 font-mono text-sm">mhu_{{ key.key_prefix }}...</td>
                         <td class="px-6 py-4">
-                            {% set scopes = (key.scopes or 'read write admin').split() %}
-                            <div class="flex flex-wrap gap-1">
-                            {% for s in scopes %}
-                            <span class="px-2 py-0.5 {% if s == 'admin' %}bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400{% elif s == 'write' %}bg-orange-100 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400{% elif s == 'deploy' %}bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400{% else %}bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400{% endif %} text-xs rounded font-medium">{{ s }}</span>
-                            {% endfor %}
-                            </div>
+                            {% if key.site_id %}
+                            <span class="px-2 py-0.5 bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 text-xs rounded font-medium">
+                                {% for site in sites %}{% if site.id == key.site_id %}{{ site.alias }}{% endif %}{% endfor %}
+                            </span>
+                            {% else %}
+                            <span class="px-2 py-0.5 bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 text-xs rounded font-medium">{% if lang == 'fa' %}همه سرویس‌ها{% else %}All Services{% endif %}</span>
+                            {% endif %}
                         </td>
                         <td class="px-6 py-4 text-gray-500 dark:text-gray-400 text-sm">{{ key.use_count }}</td>
                         <td class="px-6 py-4">
@@ -208,6 +209,100 @@
             </table>
         </div>
     </div>
+
+    {% if not is_admin %}
+    <!-- Configuration Snippet -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            {% if lang == 'fa' %}نمونه کد پیکربندی{% else %}Configuration Snippet{% endif %}
+        </h3>
+
+        {% if sites %}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{% if lang == 'fa' %}سایت{% else %}Site{% endif %}</label>
+                <select id="config-site" onchange="updateConfig()"
+                    class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
+                    {% for site in sites %}
+                    <option value="{{ site.alias }}" data-site-id="{{ site.id }}" data-plugin="{{ site.plugin_type }}">{{ site.alias }} ({{ site.plugin_type }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{% if lang == 'fa' %}کلاینت{% else %}Client{% endif %}</label>
+                <select id="config-client" onchange="updateConfig()"
+                    class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
+                    {% for client in clients %}
+                    <option value="{{ client.id }}">{{ client.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div class="relative">
+            <pre id="config-output" class="bg-gray-100 dark:bg-gray-900 rounded-lg p-4 text-sm text-gray-700 dark:text-gray-300 overflow-x-auto border border-gray-200 dark:border-gray-700 min-h-[120px]">{% if lang == 'fa' %}در حال بارگذاری...{% else %}Loading...{% endif %}</pre>
+            <button onclick="copyConfig()" class="absolute top-2 {{ 'left-2' if lang == 'fa' else 'right-2' }} text-xs bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 px-3 py-1 rounded transition-colors" id="copy-config-btn">{% if lang == 'fa' %}کپی{% else %}Copy{% endif %}</button>
+        </div>
+
+        <!-- Transport type info -->
+        <div id="transport-note" class="mt-4 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-lg p-4">
+            <p class="text-sm text-blue-700 dark:text-blue-400">
+                {% if lang == 'fa' %}
+                <strong>نکته:</strong> تنظیمات بالا شامل نوع اتصال (<code>streamableHttp</code> برای Claude Desktop و <code>http</code> برای VS Code/Claude Code) می‌باشد. از <code>sse</code> استفاده نکنید — باعث خطای <code>400 Bad Request</code> می‌شود.
+                {% else %}
+                <strong>Note:</strong> Config above includes the correct transport type (<code>streamableHttp</code> for Claude Desktop, <code>http</code> for VS Code/Claude Code). Do not use <code>sse</code> — it will cause <code>400 Bad Request</code> errors.
+                {% endif %}
+            </p>
+        </div>
+
+        <!-- WordPress SEO plugin note -->
+        <div id="wp-seo-note" style="display:none" class="mt-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg p-4">
+            <p class="text-sm text-amber-700 dark:text-amber-400">
+                {% if lang == 'fa' %}
+                <strong>وردپرس:</strong> برای استفاده از ابزارهای SEO، افزونه
+                <a href="https://wordpress.org/plugins/airano-mcp-seo-bridge/" target="_blank" class="underline">Airano MCP SEO Bridge</a>
+                را روی سایت وردپرسی خود نصب کنید.
+                {% else %}
+                <strong>WordPress:</strong> For SEO tools, install the
+                <a href="https://wordpress.org/plugins/airano-mcp-seo-bridge/" target="_blank" class="underline">Airano MCP SEO Bridge</a>
+                plugin on your WordPress site.
+                {% endif %}
+            </p>
+        </div>
+
+        <!-- Connection tip for web-based clients -->
+        <div id="connection-tip" style="display:none" class="mt-3 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30 rounded-lg p-4">
+            <p class="text-sm text-green-700 dark:text-green-400">
+                {% if lang == 'fa' %}
+                <strong>نکته:</strong> فقط آدرس URL کافی است. هنگام اتصال می‌توانید با <strong>API Key</strong> یا <strong>GitHub/Google</strong> احراز هویت کنید.
+                ساخت <a href="/dashboard/oauth-clients{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="underline">OAuth Client</a> اختیاری است.
+                {% else %}
+                <strong>Tip:</strong> You only need the URL above. When connecting, you can authenticate with an <strong>API Key</strong> or <strong>GitHub/Google</strong>.
+                Creating an <a href="/dashboard/oauth-clients{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="underline">OAuth Client</a> is optional.
+                {% endif %}
+            </p>
+        </div>
+
+        <!-- API Key hint for desktop/CLI clients -->
+        <div id="bearer-hint" class="mt-3 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                {% if lang == 'fa' %}
+                <strong>API Key:</strong> از بخش API Keys بالا بسازید و مقدار آن را در تنظیمات وارد کنید:
+                {% else %}
+                <strong>API Key:</strong> Create one above and use it in your config:
+                {% endif %}
+            </p>
+            <code class="block bg-gray-100 dark:bg-gray-900 px-3 py-1.5 rounded text-xs font-mono text-gray-800 dark:text-gray-200">"Authorization": "Bearer mhu_YOUR_API_KEY_HERE"</code>
+        </div>
+
+        {% else %}
+        <p class="text-gray-500 dark:text-gray-400 text-sm">
+            {% if lang == 'fa' %}ابتدا یک سایت اضافه کنید.{% else %}Add a site first to see configuration snippets.{% endif %}
+            <a href="/dashboard/sites/add{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300">{{ t.add_site }}</a>
+        </p>
+        {% endif %}
+    </div>
+    {% endif %}
     {% endif %}
 </div>
 
@@ -267,16 +362,26 @@
                     class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500">
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{% if lang == 'fa' %}سطح دسترسی{% else %}Scope{% endif %}</label>
-                <select id="new-key-scope" class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
-                    <option value="read">Read — {% if lang == 'fa' %}فقط خواندن{% else %}view-only{% endif %}</option>
-                    <option value="read:sensitive">Read + Sensitive — {% if lang == 'fa' %}خواندن + داده حساس{% else %}logs, envs{% endif %}</option>
-                    <option value="deploy">Deploy — {% if lang == 'fa' %}start/stop/restart{% else %}start/stop/restart{% endif %}</option>
-                    <option value="write">Write — {% if lang == 'fa' %}نوشتن + lifecycle{% else %}create/update + lifecycle{% endif %}</option>
-                    <option value="read write admin" selected>Full Access — {% if lang == 'fa' %}دسترسی کامل{% else %}all tools{% endif %}</option>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{% if lang == 'fa' %}محدوده سرویس{% else %}Service Scope{% endif %}</label>
+                <select id="new-key-site"
+                    class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
+                    <option value="">{% if lang == 'fa' %}همه سرویس‌ها (عمومی){% else %}All Services (global){% endif %}</option>
+                    {% if sites %}
+                    {% for site in sites %}
+                    <option value="{{ site.id }}">{{ site.alias }} ({{ site.plugin_type }})</option>
+                    {% endfor %}
+                    {% endif %}
                 </select>
-                <p class="text-xs text-gray-400 dark:text-gray-500 mt-1.5">
-                    {% if lang == 'fa' %}فیلتر ابزار هر سایت در تنظیمات سایت انجام می‌شود.{% else %}Per-site tool filters are set in Site Settings.{% endif %}
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    {% if lang == 'fa' %}کلید اختصاصی فقط برای سرویس انتخاب‌شده قابل استفاده است.{% else %}A site-scoped key only works for the selected service.{% endif %}
+                </p>
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="px-3 py-1 bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 text-sm font-medium rounded-lg">
+                    {% if lang == 'fa' %}دسترسی کامل{% else %}Full Access{% endif %}
+                </span>
+                <p class="text-xs text-gray-400 dark:text-gray-500">
+                    {% if lang == 'fa' %}فیلتر ابزار هر سایت در <a href="/dashboard/sites{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="underline hover:text-gray-300">تنظیمات سایت</a> انجام می‌شود.{% else %}Tool access is controlled per-site in <a href="/dashboard/sites{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}" class="underline hover:text-gray-300">Site Settings</a>.{% endif %}
                 </p>
             </div>
         </div>
@@ -367,6 +472,16 @@
     function openCreateModal() {
         document.getElementById('createModal').classList.remove('hidden');
         document.getElementById('createModal').classList.add('flex');
+        // F.7d: pre-select site from ?site= query param when present
+        const params = new URLSearchParams(window.location.search);
+        const siteParam = params.get('site');
+        if (siteParam) {
+            const siteSelect = document.getElementById('new-key-site');
+            if (siteSelect) {
+                const match = Array.from(siteSelect.options).find(o => o.value === siteParam);
+                if (match) siteSelect.value = siteParam;
+            }
+        }
     }
     window.openCreateModal = openCreateModal;
 
@@ -421,11 +536,13 @@
         } else {
             // User: POST to /api/keys
             const name = document.getElementById('new-key-name').value.trim();
-            const scope = document.getElementById('new-key-scope').value;
             if (!name) { alert(lang === 'fa' ? 'نام کلید الزامی است' : 'Key name is required'); return; }
+            const siteId = document.getElementById('new-key-site')?.value || null;
+            const payload = { name, scopes: 'read write admin' };
+            if (siteId) payload.site_id = siteId;
             const r = await fetch('/api/keys', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, scopes: scope }),
+                body: JSON.stringify(payload),
             });
             const res = await r.json();
             if (!r.ok) { alert(res.error || 'Failed'); return; }
@@ -487,6 +604,72 @@
         if (r.ok) location.reload();
         else { const d = await r.json(); alert(d.error || 'Failed'); }
     };
+    {% endif %}
+
+    // ── Config Snippets (user view) ────────────────────────────────
+    {% if not is_admin %}
+    const WEB_CLIENTS = ['claude_connectors', 'chatgpt'];
+    const WP_TYPES = ['wordpress', 'woocommerce'];
+
+    async function updateConfig() {
+        const siteSelect = document.getElementById('config-site');
+        const alias = siteSelect?.value;
+        const client = document.getElementById('config-client')?.value;
+        if (!alias || !client) return;
+
+        const isWebClient = WEB_CLIENTS.includes(client);
+
+        const transportNote = document.getElementById('transport-note');
+        if (transportNote) transportNote.style.display = isWebClient ? 'none' : '';
+
+        const connTip = document.getElementById('connection-tip');
+        if (connTip) connTip.style.display = isWebClient ? '' : 'none';
+
+        const bearerHint = document.getElementById('bearer-hint');
+        if (bearerHint) bearerHint.style.display = isWebClient ? 'none' : '';
+
+        const selectedOption = siteSelect.options[siteSelect.selectedIndex];
+        const pluginType = selectedOption?.dataset?.plugin || '';
+        const wpNote = document.getElementById('wp-seo-note');
+        if (wpNote) wpNote.style.display = WP_TYPES.includes(pluginType) ? '' : 'none';
+
+        try {
+            const resp = await fetch('/api/config/' + alias + '?client=' + client);
+            const data = await resp.json();
+            if (resp.ok) {
+                document.getElementById('config-output').textContent = data.config;
+            }
+        } catch (e) {
+            document.getElementById('config-output').textContent = 'Error loading config';
+        }
+    }
+    window.updateConfig = updateConfig;
+
+    function copyConfig() {
+        const text = document.getElementById('config-output').textContent;
+        navigator.clipboard.writeText(text);
+        const btn = document.getElementById('copy-config-btn');
+        btn.textContent = lang === 'fa' ? 'کپی شد!' : 'Copied!';
+        setTimeout(() => btn.textContent = lang === 'fa' ? 'کپی' : 'Copy', 2000);
+    }
+    window.copyConfig = copyConfig;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // F.7d: support ?site=<id-or-alias> from /dashboard/sites/{id} link
+        const params = new URLSearchParams(window.location.search);
+        const siteParam = params.get('site');
+        const siteSelect = document.getElementById('config-site');
+        if (siteParam && siteSelect) {
+            // Match either the option value (alias) or its data-site-id attribute
+            const match = Array.from(siteSelect.options).find(
+                o => o.value === siteParam || o.dataset?.siteId === siteParam
+            );
+            if (match) siteSelect.value = match.value;
+        }
+        if (siteSelect) updateConfig();
+        // F.7d: auto-open create modal when ?create=1 (e.g. from Connect section)
+        if (params.get('create') === '1') openCreateModal();
+    });
     {% endif %}
 })();
 </script>

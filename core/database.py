@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 _DEFAULT_DATA_DIR = "/app/data" if Path("/app").exists() else "./data"
 
 # Schema version — increment when adding migrations
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 # Initial schema DDL
 _SCHEMA_SQL = """\
@@ -83,7 +83,8 @@ CREATE TABLE IF NOT EXISTS user_api_keys (
     last_used   TEXT,
     use_count   INTEGER NOT NULL DEFAULT 0,
     created_at  TEXT NOT NULL,
-    expires_at  TEXT
+    expires_at  TEXT,
+    site_id     TEXT
 );
 
 -- WP plugin connection tokens (short-lived, for MCP Connect plugin)
@@ -164,6 +165,10 @@ _MIGRATIONS: dict[int, str] = {
         "CREATE INDEX IF NOT EXISTS idx_site_tool_toggles_site "
         "ON site_tool_toggles(site_id);\n"
         "ALTER TABLE sites ADD COLUMN tool_scope TEXT NOT NULL DEFAULT 'admin';\n"
+    ),
+    8: (
+        # F.7c: per-site API keys — allow keys scoped to a single site
+        "ALTER TABLE user_api_keys ADD COLUMN site_id TEXT;\n"
     ),
 }
 
@@ -682,6 +687,7 @@ class Database:
         name: str,
         scopes: str = "read write",
         expires_at: str | None = None,
+        site_id: str | None = None,
     ) -> dict[str, Any]:
         """Create a new user API key.
 
@@ -692,6 +698,7 @@ class Database:
             name: Human label (e.g. "Claude Desktop").
             scopes: Space-separated scopes.
             expires_at: Optional ISO 8601 expiry timestamp.
+            site_id: Optional site UUID to scope key to a single site.
 
         Returns:
             The created API key row as a dict.
@@ -701,14 +708,14 @@ class Database:
 
         await self.execute(
             "INSERT INTO user_api_keys "
-            "(id, user_id, key_hash, key_prefix, name, scopes, created_at, expires_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (key_id, user_id, key_hash, key_prefix, name, scopes, now, expires_at),
+            "(id, user_id, key_hash, key_prefix, name, scopes, created_at, expires_at, site_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (key_id, user_id, key_hash, key_prefix, name, scopes, now, expires_at, site_id),
         )
 
         result = await self.fetchone(
             "SELECT id, user_id, key_prefix, name, scopes, last_used, use_count, "
-            "created_at, expires_at FROM user_api_keys WHERE id = ?",
+            "created_at, expires_at, site_id FROM user_api_keys WHERE id = ?",
             (key_id,),
         )
         if result is None:
@@ -726,7 +733,7 @@ class Database:
         """
         return await self.fetchall(
             "SELECT id, user_id, key_prefix, name, scopes, last_used, use_count, "
-            "created_at, expires_at FROM user_api_keys WHERE user_id = ? ORDER BY created_at",
+            "created_at, expires_at, site_id FROM user_api_keys WHERE user_id = ? ORDER BY created_at",
             (user_id,),
         )
 

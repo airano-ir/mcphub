@@ -5,6 +5,100 @@ All notable changes to MCP Hub will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.11.0] — 2026-04-14
+
+### Plugin-specific access levels, regression tests, UX polish (Track F.7d)
+
+Polish pass on top of v3.10.0 tool-access hardening. Access levels and credential guidance are now tailored per plugin; UX signals have been tightened.
+
+#### Added
+- **Plugin-aware scope presets** (`core/tool_access.py::get_scope_presets_for_plugin`): WordPress / WordPress Advanced / WooCommerce / Gitea / Coolify (5 tiers) / OpenPanel — each with tailored EN+FA labels and one-line hints. Custom preset always available.
+- **Admin Tools card** on per-service dashboard page (4-col grid when `admin` tools > 0).
+- **Credential requirement notice** on Tool Access: describes exactly what the saved Credential must grant, per plugin/tier (WP Application Password, WooCommerce REST key scope, Gitea scoped tokens, OpenPanel client mode, Coolify API token permissions).
+- **Auto-scoped quick key** on the Connect section (site_id injected → key capped to this site's tier).
+
+#### Changed
+- Scope buttons rendered dynamically from `scope_presets_json` (was: hardcoded 4 tiers).
+- WordPress / WP Advanced / WooCommerce: dropped redundant `write` tier (admin-scope tool count = 0) — now **Read Only + Full Access + Custom**.
+- Coolify tool list visually filtered by category for all 5 tiers in JS (mirrors `SCOPE_TO_CATEGORIES`).
+- OpenPanel Client ID hint clarifies the correct dashboard path (`{org}/{project-id}/settings/clients`).
+
+---
+
+## [3.10.0] — 2026-04-12
+
+### Tool access hardening + per-site API keys + Tailwind build (Track F.7c)
+
+#### Added
+- **Per-site API keys** (DB migration v8 adds `site_id` column): UI site selector in create modal; endpoint enforces site-scoped key access.
+- **Configuration Snippet section** on keys page (transport / WP / bearer notes).
+- **Pre-built Tailwind CSS** via `scripts/build-css.sh` (replaces CDN).
+- **Unified site manage page**: collapsible Connection / Tool Access / Connect sections.
+
+#### Fixed
+- **CSRF bug**: removed conflicting `getCsrf()` that tried to read an `httponly` cookie; now relies on the global meta-tag CSRF interceptor in `head_assets.html`.
+- **Tool scope UI**: tools outside the selected scope are visually dimmed; summary shows in-scope count.
+- Sidebar logo hidden when collapsed.
+
+#### Changed
+- **828 tests passing** (was: 766).
+- `/dashboard/connect` and `/dashboard/edit` redirect to unified site page.
+
+---
+
+## [3.9.0] — 2026-04-09
+
+### Tool access UI + unified keys page (Track F.7b)
+
+#### Added
+- `sites/edit`: Tool Access card with scope dropdown + per-tool toggle grid.
+- `sites/view`: new `/dashboard/sites/{id}` page with MCP URL + config snippets.
+- `/dashboard/keys`: unified page (user view with scope selector, admin view).
+- Sidebar: "Connect" replaced with "API Keys" → `/dashboard/keys`.
+- `sites/list`: added "Connect" link per site row.
+- 12 new tests (keys unified + tool access UI smoke).
+
+#### Changed
+- **Site-scoped tool access** (schema v7): dropped `user_tool_toggles` in favour of `site_tool_toggles(site_id)`; added `sites.tool_scope` column (default `admin`). Resolves the limitation that a user with multiple sites of the same plugin (e.g. Coolify production + staging) needed independent tool filters.
+- `ToolAccessManager` now takes `site_id`; `get_visible_tools` intersects key-scope categories with the site's `tool_scope` preset, then applies `site_tool_toggles` overrides.
+- Dashboard API routes moved under `/api/sites/{site_id}/...`.
+- `/dashboard/connect` → `/dashboard/keys` (301); `/dashboard/api-keys` → `/dashboard/keys` (301).
+
+---
+
+## [3.8.0] — 2026-04-07
+
+### Coolify plugin Phase 2+3 — projects, databases, services (Track F.17)
+
+#### Added
+- **Coolify projects handler** (8 tools): CRUD projects + environments.
+- **Coolify databases handler** (16 tools): CRUD, lifecycle, 6 DB types, backups.
+- **Coolify services handler** (13 tools): CRUD, lifecycle, env vars.
+- **Scope-based tool visibility + per-user toggles** (Track F.7 core): every `ToolDefinition` now carries `category` + `sensitivity` fields. Extends the scope model with `deploy` and `read:sensitive`. `tools/list` filters by the API key's scopes via `SCOPE_TO_CATEGORIES` in `core/tool_access.py`. Coolify handlers are annotated; other plugins keep the default `read` category (backward compatible).
+
+#### Changed
+- **Coolify plugin total: 67 tools** (was 30). Platform total: **633 tools**.
+- **766 tests passing** (48 new).
+
+---
+
+## [3.7.0] — 2026-04-04
+
+### Coolify MCP plugin — Phase 1 MVP (Track F.17)
+
+#### Added
+- **Coolify plugin** (30 tools, admin-only):
+  - **Applications** (17): CRUD, lifecycle (start/stop/restart), logs, env vars.
+  - **Deployments** (5): list, get, cancel, deploy by tag/UUID, app history.
+  - **Servers** (8): CRUD, resources, domains, validation.
+- Coolify credential fields added to `site_api` (URL + API token), with health check.
+- Registered in `server.py` startup so Coolify tools show up in `/coolify/mcp`.
+
+#### Changed
+- Platform plugin count: **10** (added Coolify). Tool count: **597**.
+
+---
+
 ## [3.6.0] — 2026-04-02
 
 ### Gitea Plugin — Public Release (Track F.16)

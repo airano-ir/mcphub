@@ -111,9 +111,6 @@
                     <img src="/static/logo.svg" alt="MCP Hub" class="w-8 h-8">
                     <span class="{% if lang == 'fa' %}mr-3{% else %}ml-3{% endif %} font-bold text-lg text-gray-900 dark:text-white">MCP Hub</span>
                 </div>
-                <div x-show="!sidebarOpen" class="flex items-center justify-center">
-                    <img src="/static/logo.svg" alt="MCP Hub" class="w-8 h-8">
-                </div>
                 <button @click="sidebarOpen = !sidebarOpen" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-600 dark:text-gray-300">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"

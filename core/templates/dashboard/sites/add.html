@@ -4,7 +4,8 @@
 {% block page_title %}{{ t.add_site }}{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto space-y-6">
+<div class="max-w-3xl mx-auto space-y-6">
+    <!-- Header -->
     <div class="flex items-center gap-4 mb-6">
         <a href="/dashboard/sites{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}"
             class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
@@ -18,55 +19,119 @@
     <!-- Error display -->
     <div id="error-msg" class="hidden bg-red-50 dark:bg-red-500/20 border border-red-200 dark:border-red-500/50 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg"></div>
 
-    <form id="add-site-form" class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-6">
-        <!-- Plugin Type -->
-        <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ t.plugin_type }}</label>
-            <select id="plugin_type" name="plugin_type" required
-                class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                onchange="updateFields()">
-                <option value="">{{ t.select_plugin }}</option>
-                {% for ptype, pname in plugin_names.items() %}
-                <option value="{{ ptype }}" {% if ptype == preselect_plugin %}selected{% endif %}>{{ pname }}</option>
-                {% endfor %}
-            </select>
-        </div>
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- Section 1: Add Site / Connect Service                          -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+        <button type="button" onclick="toggleSection('addsite')" class="w-full flex items-center justify-between p-6 cursor-pointer">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-base font-semibold text-gray-900 dark:text-white">
+                        {% if lang == 'fa' %}اتصال سرویس{% else %}Connect Service{% endif %}
+                    </h3>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        {% if lang == 'fa' %}نوع پلاگین و اطلاعات اتصال{% else %}Plugin type and connection details{% endif %}
+                    </p>
+                </div>
+            </div>
+            <svg id="addsite-chevron" class="w-5 h-5 text-gray-400 transition-transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+        </button>
+        <div id="addsite-section" class="border-t border-gray-200 dark:border-gray-700 p-6 space-y-4">
+            <form id="add-site-form" class="space-y-4">
+                <!-- Plugin Type -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ t.plugin_type }}</label>
+                    <select id="plugin_type" name="plugin_type" required
+                        class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        onchange="updateFields()">
+                        <option value="">{{ t.select_plugin }}</option>
+                        {% for ptype, pname in plugin_names.items() %}
+                        <option value="{{ ptype }}" {% if ptype == preselect_plugin %}selected{% endif %}>{{ pname }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
 
-        <!-- URL -->
-        <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ t.site_url }}</label>
-            <input type="url" id="url" name="url" required placeholder="https://example.com"
-                class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-            <p id="url-hint" class="text-xs text-gray-500 dark:text-gray-400 mt-1 hidden"></p>
-        </div>
+                <!-- URL -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ t.site_url }}</label>
+                    <input type="url" id="url" name="url" required placeholder="https://example.com"
+                        class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <p id="url-hint" class="text-xs text-gray-500 dark:text-gray-400 mt-1 hidden"></p>
+                </div>
 
-        <!-- Alias -->
-        <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ t.site_alias }}</label>
-            <input type="text" id="alias" name="alias" required placeholder="myblog" pattern="[a-zA-Z0-9_-]+"
-                minlength="2" maxlength="50"
-                class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ t.site_alias_hint }}</p>
-        </div>
+                <!-- Alias -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ t.site_alias }}</label>
+                    <input type="text" id="alias" name="alias" required placeholder="myblog" pattern="[a-zA-Z0-9_-]+"
+                        minlength="2" maxlength="50"
+                        class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ t.site_alias_hint }}</p>
+                </div>
 
-        <!-- Dynamic Credential Fields -->
-        <div id="credential-fields" class="space-y-4">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ t.credentials }}</label>
-            <p class="text-sm text-gray-500 dark:text-gray-400">{{ t.select_plugin }}</p>
-        </div>
+                <!-- Dynamic Credential Fields -->
+                <div id="credential-fields" class="space-y-4">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ t.credentials }}</label>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ t.select_plugin }}</p>
+                </div>
 
-        <!-- Submit -->
-        <div class="flex items-center gap-4 pt-4">
-            <button type="submit" id="submit-btn"
-                class="btn-primary px-6 py-2.5 rounded-lg text-white font-medium disabled:opacity-50">
-                {{ t.add_site }}
-            </button>
-            <a href="/dashboard/sites{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}"
-                class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
-                {{ t.cancel }}
-            </a>
+                <!-- Submit -->
+                <div class="flex items-center gap-3 pt-2">
+                    <button type="submit" id="submit-btn"
+                        class="px-5 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white text-sm font-medium disabled:opacity-50 transition-colors">
+                        {{ t.add_site }}
+                    </button>
+                    <a href="/dashboard/sites{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}"
+                        class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors text-sm">
+                        {{ t.cancel }}
+                    </a>
+                </div>
+            </form>
         </div>
-    </form>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- Section 2: What happens next (info card)                       -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+        <button type="button" onclick="toggleSection('info')" class="w-full flex items-center justify-between p-6 cursor-pointer">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <h3 class="text-base font-semibold text-gray-900 dark:text-white">
+                    {% if lang == 'fa' %}مراحل بعدی{% else %}What happens next{% endif %}
+                </h3>
+            </div>
+            <svg id="info-chevron" class="w-5 h-5 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+        </button>
+        <div id="info-section" class="hidden border-t border-gray-200 dark:border-gray-700 p-6">
+            <div class="space-y-3 text-sm text-gray-600 dark:text-gray-400">
+                <div class="flex items-start gap-3">
+                    <span class="flex-shrink-0 w-6 h-6 bg-blue-500/20 text-blue-500 rounded-full flex items-center justify-center text-xs font-bold">1</span>
+                    <p>{% if lang == 'fa' %}سرویس خود را با انتخاب نوع پلاگین و وارد کردن URL و اعتبارنامه اضافه کنید.{% else %}Add your service by selecting the plugin type and entering the URL and credentials.{% endif %}</p>
+                </div>
+                <div class="flex items-start gap-3">
+                    <span class="flex-shrink-0 w-6 h-6 bg-blue-500/20 text-blue-500 rounded-full flex items-center justify-center text-xs font-bold">2</span>
+                    <p>{% if lang == 'fa' %}سطح دسترسی ابزارها و تنظیمات اتصال را از صفحه مدیریت سایت پیکربندی کنید.{% else %}Configure tool access levels and connection settings from the site management page.{% endif %}</p>
+                </div>
+                <div class="flex items-start gap-3">
+                    <span class="flex-shrink-0 w-6 h-6 bg-blue-500/20 text-blue-500 rounded-full flex items-center justify-center text-xs font-bold">3</span>
+                    <p>{% if lang == 'fa' %}یک کلید API بسازید و از قطعه کد پیکربندی برای اتصال MCP client خود استفاده کنید.{% else %}Create an API key and use the configuration snippet to connect your MCP client.{% endif %}</p>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
@@ -78,6 +143,14 @@
         'openpanel': 'OpenPanel API URL — Cloud: https://api.openpanel.dev | Self-hosted: your API service URL (e.g., https://analytics.example.com)',
         'supabase': 'Your Supabase project URL (e.g., https://xxxxx.supabase.co)',
     };
+
+    // ── Section toggle ──────────────────────────────────────────────
+    function toggleSection(name) {
+        const section = document.getElementById(name + '-section');
+        const chevron = document.getElementById(name + '-chevron');
+        section.classList.toggle('hidden');
+        chevron.classList.toggle('rotate-180');
+    }
 
     function updateFields() {
         const ptype = document.getElementById('plugin_type').value;
@@ -131,7 +204,7 @@
         container.innerHTML = html;
     }
 
-    // Auto-fill credential fields if plugin_type is pre-selected (e.g., from service page)
+    // Auto-fill credential fields if plugin_type is pre-selected
     if (document.getElementById('plugin_type').value) {
         updateFields();
     }
@@ -171,7 +244,13 @@
             });
             const data = await resp.json();
             if (resp.ok) {
-                window.location.href = '/dashboard/sites?msg={{ t.site_added }}{% if lang and lang != "en" %}&lang={{ lang }}{% endif %}';
+                // Redirect to manage page for the new site
+                const siteId = data.site?.id || data.site_id;
+                if (siteId) {
+                    window.location.href = '/dashboard/sites/' + siteId + '{% if lang and lang != "en" %}?lang={{ lang }}{% endif %}';
+                } else {
+                    window.location.href = '/dashboard/sites?msg={{ t.site_added }}{% if lang and lang != "en" %}&lang={{ lang }}{% endif %}';
+                }
             } else {
                 errorEl.textContent = data.error || 'Failed to add site';
                 errorEl.classList.remove('hidden');
