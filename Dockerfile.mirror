@@ -1,0 +1,123 @@
+# ===================================
+# MCP Hub — Dockerfile (mirror + PyPI-mirror-fallback variant)
+# ===================================
+# Identical to Dockerfile except:
+#   1. Base images come from mirror.gcr.io (Docker Hub mirror) — the
+#      build host doesn't need to reach registry-1.docker.io.
+#      Alternative Docker registry mirrors reachable from this host
+#      (swap in by s/mirror.gcr.io/... if gcr also fails):
+#        - dockerhub.timeweb.cloud/library
+#        - docker.m.daocloud.io
+#        - docker.arvancloud.ir
+#   2. Alpine apk repos point to mirror.yandex.ru (more reachable than
+#      dl-cdn.alpinelinux.org from restrictive networks).
+#   3. pip install tries pypi.org first, then falls back through Aliyun
+#      and Tsinghua PyPI mirrors. If an optional BUILD_PROXY ARG is
+#      provided, it is tried as a final fallback.
+#
+# Switch back to vanilla Dockerfile once Docker Hub + Alpine CDN +
+# pypi.org are all reachable directly from the build host.
+# ===================================
+
+# Stage 1: Build stage
+FROM mirror.gcr.io/library/python:3.12-alpine AS builder
+
+# Optional HTTP proxy (empty by default — only used if set via Coolify
+# build-arg). ARG values are not baked into the runtime image.
+ARG BUILD_PROXY=""
+
+# Use Yandex apk mirror — reachable when dl-cdn.alpinelinux.org is not.
+RUN sed -i 's|dl-cdn.alpinelinux.org|mirror.yandex.ru/mirrors|g' /etc/apk/repositories
+
+# Install build dependencies — direct first, proxy fallback if provided.
+RUN apk add --no-cache gcc musl-dev libffi-dev openssl-dev \
+    || ( [ -n "${BUILD_PROXY}" ] \
+         && echo "==> direct apk failed; retrying via BUILD_PROXY" \
+         && HTTP_PROXY="${BUILD_PROXY}" HTTPS_PROXY="${BUILD_PROXY}" \
+            apk add --no-cache gcc musl-dev libffi-dev openssl-dev )
+
+# Create build directory
+WORKDIR /build
+
+# Install Python dependencies — four-step fallback chain:
+#   1. pypi.org (direct)
+#   2. Aliyun mirror (mirrors.aliyun.com)
+#   3. Tsinghua mirror (pypi.tuna.tsinghua.edu.cn)
+#   4. Optional BUILD_PROXY (only tried if the ARG is non-empty)
+COPY requirements.txt .
+RUN pip install --no-cache-dir --user --retries 1 --timeout 15 -r requirements.txt \
+    || ( echo "==> pypi.org failed; trying Aliyun mirror" \
+         && pip install --no-cache-dir --user --retries 1 --timeout 15 \
+            -i https://mirrors.aliyun.com/pypi/simple/ \
+            --trusted-host mirrors.aliyun.com \
+            -r requirements.txt ) \
+    || ( echo "==> Aliyun failed; trying Tsinghua mirror" \
+         && pip install --no-cache-dir --user --retries 1 --timeout 20 \
+            -i https://pypi.tuna.tsinghua.edu.cn/simple/ \
+            --trusted-host pypi.tuna.tsinghua.edu.cn \
+            -r requirements.txt ) \
+    || ( [ -n "${BUILD_PROXY}" ] \
+         && echo "==> Tsinghua failed; retrying via BUILD_PROXY" \
+         && pip install --no-cache-dir --user \
+            --proxy "${BUILD_PROXY}" -r requirements.txt )
+
+
+# Stage 2: Production stage
+FROM mirror.gcr.io/library/python:3.12-alpine AS production
+
+# Re-declare proxy ARG (ARGs don't cross stage boundaries).
+ARG BUILD_PROXY=""
+
+# Same Yandex apk mirror swap as the builder stage.
+RUN sed -i 's|dl-cdn.alpinelinux.org|mirror.yandex.ru/mirrors|g' /etc/apk/repositories
+
+# CRITICAL: Install wget for health checks + docker-cli for WP-CLI tools
+# libmagic is required by python-magic (F.5a media upload MIME sniffing)
+RUN apk add --no-cache wget curl docker-cli libmagic \
+    || ( [ -n "${BUILD_PROXY}" ] \
+         && echo "==> direct apk failed; retrying via BUILD_PROXY" \
+         && HTTP_PROXY="${BUILD_PROXY}" HTTPS_PROXY="${BUILD_PROXY}" \
+            apk add --no-cache wget curl docker-cli libmagic )
+
+# Create non-root user for security and grant Docker socket access
+# Docker group (GID 999) allows access to /var/run/docker.sock
+RUN addgroup -g 1001 appgroup && \
+    adduser -u 1001 -G appgroup -s /bin/sh -D appuser && \
+    addgroup -g 999 docker 2>/dev/null || true && \
+    adduser appuser docker 2>/dev/null || true
+
+# Set working directory
+WORKDIR /app
+
+# Copy Python packages from builder
+COPY --from=builder /root/.local /home/appuser/.local
+
+# Copy application code
+COPY --chown=appuser:appgroup . .
+
+# Create data directories for API keys and logs with correct ownership
+# This must be done before switching to non-root user
+RUN mkdir -p /app/data /app/logs && \
+    chown -R appuser:appgroup /app/data /app/logs && \
+    chmod 755 /app/data /app/logs
+
+# Make server.py executable
+RUN chmod +x server.py
+
+# Switch to non-root user
+USER appuser
+
+# Add local packages to PATH
+ENV PATH=/home/appuser/.local/bin:$PATH
+ENV PYTHONUNBUFFERED=1
+
+# CRITICAL: EXPOSE port for Coolify
+EXPOSE 8000
+
+# CRITICAL: Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8000/health || exit 1
+
+# CRITICAL: Listen on 0.0.0.0 (not localhost!)
+# Run server with streamable-http transport on port 8000
+CMD ["python", "server.py", "--transport", "streamable-http", "--port", "8000", "--host", "0.0.0.0"]

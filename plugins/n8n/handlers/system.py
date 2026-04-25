@@ -1,9 +1,15 @@
-"""System Handler - manages n8n system operations (audit, source control, health)"""
+"""System Handler - manages n8n system operations (audit, source control, health)."""
 
 import json
 from typing import Any
 
-from plugins.n8n.client import N8nClient
+from plugins.n8n.client import N8nApiError, N8nClient
+
+
+def _error_json(exc: Exception) -> str:
+    if isinstance(exc, N8nApiError):
+        return json.dumps({"success": False, **exc.to_dict()}, indent=2)
+    return json.dumps({"success": False, "error": str(exc)}, indent=2)
 
 
 def get_tool_specifications() -> list[dict[str, Any]]:
@@ -84,7 +90,7 @@ async def run_security_audit(client: N8nClient, categories: list[str] | None = N
 
         return json.dumps(audit_data, indent=2)
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def source_control_pull(
@@ -99,7 +105,7 @@ async def source_control_pull(
             indent=2,
         )
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def get_instance_info(client: N8nClient) -> str:
@@ -115,13 +121,12 @@ async def get_instance_info(client: N8nClient) -> str:
         except Exception:
             pass
 
-        # Get current user to verify connectivity
         try:
-            user = await client.request("GET", "user")
+            user = await client.get_current_user()
             info["current_user"] = {
                 "id": user.get("id"),
                 "email": user.get("email"),
-                "role": user.get("role"),
+                "role": user.get("role") or user.get("globalRole"),
             }
         except Exception:
             pass
@@ -131,7 +136,7 @@ async def get_instance_info(client: N8nClient) -> str:
 
         return json.dumps({"success": True, "instance_info": info}, indent=2)
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def health_check(client: N8nClient) -> str:

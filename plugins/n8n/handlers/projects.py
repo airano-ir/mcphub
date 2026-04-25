@@ -1,9 +1,15 @@
-"""Projects Handler - manages n8n projects (Enterprise/Pro)"""
+"""Projects Handler - manages n8n projects (Enterprise/Pro)."""
 
 import json
 from typing import Any
 
-from plugins.n8n.client import N8nClient
+from plugins.n8n.client import N8nApiError, N8nClient
+
+
+def _error_json(exc: Exception) -> str:
+    if isinstance(exc, N8nApiError):
+        return json.dumps({"success": False, **exc.to_dict()}, indent=2)
+    return json.dumps({"success": False, "error": str(exc)}, indent=2)
 
 
 def get_tool_specifications() -> list[dict[str, Any]]:
@@ -146,7 +152,7 @@ async def list_projects(client: N8nClient, limit: int = 100, cursor: str | None 
         }
         return json.dumps(result, indent=2)
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def get_project(client: N8nClient, project_id: str) -> str:
@@ -157,7 +163,7 @@ async def get_project(client: N8nClient, project_id: str) -> str:
             indent=2,
         )
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def create_project(client: N8nClient, name: str) -> str:
@@ -172,7 +178,7 @@ async def create_project(client: N8nClient, name: str) -> str:
             indent=2,
         )
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def update_project(client: N8nClient, project_id: str, name: str) -> str:
@@ -187,7 +193,7 @@ async def update_project(client: N8nClient, project_id: str, name: str) -> str:
             indent=2,
         )
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def delete_project(client: N8nClient, project_id: str) -> str:
@@ -195,7 +201,7 @@ async def delete_project(client: N8nClient, project_id: str) -> str:
         await client.delete_project(project_id)
         return json.dumps({"success": True, "message": f"Project {project_id} deleted"}, indent=2)
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def add_project_users(client: N8nClient, project_id: str, users: list[dict[str, str]]) -> str:
@@ -207,7 +213,7 @@ async def add_project_users(client: N8nClient, project_id: str, users: list[dict
             indent=2,
         )
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def change_project_user_role(
@@ -223,7 +229,7 @@ async def change_project_user_role(
             indent=2,
         )
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def remove_project_user(client: N8nClient, project_id: str, user_id: str) -> str:
@@ -234,4 +240,4 @@ async def remove_project_user(client: N8nClient, project_id: str, user_id: str) 
             indent=2,
         )
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)

@@ -1,0 +1,113 @@
+# ===================================
+# MCP Hub — Dockerfile (Debian slim, restrictive-network variant)
+# ===================================
+# Plan B fallback when both registry-1.docker.io AND
+# dl-cdn.alpinelinux.org are unreachable from the build host.
+#
+# Switches the base from python:3.12-alpine (musl + apk) to
+# python:3.12-slim-bookworm (Debian + apt). Debian's package mirrors
+# are CDN-fronted (Cloudflare/Fastly) and are usually reachable from
+# networks that block Alpine's CDN. Image is pulled from mirror.gcr.io
+# to also bypass Docker Hub TLS issues.
+#
+# Tradeoffs vs Dockerfile.mirror (Alpine):
+#   - Image size: ~120 MB (slim) vs ~60 MB (alpine) — acceptable
+#   - Compatibility: ALL Python wheels work (no musl rebuild needed)
+#   - Security baseline: equivalent (slim is minimal Debian, no shell extras)
+#
+# Switch back to Dockerfile.mirror once dl-cdn.alpinelinux.org reachable
+# OR back to Dockerfile once registry-1.docker.io is reachable.
+# ===================================
+
+# Stage 1: Build stage
+FROM mirror.gcr.io/library/python:3.12-slim-bookworm AS builder
+
+# Optional HTTP proxy for restricted networks. ARG values are NOT baked
+# into the final image, so the runtime container never carries the proxy.
+ARG BUILD_HTTP_PROXY=""
+ARG BUILD_HTTPS_PROXY=""
+ARG BUILD_NO_PROXY=""
+
+# Install build dependencies via apt (proxy honoured if BUILD_HTTP_PROXY set)
+RUN export HTTP_PROXY="${BUILD_HTTP_PROXY}" \
+           HTTPS_PROXY="${BUILD_HTTPS_PROXY}" \
+           NO_PROXY="${BUILD_NO_PROXY}" \
+    && apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        libffi-dev \
+        libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create build directory
+WORKDIR /build
+
+# Copy requirements and install Python dependencies (proxy honoured)
+COPY requirements.txt .
+RUN export HTTP_PROXY="${BUILD_HTTP_PROXY}" \
+           HTTPS_PROXY="${BUILD_HTTPS_PROXY}" \
+           NO_PROXY="${BUILD_NO_PROXY}" \
+    && pip install --no-cache-dir --user -r requirements.txt
+
+
+# Stage 2: Production stage
+FROM mirror.gcr.io/library/python:3.12-slim-bookworm AS production
+
+# Re-declare proxy ARGs in this stage (ARGs don't cross stage boundaries).
+ARG BUILD_HTTP_PROXY=""
+ARG BUILD_HTTPS_PROXY=""
+ARG BUILD_NO_PROXY=""
+
+# CRITICAL: Install wget for health checks + docker-cli for WP-CLI tools
+# libmagic1 is required by python-magic (F.5a media upload MIME sniffing)
+RUN export HTTP_PROXY="${BUILD_HTTP_PROXY}" \
+           HTTPS_PROXY="${BUILD_HTTPS_PROXY}" \
+           NO_PROXY="${BUILD_NO_PROXY}" \
+    && apt-get update && apt-get install -y --no-install-recommends \
+        wget \
+        curl \
+        docker.io \
+        libmagic1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user for security and grant Docker socket access
+# Docker group (GID 999) allows access to /var/run/docker.sock
+RUN groupadd -g 1001 appgroup && \
+    useradd -u 1001 -g appgroup -s /bin/sh -m appuser && \
+    (groupadd -g 999 docker 2>/dev/null || true) && \
+    (usermod -aG docker appuser 2>/dev/null || true)
+
+# Set working directory
+WORKDIR /app
+
+# Copy Python packages from builder
+COPY --from=builder /root/.local /home/appuser/.local
+
+# Copy application code
+COPY --chown=appuser:appgroup . .
+
+# Create data directories for API keys and logs with correct ownership
+# This must be done before switching to non-root user
+RUN mkdir -p /app/data /app/logs && \
+    chown -R appuser:appgroup /app/data /app/logs && \
+    chmod 755 /app/data /app/logs
+
+# Make server.py executable
+RUN chmod +x server.py
+
+# Switch to non-root user
+USER appuser
+
+# Add local packages to PATH
+ENV PATH=/home/appuser/.local/bin:$PATH
+ENV PYTHONUNBUFFERED=1
+
+# CRITICAL: EXPOSE port for Coolify
+EXPOSE 8000
+
+# CRITICAL: Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8000/health || exit 1
+
+# CRITICAL: Listen on 0.0.0.0 (not localhost!)
+# Run server with streamable-http transport on port 8000
+CMD ["python", "server.py", "--transport", "streamable-http", "--port", "8000", "--host", "0.0.0.0"]

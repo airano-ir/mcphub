@@ -134,6 +134,57 @@
         {% endif %}
     </div>
 
+    <!-- F.20 prep: Companion plugin download hint (WP / WC only) -->
+    {% if companion_download_url %}
+    <div class="bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/30 rounded-xl p-5">
+        <div class="flex items-start gap-3">
+            <div class="w-10 h-10 bg-indigo-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-indigo-500 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+            </div>
+            <div class="flex-1 min-w-0">
+                <h4 class="text-sm font-semibold text-indigo-900 dark:text-indigo-200">
+                    {% if lang == 'fa' %}
+                    افزونه همراه Airano MCP Bridge (اختیاری اما توصیه‌شده)
+                    {% else %}
+                    Airano MCP Bridge — companion plugin (optional but recommended)
+                    {% endif %}
+                </h4>
+                <p class="mt-1 text-xs text-indigo-800/90 dark:text-indigo-300/90 leading-relaxed">
+                    {% if lang == 'fa' %}
+                    نصب افزونه همراه، این قابلیت‌ها را فعال می‌کند: آپلود فایل بزرگ‌تر از
+                    <code class="font-mono">upload_max_filesize</code>، گزارش یکپارچه‌ی سلامت سایت،
+                    purge کش، پاکسازی transient، متاهای bulk، خروجی ساختاریافته، probe قابلیت‌ها،
+                    و webhook لاگ ممیزی. بدون آن، ابزارهای پایه کار می‌کنند اما موارد فوق غیرفعال خواهند بود.
+                    {% else %}
+                    Installing the companion plugin unlocks: uploads larger than
+                    <code class="font-mono">upload_max_filesize</code>, unified site-health snapshot,
+                    cache purge, transient flush, bulk meta writes, structured export, capability probe,
+                    and audit-hook webhooks. Without it, basic tools still work but those features stay disabled.
+                    {% endif %}
+                </p>
+                <div class="mt-3 flex flex-wrap items-center gap-3">
+                    <a href="{{ companion_download_url }}"
+                       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                        </svg>
+                        {% if lang == 'fa' %}دانلود airano-mcp-bridge.zip{% else %}Download airano-mcp-bridge.zip{% endif %}
+                    </a>
+                    <span class="text-xs text-indigo-700/70 dark:text-indigo-300/70">
+                        {% if lang == 'fa' %}
+                        نصب: WP Admin → افزونه‌ها → افزودن → Upload Plugin → انتخاب فایل → نصب و فعال‌سازی
+                        {% else %}
+                        Install via WP Admin → Plugins → Add New → Upload Plugin → select the zip → Activate
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Setup Requirements -->
     {% if service.credential_fields %}
     <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">

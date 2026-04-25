@@ -125,8 +125,13 @@ class TestGiteaToolSpecifications:
         return GiteaPlugin.get_tool_specifications()
 
     def test_total_tool_count(self, specs):
-        """Should have 58 tools total (16 repo + 13 issue + 15 PR + 8 user + 6 webhook)."""
-        assert len(specs) == 58
+        """Gitea tool count.
+
+        Base v3.6.0 count was 58. F.17 ergonomics (2026-04-16) added 7
+        tools: create_files, get_tree, search_code, compare, list_releases,
+        create_release, fork_repository.
+        """
+        assert len(specs) == 65
 
     def test_all_specs_have_required_keys(self, specs):
         """Every spec must have name, method_name, description, schema, scope."""

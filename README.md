@@ -13,8 +13,7 @@ Connect your sites, stores, repos, and databases — manage them all through Cla
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776ab.svg)](https://www.python.org/)
 [![PyPI](https://img.shields.io/pypi/v/mcphub-server.svg)](https://pypi.org/project/mcphub-server/)
 [![Docker](https://img.shields.io/docker/v/airano/mcphub?label=docker)](https://hub.docker.com/r/airano/mcphub)
-[![Tests: 828 passing](https://img.shields.io/badge/tests-828%20passing-brightgreen.svg)]()
-[![Tools: 633](https://img.shields.io/badge/tools-633-orange.svg)]()
+[![Plugins: 10](https://img.shields.io/badge/plugins-10-orange.svg)]()
 [![CI](https://github.com/airano-ir/mcphub/actions/workflows/ci.yml/badge.svg)](https://github.com/airano-ir/mcphub/actions/workflows/ci.yml)
 
 </div>
@@ -25,7 +24,7 @@ Connect your sites, stores, repos, and databases — manage them all through Cla
 
 WordPress powers 43% of the web. WooCommerce runs 36% of online stores. Yet **no MCP server existed** for managing them through AI — until now.
 
-MCP Hub is the first MCP server that lets you manage WordPress, WooCommerce, and 7 other self-hosted services through any AI assistant. Instead of clicking through dashboards, just tell your AI what to do:
+MCP Hub is the first MCP server that lets you manage WordPress, WooCommerce, and 8 other self-hosted services through any AI assistant. Instead of clicking through dashboards, just tell your AI what to do:
 
 > *"Update the SEO meta description for all WooCommerce products that don't have one"*
 >
@@ -41,7 +40,7 @@ MCP Hub is the first MCP server that lets you manage WordPress, WooCommerce, and
 | AI agent integration | No | No | No | **Native (MCP)** |
 | Full WordPress API | Dashboard | Dashboard | Content only | **67 tools** |
 | WooCommerce management | No | Limited | No | **28 tools** |
-| Git/CI management | No | No | No | **56 tools (Gitea)** |
+| Git/CI management | No | No | No | **65 tools (Gitea)** |
 | Automation workflows | No | No | No | **56 tools (n8n)** |
 | Self-hosted | No | Yes | N/A | **Yes** |
 | Open source | No | Core only | Varies | **Fully open** |
@@ -49,22 +48,28 @@ MCP Hub is the first MCP server that lets you manage WordPress, WooCommerce, and
 
 ---
 
-## 633 Tools Across 10 Plugins
+## 10 Plugins, Hundreds of Tools
 
-| Plugin | Tools | What You Can Do |
-|--------|-------|-----------------|
-| **WordPress** | 67 | Posts, pages, media, users, menus, taxonomies, SEO (Rank Math/Yoast) |
-| **WooCommerce** | 28 | Products, orders, customers, coupons, reports, shipping |
-| **WordPress Advanced** | 22 | Database ops, bulk operations, WP-CLI, system management |
-| **Gitea** | 58 | Repos, issues, pull requests, releases, webhooks, organizations, labels |
-| **n8n** | 56 | Workflows, executions, credentials, variables, audit |
-| **Supabase** | 70 | Database, auth, storage, edge functions, realtime |
-| **OpenPanel** | 42 | Events, export, insights, profiles, projects, system |
-| **Appwrite** | 100 | Databases, auth, storage, functions, teams, messaging |
-| **Directus** | 100 | Collections, items, users, files, flows, permissions |
-| **Coolify** | 67 | Applications, deployments, servers, projects, databases, services |
-| **System** | 23 | Health monitoring, API keys, OAuth management, audit |
-| **Total** | **633** | Constant count — scales to unlimited sites |
+The exact tool count grows as new plugins ship and existing ones gain endpoints.
+What you actually expose is controlled by your `ENABLED_PLUGINS` setting and per-key
+scope — pick a plugin-specific endpoint to keep the surface area small.
+
+| Plugin | Approx. Tools | What You Can Do |
+|--------|---------------:|-----------------|
+| **WordPress** | ~70 | Posts, pages, media (incl. AI image generation), users, menus, taxonomies, SEO (Rank Math/Yoast) |
+| **WooCommerce** | ~30 | Products, orders, customers, coupons, reports, shipping |
+| **WordPress Advanced** | ~20 | Database ops, bulk operations, WP-CLI, system management |
+| **Gitea** | ~65 | Repos, issues, pull requests, releases, webhooks, organizations, labels, batch files, tree, search, compare |
+| **n8n** | ~55 | Workflows, executions, credentials, variables, audit |
+| **Supabase** | ~70 | Database, auth, storage, edge functions, realtime |
+| **OpenPanel** | ~40 | Events, export, insights, profiles, projects, system |
+| **Appwrite** | ~100 | Databases, auth, storage, functions, teams, messaging |
+| **Directus** | ~100 | Collections, items, users, files, flows, permissions |
+| **Coolify** | ~65 | Applications, deployments, servers, projects, databases, services |
+| **System** | ~25 | Health monitoring, API keys, OAuth management, audit |
+
+> Per-site duplication does **not** inflate the tool count — adding a second
+> WordPress site reuses the same WordPress tools with a different `site` argument.
 
 ---
 
@@ -266,30 +271,32 @@ MCP Hub supports **Open Dynamic Client Registration** (RFC 7591). ChatGPT can au
 ## Architecture
 
 ```
-/mcp                        → Admin endpoint (all 633 tools)
-/system/mcp                 → System tools only (23 tools)
-/wordpress/mcp              → WordPress tools (67 tools)
-/woocommerce/mcp            → WooCommerce tools (28 tools)
-/wordpress-advanced/mcp     → WordPress Advanced tools (22 tools)
-/gitea/mcp                  → Gitea tools (58 tools)
-/n8n/mcp                    → n8n tools (56 tools)
-/supabase/mcp               → Supabase tools (70 tools)
-/openpanel/mcp              → OpenPanel tools (42 tools)
-/appwrite/mcp               → Appwrite tools (100 tools)
-/directus/mcp               → Directus tools (100 tools)
-/coolify/mcp                → Coolify tools (67 tools)
+/mcp                        → Admin endpoint (every enabled tool)
+/system/mcp                 → System tools only
+/wordpress/mcp              → WordPress tools
+/woocommerce/mcp            → WooCommerce tools
+/wordpress-advanced/mcp     → WordPress Advanced tools
+/gitea/mcp                  → Gitea tools
+/n8n/mcp                    → n8n tools
+/supabase/mcp               → Supabase tools
+/openpanel/mcp              → OpenPanel tools
+/appwrite/mcp               → Appwrite tools
+/directus/mcp               → Directus tools
+/coolify/mcp                → Coolify tools
 /project/{alias}/mcp        → Per-project endpoint (auto-injects site)
 /u/{user_id}/{alias}/mcp    → Per-user endpoint (hosted/OAuth users)
 ```
 
-**Recommendation**: Use plugin-specific endpoints instead of `/mcp` (633 tools) to minimize token usage.
+**Recommendation**: Use plugin-specific endpoints instead of the all-tools `/mcp`
+admin endpoint to keep your AI client's tool window small (and your token bill
+lower).
 
-| Endpoint | Use Case | Tools |
-|----------|----------|------:|
-| `/u/{user_id}/{alias}/mcp` | Hosted users (OAuth login) | 22-100 |
-| `/project/{alias}/mcp` | Single-site workflow (recommended) | 22-100 |
-| `/{plugin}/mcp` | Multi-site management | 23-101 |
-| `/mcp` | Admin & discovery only | 633 |
+| Endpoint | Use Case |
+|----------|----------|
+| `/u/{user_id}/{alias}/mcp` | Hosted users (OAuth login) — single service |
+| `/project/{alias}/mcp` | Single-site workflow (recommended) |
+| `/{plugin}/mcp` | Multi-site management for one service |
+| `/mcp` | Admin & discovery only — every enabled tool |
 
 ### Security
 
@@ -307,7 +314,7 @@ Some MCP Hub tools require companion WordPress plugins:
 
 | Tools | Requirement |
 |-------|-------------|
-| SEO tools (`wordpress_get_post_seo`, etc.) | [Airano MCP SEO Bridge](https://wordpress.org/plugins/airano-mcp-seo-bridge/) ([GitHub](wordpress-plugin/airano-mcp-seo-bridge/)) + Rank Math or Yoast SEO |
+| SEO + capability/audit tools (`wordpress_get_post_seo`, capability probe, audit hook, etc.) | [Airano MCP Bridge](https://wordpress.org/plugins/airano-mcp-bridge/) ([GitHub](wordpress-plugin/airano-mcp-bridge/)) + Rank Math or Yoast SEO |
 | WP-CLI tools (15 tools: `wp_cache_*`, `wp_db_*`, etc.) | Docker socket + `CONTAINER` config |
 | WordPress Advanced database/system tools | Docker socket + `CONTAINER` config |
 | OpenPanel analytics integration | [OpenPanel Self-Hosted](wordpress-plugin/openpanel-self-hosted/) ([Download ZIP](wordpress-plugin/openpanel-self-hosted.zip)) |
@@ -345,7 +352,7 @@ Set the `container` field when adding a WordPress site in the dashboard. Without
 # Install with dev dependencies
 pip install -e ".[dev]"
 
-# Run tests (481 tests)
+# Run tests
 pytest
 
 # Format and lint

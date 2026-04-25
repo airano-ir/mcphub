@@ -1,0 +1,173 @@
+{# F.X.fix #9 — capability-badge partial, HTMX-swappable.
+
+Rendered both (a) inline by manage.html on first page load and (b) as
+the response body of GET /api/sites/{id}/capabilities/badge when the
+Re-check button is clicked. Swapping this element with hx-swap=
+"outerHTML" avoids the full-page reload the legacy button triggered.
+
+F.X.fix-pass2 — wording corrected for WordPress: application passwords
+inherit ALL capabilities from the user account, so the "credential
+tier" framing is misleading. WP-specific branches reference the WP
+user's role instead.  AI-provider availability is surfaced here too
+so removing a provider key gives visible feedback on Re-check.
+
+Required context:
+  capability_probe   — probe payload (with .fit, .granted, .reason,
+                        .ai_providers_configured, optionally .install_hint)
+  site               — site dict (for .plugin_type, .tool_scope)
+  lang               — "fa" | "en"
+  companion_download_url — string, may be empty
+#}
+{% set fit_status = capability_probe.fit.status %}
+{% set is_wp = site.plugin_type in ['wordpress', 'wordpress_advanced'] %}
+{% set is_wc = site.plugin_type == 'woocommerce' %}
+{% set is_wp_like = is_wp or is_wc %}
+{% set ai_providers = capability_probe.ai_providers_configured or [] %}
+{% set ai_provider_missing = is_wp_like and (ai_providers | length == 0) %}
+<div id="capability-badge"
+     class="border rounded-lg px-4 py-3 text-sm
+     {% if fit_status == 'ok' %}
+       bg-green-50 dark:bg-green-500/10 border-green-200 dark:border-green-500/30 text-green-800 dark:text-green-300
+     {% elif fit_status == 'warning' %}
+       bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30 text-amber-800 dark:text-amber-300
+     {% elif fit_status == 'unknown_tier' %}
+       bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300
+     {% else %}
+       bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400
+     {% endif %}">
+    <div class="flex items-start justify-between gap-3">
+        <div class="flex-1 min-w-0">
+            {% if fit_status == 'ok' %}
+            <div class="font-semibold text-sm">
+                {% if lang == 'fa' %}✓ دسترسی credential برای سطح انتخاب‌شده کافی است{% else %}✓ Credential grants what this tier needs{% endif %}
+            </div>
+            {% if capability_probe.granted %}
+            <div class="mt-1 text-xs opacity-80">
+                {% if lang == 'fa' %}دسترسی‌های احراز شده:{% else %}Granted:{% endif %}
+                <code class="font-mono text-xs">{{ capability_probe.granted | join(', ') }}</code>
+            </div>
+            {% endif %}
+            {% elif fit_status == 'warning' %}
+            <div class="font-semibold text-sm">
+                {% if is_wc %}
+                    {% if lang == 'fa' %}
+                    ⚠ سطح دسترسی Consumer Key ووکامرس برای سطح «{{ site.tool_scope }}» کافی نیست
+                    {% else %}
+                    ⚠ The WooCommerce REST API key permission is below the selected "{{ site.tool_scope }}" tier
+                    {% endif %}
+                {% elif is_wp %}
+                    {% if lang == 'fa' %}
+                    ⚠ کاربر وردپرس این credential نقش لازم برای سطح «{{ site.tool_scope }}» را ندارد
+                    {% else %}
+                    ⚠ The WordPress user behind this application password lacks the role for the "{{ site.tool_scope }}" tier
+                    {% endif %}
+                {% else %}
+                    {% if lang == 'fa' %}
+                    ⚠ credential ذخیره‌شده برای سطح «{{ site.tool_scope }}» کافی نیست
+                    {% else %}
+                    ⚠ Saved credential is below the selected "{{ site.tool_scope }}" tier
+                    {% endif %}
+                {% endif %}
+            </div>
+            <div class="mt-1 text-xs opacity-90">
+                {% if lang == 'fa' %}دسترسی‌های ناموجود:{% else %}Missing:{% endif %}
+                <code class="font-mono text-xs">{{ capability_probe.fit.missing | join(', ') }}</code>
+            </div>
+            {% if capability_probe.granted %}
+            <div class="mt-1 text-xs opacity-80">
+                {% if lang == 'fa' %}آنچه در دسترس است:{% else %}Currently granted:{% endif %}
+                <code class="font-mono text-xs">{{ capability_probe.granted | join(', ') }}</code>
+            </div>
+            {% endif %}
+            <div class="mt-2 text-xs">
+                {% if is_wc %}
+                    {% if lang == 'fa' %}
+                    کلید ووکامرس (Consumer Key + Secret) دارای فیلد <code class="font-mono">permissions</code> با مقادیر
+                    <code class="font-mono">read</code> یا <code class="font-mono">read_write</code> است. گزینه‌ها:
+                    (۱) سطح پایین‌تر انتخاب کنید؛
+                    (۲) در WP Admin → WooCommerce → Settings → Advanced → REST API یک کلید جدید با Permission مناسب (Read / Write یا Read/Write) بسازید و در Connection Settings ذخیره کنید؛
+                    (۳) ادامه — ابزارهای نیازمند این دسترسی هنگام فراخوانی ۴۰۳ می‌دهند.
+                    {% else %}
+                    WooCommerce REST API keys carry a <code class="font-mono">permissions</code> field
+                    (<code class="font-mono">read</code> / <code class="font-mono">read_write</code>). Options:
+                    (1) pick a lower access level;
+                    (2) regenerate the REST key with Read/Write permission in WP Admin → WooCommerce → Settings → Advanced → REST API and re-paste it in Connection Settings;
+                    (3) continue — tools needing missing caps will return 403 at call time.
+                    {% endif %}
+                {% elif is_wp %}
+                    {% if lang == 'fa' %}
+                    application password در وردپرس همیشه تمام دسترسی‌های کاربر صاحب آن را می‌گیرد و قابل محدودکردن نیست. گزینه‌ها:
+                    (۱) سطح دسترسی پایین‌تری انتخاب کنید؛
+                    (۲) application password را از کاربری با نقش بالاتر (مثلاً Administrator یا Editor) بسازید؛
+                    (۳) ادامه — ابزارهای نیازمند این دسترسی هنگام فراخوانی ۴۰۳ می‌دهند.
+                    {% else %}
+                    WordPress application passwords inherit ALL capabilities of the user account and cannot be scoped down.
+                    Options: (1) pick a lower access level;
+                    (2) create the application password from a higher-role user (e.g. Administrator or Editor);
+                    (3) continue — tools needing missing caps will return 403 at call time.
+                    {% endif %}
+                {% else %}
+                    {% if lang == 'fa' %}
+                    گزینه‌ها: (۱) انتخاب سطح پایین‌تر؛ (۲) استفاده از credential با دسترسی بالاتر؛ (۳) ادامه — ابزارهای نیازمند این دسترسی هنگام فراخوانی ۴۰۳ می‌دهند.
+                    {% else %}
+                    Options: (1) pick a lower tier; (2) use a higher-privileged credential; (3) continue — tools needing missing caps will return 403 at call time.
+                    {% endif %}
+                {% endif %}
+            </div>
+            {% elif fit_status == 'probe_unavailable' %}
+            <div class="font-semibold text-sm">
+                {% if lang == 'fa' %}ℹ امکان بررسی خودکار credential در این سایت وجود ندارد{% else %}ℹ Capability probe is unavailable for this site{% endif %}
+            </div>
+            <div class="mt-1 text-xs opacity-80 font-mono">
+                {{ capability_probe.reason or 'probe_unavailable' }}
+            </div>
+            {% if site.plugin_type in ['wordpress', 'woocommerce'] and companion_download_url %}
+            <div class="mt-2 text-xs">
+                {% if lang == 'fa' %}
+                برای فعال‌سازی probe، افزونه
+                <a href="{{ companion_download_url }}" class="underline font-medium">Airano MCP Bridge</a>
+                را روی وردپرس نصب کنید.
+                {% else %}
+                Install the
+                <a href="{{ companion_download_url }}" class="underline font-medium">Airano MCP Bridge</a>
+                plugin on your WordPress to enable the probe.
+                {% endif %}
+            </div>
+            {% endif %}
+            {% elif fit_status == 'unknown_tier' %}
+            <div class="font-semibold text-sm">
+                {% if lang == 'fa' %}ℹ probe برای این plugin + سطح پیاده‌سازی نشده{% else %}ℹ Probe not implemented for this plugin/tier combination{% endif %}
+            </div>
+            {% endif %}
+
+            {# F.X.fix-pass2 — AI provider status line. Independent of the
+               tier-fit state: even a perfectly-fit credential cannot run
+               the AI image tool without an OpenRouter / OpenAI / … key. #}
+            {% if ai_provider_missing %}
+            <div class="mt-3 pt-2 border-t border-current/20 text-xs">
+                <span class="font-semibold">{% if lang == 'fa' %}⚠ هیچ کلید AI Provider تنظیم نشده{% else %}⚠ No AI provider key configured{% endif %}</span>
+                <span class="opacity-80">
+                    {% if lang == 'fa' %}
+                    — ابزار <code class="font-mono">wordpress_generate_and_upload_image</code> غیرفعال است. کلید را در بخش «تولید تصویر با هوش مصنوعی» بالا ذخیره کنید.
+                    {% else %}
+                    — <code class="font-mono">wordpress_generate_and_upload_image</code> is disabled. Add a key in the "AI Image Generation" section above.
+                    {% endif %}
+                </span>
+            </div>
+            {% elif is_wp_like and ai_providers %}
+            <div class="mt-3 pt-2 border-t border-current/20 text-xs opacity-80">
+                {% if lang == 'fa' %}کلیدهای AI Provider فعال:{% else %}Configured AI providers:{% endif %}
+                <code class="font-mono text-xs">{{ ai_providers | join(', ') }}</code>
+            </div>
+            {% endif %}
+        </div>
+        <button type="button"
+                hx-get="/api/sites/{{ site.id }}/capabilities/badge?force=1"
+                hx-target="#capability-badge"
+                hx-swap="outerHTML"
+                hx-disabled-elt="this"
+                class="flex-shrink-0 px-2.5 py-1 rounded border border-current/30 text-xs font-medium hover:bg-white/20 dark:hover:bg-black/20 transition-colors disabled:opacity-50">
+            {% if lang == 'fa' %}بررسی دوباره{% else %}Re-check{% endif %}
+        </button>
+    </div>
+</div>

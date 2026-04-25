@@ -1,0 +1,94 @@
+# ===================================
+# MCP Hub — Docker Compose (Coolify, Debian-slim Plan-B variant)
+# ===================================
+#
+# Plan B for restrictive networks. Use this when even
+# docker-compose.coolify.mirror.yaml hangs at `apk add` because the build
+# host cannot reach Alpine's package CDN (dl-cdn.alpinelinux.org). This
+# variant uses Debian slim, whose apt mirrors are CDN-fronted and usually
+# reachable from networks that block Alpine's CDN.
+#
+# WHEN TO USE:
+#   - registry-1.docker.io fails AND
+#   - Alpine apk repos (even via a Yandex mirror swap) hang or fail
+#
+# WHEN TO STOP USING:
+#   - Once one of the smaller images works reliably (Alpine = smaller)
+#   - Image bytes change (slim ≠ alpine), so the persistent volumes
+#     (mcp-data, mcp-logs) carry over but the build cache resets.
+#
+# OPTIONAL HTTP PROXY (Coolify build-args): same as the .mirror variant —
+#     BUILD_HTTP_PROXY=http://proxy.host:port
+#     BUILD_HTTPS_PROXY=http://proxy.host:port
+#     BUILD_NO_PROXY=localhost,127.0.0.1,mirror.gcr.io
+#   Used only inside RUN (apt + pip), never baked into the runtime image.
+#
+# Source mirror note (2026-04-16):
+#   Primary repo:  github.com/airano-ir/coolify-mcp-hub  (public)
+#   Gitea mirror:  gitea.palebluedot.live/atlatl/mcphub-internal  (private)
+#
+# ===================================
+
+services:
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.slim
+    container_name: mcphub
+    restart: unless-stopped
+
+    # No 'ports' — Coolify reverse proxy routes traffic via EXPOSE 8000
+
+    environment:
+      - PYTHONUNBUFFERED=1
+
+      # === REQUIRED ===
+      - MASTER_API_KEY=${MASTER_API_KEY}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - DASHBOARD_SESSION_SECRET=${DASHBOARD_SESSION_SECRET}
+
+      # === OAUTH SOCIAL LOGIN (for user registration) ===
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - PUBLIC_URL=${PUBLIC_URL:-}
+      - SESSION_EXPIRY_HOURS=${SESSION_EXPIRY_HOURS:-168}
+
+      # === ADMIN SYSTEM (F.4) ===
+      - ADMIN_EMAILS=${ADMIN_EMAILS:-}
+      - DISABLE_MASTER_KEY_LOGIN=${DISABLE_MASTER_KEY_LOGIN:-false}
+
+      # === LOGGING ===
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+
+      # === SITE MANAGEMENT (E.3) ===
+      - MAX_SITES_PER_USER=${MAX_SITES_PER_USER:-10}
+      - USER_RATE_LIMIT_PER_MIN=${USER_RATE_LIMIT_PER_MIN:-30}
+      - USER_RATE_LIMIT_PER_HR=${USER_RATE_LIMIT_PER_HR:-500}
+
+      # === SITES ===
+      # Sites are managed via the web dashboard (DB-based).
+      # After deployment, open the dashboard to add sites.
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    volumes:
+      - mcp-data:/app/data          # SQLite DB, API keys, OAuth data
+      - mcp-logs:/app/logs          # Audit logs, health reports
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+    # Coolify uses GID 988 for Docker socket
+    group_add:
+      - "988"
+
+volumes:
+  mcp-data:
+    driver: local
+  mcp-logs:
+    driver: local

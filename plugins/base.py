@@ -165,6 +165,40 @@ class BasePlugin(ABC):
         """
         return {"healthy": True, "message": "Health check not implemented for this plugin"}
 
+    async def probe_credential_capabilities(self) -> dict[str, Any]:
+        """F.7e — report what the saved credential can actually do.
+
+        Plugins should override this to call the upstream service
+        (WordPress companion ``/capabilities``, WooCommerce
+        ``system_status``, Gitea ``/user`` header scopes, Coolify
+        ``/api/v1/teams/0``, etc.) and return the subset of capability
+        names the caller's token actually grants.
+
+        The base implementation returns a well-shaped "probe not
+        available" payload so callers can handle all plugin types
+        uniformly without special-casing the ones that haven't
+        implemented a probe yet.
+
+        Returns:
+            Dict with:
+                probe_available: bool — True if the plugin knows how to
+                    query its upstream for capabilities.
+                granted: list[str] — the capabilities the credential
+                    actually grants (subset of the universe the plugin
+                    understands). Empty when ``probe_available=False``.
+                source: str — which endpoint / header the list came from;
+                    ``"unavailable"`` when no probe is wired.
+                reason: str | None — optional human-readable diagnostic
+                    when ``probe_available=False`` or when the call
+                    failed in a way that still produced a usable answer.
+        """
+        return {
+            "probe_available": False,
+            "granted": [],
+            "source": "unavailable",
+            "reason": "probe_not_implemented",
+        }
+
     def get_project_info(self) -> dict[str, Any]:
         """
         Return basic information about this project instance.

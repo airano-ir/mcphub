@@ -206,25 +206,10 @@ class GiteaClient:
 
     async def create_file(self, owner: str, repo: str, filepath: str, data: dict) -> dict:
         """Create a file"""
-        # Encode content to base64 if not already encoded
         if "content" in data:
-            content = data["content"]
-
-            # Check if content is already base64 encoded
-            is_already_base64 = data.get("content_is_base64", False)
-
-            if not is_already_base64:
-                # Plain text content - encode to base64
-                try:
-                    data["content"] = base64.b64encode(content.encode()).decode()
-                except (AttributeError, UnicodeDecodeError):
-                    # If content is already bytes or has encoding issues, try direct encoding
-                    if isinstance(content, bytes):
-                        data["content"] = base64.b64encode(content).decode()
-                    else:
-                        raise ValueError("Content must be a string or bytes")
-
-            # Remove the flag before sending to API
+            data["content"] = self._normalise_file_content(
+                data["content"], data.get("content_is_base64", False)
+            )
             data.pop("content_is_base64", None)
 
         return await self.request(
@@ -233,29 +218,61 @@ class GiteaClient:
 
     async def update_file(self, owner: str, repo: str, filepath: str, data: dict) -> dict:
         """Update a file"""
-        # Encode content to base64 if not already encoded
         if "content" in data:
-            content = data["content"]
-
-            # Check if content is already base64 encoded
-            is_already_base64 = data.get("content_is_base64", False)
-
-            if not is_already_base64:
-                # Plain text content - encode to base64
-                try:
-                    data["content"] = base64.b64encode(content.encode()).decode()
-                except (AttributeError, UnicodeDecodeError):
-                    # If content is already bytes or has encoding issues, try direct encoding
-                    if isinstance(content, bytes):
-                        data["content"] = base64.b64encode(content).decode()
-                    else:
-                        raise ValueError("Content must be a string or bytes")
-
-            # Remove the flag before sending to API
+            data["content"] = self._normalise_file_content(
+                data["content"], data.get("content_is_base64", False)
+            )
             data.pop("content_is_base64", None)
 
         return await self.request(
             "PUT", f"repos/{owner}/{repo}/contents/{filepath}", json_data=data
+        )
+
+    @staticmethod
+    def _normalise_file_content(content: Any, is_already_base64: bool) -> str:
+        """F.17 ergonomics: turn ``content`` into a base64 string suitable
+        for Gitea's contents endpoints, with actionable error messages.
+
+        ``is_already_base64=True`` validates that ``content`` decodes
+        cleanly and re-emits it stripped of whitespace; if the decode
+        fails, raise a message that tells the caller exactly how to
+        recover (drop ``data:`` prefix, use ``content_is_base64=False``
+        for raw text). ``is_already_base64=False`` UTF-8 + base64
+        encodes the string.
+        """
+        if is_already_base64:
+            if not isinstance(content, str):
+                raise ValueError(
+                    "content_is_base64=True but content is not a string. "
+                    "Pass the raw base64 text; do not wrap it in bytes / dicts."
+                )
+            stripped = content.strip()
+            if stripped.lower().startswith("data:"):
+                raise ValueError(
+                    "content looks like a data: URL (starts with 'data:'). "
+                    "Strip the 'data:<mime>;base64,' prefix before sending — "
+                    "Gitea expects the base64 payload only."
+                )
+            try:
+                # Validate round-trip and normalise whitespace.
+                raw = base64.b64decode(stripped, validate=True)
+                return base64.b64encode(raw).decode()
+            except Exception as exc:  # noqa: BLE001
+                raise ValueError(
+                    "content_is_base64=True but content is not valid base64. "
+                    "If you meant to send raw text, set content_is_base64=False "
+                    "(the client will base64-encode it for you). Original "
+                    f"decoder error: {exc}"
+                ) from exc
+
+        # Plain text / bytes → base64-encode for the caller.
+        if isinstance(content, bytes):
+            return base64.b64encode(content).decode()
+        if isinstance(content, str):
+            return base64.b64encode(content.encode("utf-8")).decode()
+        raise ValueError(
+            "content must be a string or bytes when content_is_base64=False. "
+            f"Got {type(content).__name__}."
         )
 
     async def delete_file(
@@ -274,6 +291,186 @@ class GiteaClient:
         return await self.request(
             "DELETE", f"repos/{owner}/{repo}/contents/{filepath}", json_data=data
         )
+
+    # ------------------------------------------------------------------
+    # F.17 — ergonomics: batch file write, tree listing, search, compare,
+    #         releases, fork.
+    # ------------------------------------------------------------------
+
+    async def change_files(
+        self,
+        owner: str,
+        repo: str,
+        data: dict,
+    ) -> dict:
+        """POST /repos/{owner}/{repo}/contents — apply a batch of file
+        create/update/delete operations in a single commit.
+
+        Gitea's ``files`` endpoint takes a list of ``{operation, path,
+        content, sha}`` entries. Operations: ``create`` | ``update`` |
+        ``delete``. ``content`` must be base64 for create/update.
+        """
+        return await self.request("POST", f"repos/{owner}/{repo}/contents", json_data=data)
+
+    async def get_tree(
+        self,
+        owner: str,
+        repo: str,
+        sha: str = "HEAD",
+        *,
+        recursive: bool = False,
+        page: int = 1,
+        per_page: int = 100,
+    ) -> dict:
+        """GET /repos/{owner}/{repo}/git/trees/{sha}
+
+        Returns ``{sha, url, tree: [{path, mode, type, size, sha, url}],
+        truncated}``. Set ``recursive=True`` to get the entire tree.
+        """
+        params: dict[str, Any] = {"page": page, "per_page": per_page}
+        if recursive:
+            params["recursive"] = "true"
+        return await self.request("GET", f"repos/{owner}/{repo}/git/trees/{sha}", params=params)
+
+    async def search_code(
+        self,
+        *,
+        keyword: str,
+        owner: str | None = None,
+        repo: str | None = None,
+        page: int = 1,
+        per_page: int = 30,
+    ) -> dict:
+        """Search code either across all repos (``/repos/search/code``)
+        or within a specific repo (``/repos/{owner}/{repo}/search/code``).
+
+        Returns the raw Gitea payload: ``{ok, data: [...]}``.
+        """
+        params: dict[str, Any] = {"q": keyword, "page": page, "per_page": per_page}
+        if owner and repo:
+            path = f"repos/{owner}/{repo}/search/code"
+        else:
+            path = "repos/search/code"
+        return await self.request("GET", path, params=params)
+
+    async def compare(
+        self,
+        owner: str,
+        repo: str,
+        base: str,
+        head: str,
+    ) -> dict:
+        """GET /repos/{owner}/{repo}/compare/{base}...{head}"""
+        # Gitea's compare endpoint uses ``...`` as the separator. The HTTP
+        # client URL-encodes path params, so we pre-join instead of
+        # passing them as separate path parameters.
+        spec = f"{base}...{head}"
+        return await self.request("GET", f"repos/{owner}/{repo}/compare/{spec}")
+
+    async def list_releases(
+        self,
+        owner: str,
+        repo: str,
+        *,
+        page: int = 1,
+        per_page: int = 30,
+    ) -> list[dict]:
+        """GET /repos/{owner}/{repo}/releases"""
+        return await self.request(
+            "GET",
+            f"repos/{owner}/{repo}/releases",
+            params={"page": page, "per_page": per_page},
+        )
+
+    async def create_release(
+        self,
+        owner: str,
+        repo: str,
+        data: dict,
+    ) -> dict:
+        """POST /repos/{owner}/{repo}/releases"""
+        return await self.request("POST", f"repos/{owner}/{repo}/releases", json_data=data)
+
+    async def get_release(self, owner: str, repo: str, release_id: int) -> dict:
+        return await self.request("GET", f"repos/{owner}/{repo}/releases/{release_id}")
+
+    async def delete_release(self, owner: str, repo: str, release_id: int) -> dict:
+        return await self.request("DELETE", f"repos/{owner}/{repo}/releases/{release_id}")
+
+    async def upload_release_asset(
+        self,
+        owner: str,
+        repo: str,
+        release_id: int,
+        *,
+        filename: str,
+        content_b64: str,
+    ) -> dict:
+        """Upload a release asset.
+
+        Gitea's API accepts multipart/form-data on
+        ``POST /repos/{owner}/{repo}/releases/{id}/assets?name=FILE``.
+        We accept base64 content so the tool schema stays JSON-friendly;
+        callers supply ``content_b64``. Decoded bytes go into the
+        multipart body. This bypasses ``self.request`` because that
+        helper only understands JSON bodies.
+        """
+        import aiohttp
+
+        try:
+            raw = base64.b64decode(content_b64, validate=True)
+        except Exception as exc:  # noqa: BLE001
+            raise ValueError(
+                "content_b64 must be a valid base64 string. "
+                "For small text files, base64-encode the UTF-8 bytes; "
+                "do not include a 'data:' URL prefix."
+            ) from exc
+
+        url = f"{self.api_base}/repos/{owner}/{repo}/releases/{release_id}/assets"
+        headers = self._get_headers()
+        # Requests library-style: multipart/form-data with attachment field.
+        form = aiohttp.FormData()
+        form.add_field(
+            "attachment",
+            raw,
+            filename=filename,
+            content_type="application/octet-stream",
+        )
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                url, params={"name": filename}, data=form, headers=headers
+            ) as resp:
+                text = await resp.text()
+                if resp.status >= 400:
+                    raise Exception(
+                        f"Gitea upload_release_asset failed ({resp.status}): {text[:500]}"
+                    )
+                try:
+                    import json as _json
+
+                    return _json.loads(text) if text else {"success": True}
+                except Exception:
+                    return {"success": True, "raw": text[:500]}
+
+    async def fork_repository(
+        self,
+        owner: str,
+        repo: str,
+        *,
+        organization: str | None = None,
+        name: str | None = None,
+    ) -> dict:
+        """POST /repos/{owner}/{repo}/forks
+
+        ``organization``: target org (omit to fork under the caller).
+        ``name``: custom name for the fork.
+        """
+        payload: dict[str, Any] = {}
+        if organization:
+            payload["organization"] = organization
+        if name:
+            payload["name"] = name
+        return await self.request("POST", f"repos/{owner}/{repo}/forks", json_data=payload)
 
     # Issue endpoints
     async def list_issues(self, owner: str, repo: str, params: dict) -> list[dict]:

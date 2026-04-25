@@ -1,9 +1,15 @@
-"""Credentials Handler - manages n8n credentials"""
+"""Credentials Handler - manages n8n credentials."""
 
 import json
 from typing import Any
 
-from plugins.n8n.client import N8nClient
+from plugins.n8n.client import N8nApiError, N8nClient
+
+
+def _error_json(exc: Exception) -> str:
+    if isinstance(exc, N8nApiError):
+        return json.dumps({"success": False, **exc.to_dict()}, indent=2)
+    return json.dumps({"success": False, "error": str(exc)}, indent=2)
 
 
 def get_tool_specifications() -> list[dict[str, Any]]:
@@ -107,7 +113,7 @@ async def get_credential(client: N8nClient, credential_id: str) -> str:
         }
         return json.dumps(result, indent=2)
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def create_credential(client: N8nClient, name: str, type: str, data: dict[str, Any]) -> str:
@@ -126,7 +132,7 @@ async def create_credential(client: N8nClient, name: str, type: str, data: dict[
         }
         return json.dumps(result, indent=2)
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def delete_credential(client: N8nClient, credential_id: str) -> str:
@@ -137,7 +143,7 @@ async def delete_credential(client: N8nClient, credential_id: str) -> str:
             {"success": True, "message": f"Credential {credential_id} deleted"}, indent=2
         )
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def get_credential_schema(client: N8nClient, credential_type: str) -> str:
@@ -148,7 +154,7 @@ async def get_credential_schema(client: N8nClient, credential_type: str) -> str:
             {"success": True, "credential_type": credential_type, "schema": schema}, indent=2
         )
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def transfer_credential(
@@ -165,4 +171,4 @@ async def transfer_credential(
             indent=2,
         )
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)

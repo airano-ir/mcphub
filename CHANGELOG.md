@@ -5,6 +5,74 @@ All notable changes to MCP Hub will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.12.0] — 2026-04-25
+
+### Media pipeline, AI image generation, capability probe, companion v2.9.0 (Tracks F.5a + F.7e + F.18)
+
+The biggest release since v3.11.0 — three months of incremental work batched into one community drop. Core themes:
+
+- **WordPress media pipeline**: end-to-end image flow with optimization, AI generation, and chunked uploads.
+- **Capability discovery**: every site now publishes what it can actually do, and the dashboard reflects it.
+- **Companion plugin overhaul**: `airano-mcp-bridge` (renamed from `airano-mcp-seo-bridge`) gained eight new endpoints and a wp.org Plugin Check pass.
+- **Reliability polish**: idempotent retries, fast-fail on unreachable sites, install hints in every error.
+
+#### Added
+- **AI image generation** (`F.5a.4` / `F.5a.9`): pluggable provider system (OpenAI, Stability, Replicate, Google Nano Banana, OpenRouter image models) → `wordpress_generate_and_upload_image`, attached as featured media or to WC products in one call.
+- **Pillow-based image optimization pipeline** (`F.5a.2`): client-side resize / format conversion / quality knobs before upload.
+- **Chunked media upload** (`F.5a.5`): large files uploaded in resumable chunks; `upload_media_chunked_status` lets you resume after a disconnect (`F.5a.8.4`).
+- **Bulk media tools** (`F.5a.8.3`): `bulk_delete_media` and `bulk_reassign_media`.
+- **Idempotency-Key dedup** for AI media upload retries — same key returns the previous result instead of double-uploading.
+- **Companion v2.9.0** (`airano-mcp-bridge`):
+  - `/upload-and-attach` — single-call combined endpoint (`F.5a.8.5`).
+  - `/regenerate-thumbnails` (`F.5a.8.2`).
+  - `/capabilities` + `wordpress_probe_capabilities` (`F.18.1`).
+  - `/bulk-meta` + `bulk_update_meta` (`F.18.2`).
+  - `/export` + `export_content` (`F.18.3`).
+  - `/cache-purge` + `cache_purge` (`F.18.4`).
+  - `/transient-flush` + `transient_flush` (`F.18.5`).
+  - `/site-health` + `site_health` (`F.18.6`).
+  - `/audit-hook` + MCPHub webhook receiver (`F.18.7`).
+- **Provider Keys dashboard** (`F.18.8`): per-site AI provider key management UI with no-reload UX; AI tool visibility is now gated on per-site provider key presence.
+- **Credential capability probe** (`F.7e`): WordPress / WooCommerce / Gitea adapters report what tier of operations the saved credential can actually perform; capability badge UI + HTMX partial re-check on the site manage page.
+- **Tier requirements engine**: `TIER_REQUIREMENTS` + `evaluate_tier_fit(granted ∪ roles)` so alias matching unions both sources.
+- **Companion install hint** in every companion-unreachable error (`F.7e`).
+- **Gitea ergonomics** (`F.17`): batch file ops, tree, search, compare, releases, fork shortcuts.
+- **Opportunistic bcrypt upgrade** for legacy SHA-256 admin keys (`F.8`).
+- **n8n refactor**: structured errors, capability probe, missing tools backfilled.
+
+#### Changed
+- **`get_post`** returns `slug`, `featured_media`, `featured_media_url` by default.
+- **`get_media` / `list_media`** expose `post_parent`.
+- **WordPress client** fast-fails on unreachable sites with an `install_hint`.
+- **Rank Math** integration uses canonical `rank_math_title` instead of the older `rank_math_seo_title`.
+- **Tool prerequisites** surfaced in the dashboard; tool list shows the expected provider/credential per tier.
+- **WooCommerce probe** infers capabilities from REST key scope.
+- **Default model** + dark background polish across dashboard surfaces.
+- **Companion route map** is single-source (`capabilities` and `site_health` share their definitions).
+
+#### Fixed
+- **AI provider gating**: per-site visibility now requires a present provider key; surfaces correctly hide tools when keys are absent.
+- **Capability badge re-check** is an HTMX partial swap (no full reload).
+- **WC media tools** accept WordPress App Password and global attribute id.
+- **`set_featured_image` for WC products**, AI image attach to WC products, provider enum narrowing, WC badge wording.
+- **Companion `airano-mcp-bridge` security**: scheme allowlist on the audit-hook endpoint URL; wp.org Plugin Check warnings (i18n + `WP_Filesystem`) cleared.
+
+#### Deployment
+- **PyPI mirror chain** + removed dead hardcoded proxy.
+- **Optional `BUILD_HTTP_PROXY`** for restrictive build networks.
+- Alpine `apk` swapped to Yandex mirror; **Debian-slim Plan-B** Dockerfile added.
+- `mirror.gcr.io` variant for Docker Hub TLS-timeout fallback.
+- Gitea mirror documented as fallback deploy source.
+
+#### Documentation
+- README: dropped fixed "633 tools" claims in favour of per-plugin approximations + a note that the count grows with each release.
+- CLAUDE.md: total tool count is no longer asserted as a fixed number.
+
+#### Companion plugin
+- **Renamed**: `airano-mcp-seo-bridge` → `airano-mcp-bridge` (the plugin now does much more than SEO).
+
+---
+
 ## [3.11.0] — 2026-04-14
 
 ### Plugin-specific access levels, regression tests, UX polish (Track F.7d)

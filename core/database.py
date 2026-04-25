@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 _DEFAULT_DATA_DIR = "/app/data" if Path("/app").exists() else "./data"
 
 # Schema version — increment when adding migrations
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 13
 
 # Initial schema DDL
 _SCHEMA_SQL = """\
@@ -114,6 +114,48 @@ CREATE TABLE IF NOT EXISTS site_tool_toggles (
     UNIQUE(site_id, tool_name)
 );
 CREATE INDEX IF NOT EXISTS idx_site_tool_toggles_site ON site_tool_toggles(site_id);
+
+-- F.5a.4 user_provider_keys table removed in F.5a.9.x / schema v12 —
+-- replaced by site_provider_keys (defined below) which stores AI provider
+-- credentials per-site instead of per-user.
+
+-- F.5a.5: chunked-upload sessions (SQLite metadata + disk spill)
+CREATE TABLE IF NOT EXISTS upload_sessions (
+    id              TEXT PRIMARY KEY,
+    user_id         TEXT NOT NULL,
+    filename        TEXT NOT NULL,
+    total_bytes     INTEGER NOT NULL,
+    mime            TEXT,
+    sha256          TEXT,
+    received_bytes  INTEGER NOT NULL DEFAULT 0,
+    next_chunk      INTEGER NOT NULL DEFAULT 0,
+    spill_path      TEXT NOT NULL,
+    status          TEXT NOT NULL DEFAULT 'open',
+    created_at      TEXT NOT NULL,
+    expires_at      TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_upload_sessions_user_status
+    ON upload_sessions(user_id, status);
+CREATE INDEX IF NOT EXISTS idx_upload_sessions_expires
+    ON upload_sessions(expires_at);
+
+-- F.5a.9.x: per-site AI provider keys (AES-GCM encrypted, reversible).
+-- Replaces the per-user user_provider_keys table with a per-site model so
+-- each WordPress/WooCommerce site carries its own OpenAI/Stability/Replicate
+-- credential in its Connection Settings. Encryption scope:
+--   site_provider:{site_id}:{provider}
+CREATE TABLE IF NOT EXISTS site_provider_keys (
+    id              TEXT PRIMARY KEY,
+    site_id         TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+    provider        TEXT NOT NULL,
+    key_ciphertext  BLOB NOT NULL,
+    created_at      TEXT NOT NULL,
+    last_used       TEXT,
+    default_model   TEXT,
+    UNIQUE(site_id, provider)
+);
+CREATE INDEX IF NOT EXISTS idx_site_provider_keys_site
+    ON site_provider_keys(site_id);
 """
 
 # Migration registry: version -> SQL string
@@ -169,6 +211,75 @@ _MIGRATIONS: dict[int, str] = {
     8: (
         # F.7c: per-site API keys — allow keys scoped to a single site
         "ALTER TABLE user_api_keys ADD COLUMN site_id TEXT;\n"
+    ),
+    9: (
+        # F.5a.4: per-user AI provider keys (AES-GCM encrypted, reversible —
+        # distinct from the bcrypt-hashed user_api_keys which authenticate MCP
+        # clients and cannot be used to call outbound provider APIs).
+        "CREATE TABLE IF NOT EXISTS user_provider_keys (\n"
+        "    id              TEXT PRIMARY KEY,\n"
+        "    user_id         TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,\n"
+        "    provider        TEXT NOT NULL,\n"
+        "    key_ciphertext  BLOB NOT NULL,\n"
+        "    created_at      TEXT NOT NULL,\n"
+        "    last_used       TEXT,\n"
+        "    UNIQUE(user_id, provider)\n"
+        ");\n"
+        "CREATE INDEX IF NOT EXISTS idx_user_provider_keys_user "
+        "ON user_provider_keys(user_id);\n"
+    ),
+    10: (
+        # F.5a.5: chunked upload sessions (SQLite metadata + disk spill)
+        "CREATE TABLE IF NOT EXISTS upload_sessions (\n"
+        "    id              TEXT PRIMARY KEY,\n"
+        "    user_id         TEXT NOT NULL,\n"
+        "    filename        TEXT NOT NULL,\n"
+        "    total_bytes     INTEGER NOT NULL,\n"
+        "    mime            TEXT,\n"
+        "    sha256          TEXT,\n"
+        "    received_bytes  INTEGER NOT NULL DEFAULT 0,\n"
+        "    next_chunk      INTEGER NOT NULL DEFAULT 0,\n"
+        "    spill_path      TEXT NOT NULL,\n"
+        "    status          TEXT NOT NULL DEFAULT 'open',\n"
+        "    created_at      TEXT NOT NULL,\n"
+        "    expires_at      TEXT NOT NULL\n"
+        ");\n"
+        "CREATE INDEX IF NOT EXISTS idx_upload_sessions_user_status "
+        "ON upload_sessions(user_id, status);\n"
+        "CREATE INDEX IF NOT EXISTS idx_upload_sessions_expires "
+        "ON upload_sessions(expires_at);\n"
+    ),
+    11: (
+        # F.5a.9.x step 1: add per-site provider keys table. The legacy
+        # per-user user_provider_keys table is dropped in migration 12
+        # (after the code paths that read it are removed).
+        "CREATE TABLE IF NOT EXISTS site_provider_keys (\n"
+        "    id              TEXT PRIMARY KEY,\n"
+        "    site_id         TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,\n"
+        "    provider        TEXT NOT NULL,\n"
+        "    key_ciphertext  BLOB NOT NULL,\n"
+        "    created_at      TEXT NOT NULL,\n"
+        "    last_used       TEXT,\n"
+        "    default_model   TEXT,\n"
+        "    UNIQUE(site_id, provider)\n"
+        ");\n"
+        "CREATE INDEX IF NOT EXISTS idx_site_provider_keys_site "
+        "ON site_provider_keys(site_id);\n"
+    ),
+    12: (
+        # F.5a.9.x step 2: drop the legacy per-user provider-keys store
+        # now that the resolver, dashboard page, and HTTP endpoints have
+        # been removed. Confirmed with operator that no users had keys
+        # stored on the live instance, so no data migration is needed.
+        "DROP INDEX IF EXISTS idx_user_provider_keys_user;\n"
+        "DROP TABLE IF EXISTS user_provider_keys;\n"
+    ),
+    13: (
+        # F.X.fix-pass3: per-site default image model. Lets the user
+        # pick a discovered OpenRouter model (e.g. google/gemini-2.5-
+        # flash-image) as the implicit default for that site, so MCP
+        # callers don't have to pass `model=...` every time.
+        "ALTER TABLE site_provider_keys ADD COLUMN default_model TEXT;\n"
     ),
 }
 
@@ -879,6 +990,104 @@ class Database:
         if row is None:
             return "admin"
         return row["tool_scope"] or "admin"
+
+    # ------------------------------------------------------------------
+    # Site provider keys (F.5a.9.x) — per-site AI provider credentials
+    # (replaces the F.5a.4 per-user ``*_provider_key`` helpers dropped in v12)
+    # ------------------------------------------------------------------
+
+    async def upsert_site_provider_key(
+        self,
+        site_id: str,
+        provider: str,
+        key_ciphertext: bytes,
+    ) -> dict[str, Any]:
+        """Insert or replace a site's API key for a given AI provider.
+
+        Args:
+            site_id: Site UUID.
+            provider: Provider identifier (``openai``, ``stability``, ``replicate``).
+            key_ciphertext: AES-256-GCM encrypted key bytes.
+
+        Returns:
+            The stored row (without plaintext).
+        """
+        key_id = str(uuid.uuid4())
+        now = _utc_now()
+        await self.execute(
+            "INSERT INTO site_provider_keys (id, site_id, provider, key_ciphertext, created_at) "
+            "VALUES (?, ?, ?, ?, ?) "
+            "ON CONFLICT(site_id, provider) DO UPDATE SET "
+            "key_ciphertext = excluded.key_ciphertext, created_at = excluded.created_at",
+            (key_id, site_id, provider, key_ciphertext, now),
+        )
+        row = await self.fetchone(
+            "SELECT id, site_id, provider, created_at, last_used FROM site_provider_keys "
+            "WHERE site_id = ? AND provider = ?",
+            (site_id, provider),
+        )
+        if row is None:
+            raise RuntimeError(f"Failed to read back site provider key for {site_id}/{provider}")
+        return row
+
+    async def get_site_provider_key(self, site_id: str, provider: str) -> dict[str, Any] | None:
+        """Return the encrypted provider key row for a site (includes ciphertext)."""
+        return await self.fetchone(
+            "SELECT * FROM site_provider_keys WHERE site_id = ? AND provider = ?",
+            (site_id, provider),
+        )
+
+    async def list_site_provider_keys(self, site_id: str) -> list[dict[str, Any]]:
+        """List providers a site has keys for (excluding ciphertext)."""
+        return await self.fetchall(
+            "SELECT id, site_id, provider, created_at, last_used, default_model "
+            "FROM site_provider_keys WHERE site_id = ? ORDER BY provider",
+            (site_id,),
+        )
+
+    async def delete_site_provider_key(self, site_id: str, provider: str) -> bool:
+        """Remove a site's provider key. Returns True if a row was deleted."""
+        cursor = await self.execute(
+            "DELETE FROM site_provider_keys WHERE site_id = ? AND provider = ?",
+            (site_id, provider),
+        )
+        return cursor.rowcount > 0
+
+    async def touch_site_provider_key(self, site_id: str, provider: str) -> None:
+        """Update last_used timestamp after a successful provider call."""
+        await self.execute(
+            "UPDATE site_provider_keys SET last_used = ? WHERE site_id = ? AND provider = ?",
+            (_utc_now(), site_id, provider),
+        )
+
+    async def set_site_provider_default_model(
+        self, site_id: str, provider: str, model: str | None
+    ) -> bool:
+        """F.X.fix-pass3 — record the per-site default model for a provider.
+
+        ``model=None`` clears the default. Returns ``True`` when a row
+        was actually updated (i.e. the site has a key for the provider);
+        callers can surface a 404 to the user when the row doesn't exist
+        rather than silently writing nothing.
+        """
+        cursor = await self.execute(
+            "UPDATE site_provider_keys SET default_model = ? " "WHERE site_id = ? AND provider = ?",
+            (model, site_id, provider),
+        )
+        return cursor.rowcount > 0
+
+    async def get_site_provider_default_model(self, site_id: str, provider: str) -> str | None:
+        """Return the default model id for a site's provider, or None."""
+        row = await self.fetchone(
+            "SELECT default_model FROM site_provider_keys " "WHERE site_id = ? AND provider = ?",
+            (site_id, provider),
+        )
+        if row is None:
+            return None
+        value = row.get("default_model")
+        if isinstance(value, str) and value:
+            return value
+        return None
 
     async def set_site_tool_scope(self, site_id: str, scope: str) -> None:
         """Update the ``tool_scope`` preset for a site.

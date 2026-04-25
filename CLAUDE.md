@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**MCP Hub** — a Python MCP (Model Context Protocol) server that manages multiple self-hosted services through a unified plugin architecture. Supports 10 plugin types (WordPress, WooCommerce, WordPress Advanced, Gitea, n8n, Supabase, OpenPanel, Appwrite, Directus, Coolify) with 633 tools total. The tool count stays constant regardless of how many sites are configured.
+**MCP Hub** — a Python MCP (Model Context Protocol) server that manages multiple self-hosted services through a unified plugin architecture. Supports 10 plugin types (WordPress, WooCommerce, WordPress Advanced, Gitea, n8n, Supabase, OpenPanel, Appwrite, Directus, Coolify). Total tool count varies with which plugins are enabled and grows as new plugins are added; per-plugin counts are surfaced in the dashboard. The exposed count for a given user/endpoint stays constant regardless of how many sites of the same type are configured.
 
 ## Quick Setup
 
@@ -190,7 +190,7 @@ v4 development cycle with 15 phases. See `docs/ROADMAP.md` (Track F) and `.claud
 ## Gotchas
 
 - Test files exist in both `tests/` (proper) and root directory (legacy `test_*.py`). Run `pytest tests/` for organized tests only.
-- `wordpress-plugin/` contains companion WP plugins (openpanel, airano-mcp-seo-bridge) — these are PHP, not Python
+- `wordpress-plugin/` contains companion WP plugins (openpanel, airano-mcp-bridge) — these are PHP, not Python
 - `env.example` has "FUTURE" labels for Supabase/Gitea but both are fully implemented
 - 5 plugins are tested for public use: WordPress, WooCommerce, Supabase, OpenPanel, Gitea. Others are admin-only or disabled.
 - OAuth Clients (Client ID/Secret) are for MCP endpoint auth, NOT the same as GitHub/Google dashboard login

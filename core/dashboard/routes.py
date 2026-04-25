@@ -7,6 +7,7 @@ Phase K.1: Core Infrastructure
 import logging
 import os
 from datetime import UTC, datetime
+from typing import Any
 
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
@@ -2927,7 +2928,14 @@ async def dashboard_sites_view(request: Request) -> Response:
     import json
 
     from core.config_snippets import get_supported_clients
-    from core.site_api import get_user_credential_fields, get_user_plugin_names, get_user_site
+    from core.site_api import (
+        SITE_PROVIDERS,
+        get_user_credential_fields,
+        get_user_plugin_names,
+        get_user_site,
+        list_site_providers_set,
+        site_supports_provider_keys,
+    )
     from core.tool_access import get_scope_presets_for_plugin
 
     site = await get_user_site(site_id, user_session["user_id"])
@@ -2946,6 +2954,97 @@ async def dashboard_sites_view(request: Request) -> Response:
     plugin_names = get_user_plugin_names()
     scope_presets = get_scope_presets_for_plugin(site["plugin_type"])
 
+    # F.5a.9.x: per-site AI provider keys — only surface the section on
+    # WordPress/WooCommerce sites (the only consumers of
+    # wordpress_generate_and_upload_image).
+    provider_keys_supported = site_supports_provider_keys(site["plugin_type"])
+    provider_key_rows: list[dict[str, Any]] = []
+    if provider_keys_supported:
+        configured = await list_site_providers_set(site_id)
+        # F.X.fix-pass3: pull each row's default_model so the UI can
+        # render a "Set default" pill that's pre-highlighted on the
+        # current selection. One query, all rows.
+        default_models: dict[str, str | None] = {}
+        try:
+            from core.database import get_database
+
+            db = get_database()
+            rows = await db.list_site_provider_keys(site_id)
+            for r in rows:
+                default_models[r["provider"]] = r.get("default_model")
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("default_model lookup skipped site=%s: %s", site_id, exc)
+        _provider_labels = {
+            "openai": "OpenAI",
+            "stability": "Stability AI",
+            "replicate": "Replicate",
+            "openrouter": "OpenRouter (Gemini / multi-model)",
+        }
+        for provider in SITE_PROVIDERS:
+            provider_key_rows.append(
+                {
+                    "provider": provider,
+                    "label": _provider_labels.get(provider, provider.title()),
+                    "status": "set" if provider in configured else "unset",
+                    "default_model": default_models.get(provider),
+                }
+            )
+
+    # F.20 prep: companion-plugin download hint, shown on WP/WC site
+    # pages only. See dashboard_service_page for the matching hint on
+    # the services catalogue.
+    companion_download_url = None
+    if site["plugin_type"] in {"wordpress", "woocommerce"}:
+        companion_download_url = (
+            "https://github.com/airano-ir/mcphub/raw/main/" "wordpress-plugin/airano-mcp-bridge.zip"
+        )
+
+    # F.7e: run the capability probe server-side so the manage page can
+    # render the badge on first paint without a second round-trip. Any
+    # failure falls through to "probe unavailable" so the page always
+    # loads. The frontend Re-check button hits the same endpoint with
+    # force=1 to bypass the 10-min cache.
+    capability_probe = None
+    try:
+        from core.capability_probe import evaluate_tier_fit, probe_site_capabilities
+
+        probe_payload = await probe_site_capabilities(
+            site_id=site_id, user_id=user_session["user_id"]
+        )
+        fit = evaluate_tier_fit(
+            plugin_type=site["plugin_type"],
+            tier=site.get("tool_scope"),
+            probe_payload=probe_payload,
+        )
+        capability_probe = {**probe_payload, "fit": fit}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("capability probe render failed for %s: %s", site_id, exc)
+        capability_probe = {
+            "probe_available": False,
+            "granted": [],
+            "source": "unavailable",
+            "reason": f"render_error: {exc}",
+            "fit": {"status": "probe_unavailable", "required": [], "missing": []},
+        }
+
+    # F.X.fix-pass5 — surface which credential fields are *currently
+    # stored* (not the values themselves) so the form can show a
+    # "✓ Stored" badge and require an explicit "Clear" action to
+    # remove an existing value, instead of silently wiping it on a
+    # blank-input save.
+    cred_states: dict[str, bool] = {}
+    try:
+        from core.encryption import get_credential_encryption
+
+        encryptor = get_credential_encryption()
+        decrypted = encryptor.decrypt_credentials(site["credentials"], site_id)
+        for field in plugin_fields.get(site["plugin_type"], []):
+            value = decrypted.get(field["name"])
+            cred_states[field["name"]] = bool(value and str(value).strip())
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("cred_states lookup failed for site %s: %s", site_id, exc)
+        cred_states = {}
+
     return templates.TemplateResponse(
         request,
         "dashboard/sites/manage.html",
@@ -2962,6 +3061,12 @@ async def dashboard_sites_view(request: Request) -> Response:
             "mcp_url": mcp_url,
             "clients": get_supported_clients(),
             "current_page": "my_sites",
+            "provider_keys_supported": provider_keys_supported,
+            "provider_key_rows": provider_key_rows,
+            "companion_download_url": companion_download_url,
+            "capability_probe": capability_probe,
+            "cred_states": cred_states,
+            "cred_states_json": json.dumps(cred_states),
         },
     )
 
@@ -3337,15 +3442,24 @@ async def api_list_site_tools(request: Request) -> Response:
         return err
     assert site is not None
 
+    from core.site_api import list_site_providers_set
     from core.tool_access import get_tool_access_manager
 
     access = get_tool_access_manager()
     tools = await access.list_tools_for_site(site["id"], site["plugin_type"])
+    # F.X.fix #8: expose the site's configured AI-provider set so the
+    # Tool Access template can render "Configure key for X" CTAs
+    # without issuing a second /api/sites/{id}/provider-keys call.
+    try:
+        configured_providers = sorted(await list_site_providers_set(site["id"]))
+    except Exception:  # noqa: BLE001
+        configured_providers = []
     return JSONResponse(
         {
             "site_id": site["id"],
             "plugin_type": site["plugin_type"],
             "tool_scope": site.get("tool_scope", "admin"),
+            "configured_providers": configured_providers,
             "tools": tools,
         }
     )
@@ -3729,6 +3843,15 @@ async def dashboard_service_page(request: Request) -> Response:
     lang = detect_language(accept_language, query_lang)
     t = get_translations(lang)
 
+    # F.20 prep: dashboard UX hint — surface the companion-plugin download
+    # link on the WP / WC service pages. The link switches from the GitHub
+    # raw-download URL to wp.org once the plugin ships (see F.20 scope).
+    companion_download_url = None
+    if plugin_type in {"wordpress", "woocommerce"}:
+        companion_download_url = (
+            "https://github.com/airano-ir/mcphub/raw/main/" "wordpress-plugin/airano-mcp-bridge.zip"
+        )
+
     return templates.TemplateResponse(
         request,
         "dashboard/service.html",
@@ -3740,7 +3863,203 @@ async def dashboard_service_page(request: Request) -> Response:
             "display_info": display_info,
             "current_page": "services",
             "service": data,
+            "companion_download_url": companion_download_url,
         },
+    )
+
+
+# ======================================================================
+# F.18.8 — Provider Keys Dashboard UI (REMOVED in F.5a.9.x)
+# ======================================================================
+#
+# Per-user AI provider keys and the /dashboard/provider-keys page have
+# been replaced by per-site keys defined in each WordPress / WooCommerce
+# site's Connection Settings. The site-scoped API is the F.5a.9.x block
+# below. The user_provider_keys table is dropped in schema migration v12.
+#
+# Deleted helpers / handlers:
+#   _PROVIDER_LABELS, _build_provider_rows,
+#   dashboard_provider_keys_page,
+#   api_user_provider_keys_set, api_user_provider_keys_delete.
+
+
+# ======================================================================
+# F.5a.9.x — Per-site AI provider key endpoints
+# ======================================================================
+
+
+async def api_site_provider_keys_list(request: Request) -> Response:
+    """GET /api/sites/{id}/provider-keys — list providers with a key stored.
+
+    Returns ``{"providers": ["openai", ...]}``. Does not leak ciphertext
+    or plaintext.
+    """
+    user_session, redirect = _require_user_session(request)
+    if redirect or user_session is None:
+        return JSONResponse({"ok": False, "error": "unauthorized"}, status_code=401)
+
+    site_id = (request.path_params.get("id") or "").strip()
+    from core.site_api import get_user_site, list_site_providers_set, site_supports_provider_keys
+
+    site = await get_user_site(site_id, user_session["user_id"])
+    if site is None:
+        return JSONResponse({"ok": False, "error": "site_not_found"}, status_code=404)
+    if not site_supports_provider_keys(site["plugin_type"]):
+        return JSONResponse({"ok": False, "error": "plugin_unsupported"}, status_code=400)
+
+    providers = sorted(await list_site_providers_set(site_id))
+    return JSONResponse({"ok": True, "providers": providers})
+
+
+async def api_site_provider_keys_set(request: Request) -> Response:
+    """POST /api/sites/{id}/provider-keys/{provider} — upsert a per-site key.
+
+    Body: ``{"api_key": "..."}``. Enforces site ownership, plugin-type gate,
+    and provider allow-list (site_api.set_site_provider_key).
+    """
+    user_session, redirect = _require_user_session(request)
+    if redirect or user_session is None:
+        return JSONResponse({"ok": False, "error": "unauthorized"}, status_code=401)
+
+    site_id = (request.path_params.get("id") or "").strip()
+    provider = (request.path_params.get("provider") or "").strip().lower()
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "invalid_json"}, status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse({"ok": False, "error": "invalid_body"}, status_code=400)
+
+    api_key = str(body.get("api_key") or "").strip()
+    if len(api_key) < 8:
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": "key_too_short",
+                "message": "api_key must be at least 8 characters",
+            },
+            status_code=400,
+        )
+
+    from core.site_api import set_site_provider_key
+
+    try:
+        await set_site_provider_key(site_id, user_session["user_id"], provider, api_key)
+    except ValueError as exc:
+        return JSONResponse(
+            {"ok": False, "error": "invalid_request", "message": str(exc)},
+            status_code=400,
+        )
+    except Exception as exc:
+        logger.error(
+            "site_provider_keys set failed user=%s site=%s provider=%s: %s",
+            user_session["user_id"],
+            site_id,
+            provider,
+            exc,
+        )
+        return JSONResponse(
+            {"ok": False, "error": "storage_failed", "message": str(exc)},
+            status_code=500,
+        )
+
+    return JSONResponse(
+        {
+            "ok": True,
+            "site_id": site_id,
+            "provider": provider,
+            "secret_last4": api_key[-4:],
+        }
+    )
+
+
+async def api_site_provider_keys_delete(request: Request) -> Response:
+    """DELETE /api/sites/{id}/provider-keys/{provider} — remove a per-site key."""
+    user_session, redirect = _require_user_session(request)
+    if redirect or user_session is None:
+        return JSONResponse({"ok": False, "error": "unauthorized"}, status_code=401)
+
+    site_id = (request.path_params.get("id") or "").strip()
+    provider = (request.path_params.get("provider") or "").strip().lower()
+
+    from core.site_api import delete_site_provider_key
+
+    try:
+        deleted = await delete_site_provider_key(site_id, user_session["user_id"], provider)
+    except Exception as exc:
+        logger.error(
+            "site_provider_keys delete failed user=%s site=%s provider=%s: %s",
+            user_session["user_id"],
+            site_id,
+            provider,
+            exc,
+        )
+        return JSONResponse(
+            {"ok": False, "error": "storage_failed", "message": str(exc)},
+            status_code=500,
+        )
+    return JSONResponse({"ok": True, "site_id": site_id, "provider": provider, "deleted": deleted})
+
+
+async def api_site_provider_default_model(request: Request) -> Response:
+    """PATCH /api/sites/{id}/provider-keys/{provider}/default-model.
+
+    Body: ``{"model": "<id>"}`` to set, ``{"model": null}`` (or empty
+    string) to clear. F.X.fix-pass3 — lets the user pin a discovered
+    OpenRouter image-model id as the implicit default for a site, so
+    MCP callers don't have to pass ``model=`` every time.
+    """
+    user_session, redirect = _require_user_session(request)
+    if redirect or user_session is None:
+        return JSONResponse({"ok": False, "error": "unauthorized"}, status_code=401)
+
+    site_id = (request.path_params.get("id") or "").strip()
+    provider = (request.path_params.get("provider") or "").strip().lower()
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "invalid_json"}, status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse({"ok": False, "error": "invalid_body"}, status_code=400)
+
+    raw = body.get("model")
+    model: str | None
+    if raw is None:
+        model = None
+    elif isinstance(raw, str):
+        stripped = raw.strip()
+        model = stripped or None
+    else:
+        return JSONResponse({"ok": False, "error": "invalid_model"}, status_code=400)
+
+    from core.site_api import get_user_site
+
+    site = await get_user_site(site_id, user_session["user_id"])
+    if site is None:
+        return JSONResponse({"ok": False, "error": "site_not_found"}, status_code=404)
+
+    from core.database import get_database
+
+    db = get_database()
+    updated = await db.set_site_provider_default_model(site_id, provider, model)
+    if not updated:
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": "provider_key_not_found",
+                "message": "Save the provider key first, then set the default model.",
+            },
+            status_code=404,
+        )
+    return JSONResponse(
+        {
+            "ok": True,
+            "site_id": site_id,
+            "provider": provider,
+            "default_model": model,
+        }
     )
 
 
@@ -3848,6 +4167,15 @@ def register_dashboard_routes(mcp):
     mcp.custom_route("/api/sites/{id}", methods=["DELETE"])(api_delete_site)
     mcp.custom_route("/api/sites/{id}", methods=["PATCH"])(api_update_site)
 
+    # Per-site AI provider keys (F.5a.9.x)
+    mcp.custom_route("/api/sites/{id}/provider-keys", methods=["GET"])(api_site_provider_keys_list)
+    mcp.custom_route("/api/sites/{id}/provider-keys/{provider}", methods=["POST"])(
+        api_site_provider_keys_set
+    )
+    mcp.custom_route("/api/sites/{id}/provider-keys/{provider}", methods=["DELETE"])(
+        api_site_provider_keys_delete
+    )
+
     # User API Key routes (E.3)
     mcp.custom_route("/api/keys", methods=["GET"])(api_list_keys)
     mcp.custom_route("/api/keys", methods=["POST"])(api_create_key)
@@ -3866,5 +4194,12 @@ def register_dashboard_routes(mcp):
     mcp.custom_route("/api/dashboard/user-oauth-clients/{client_id}", methods=["DELETE"])(
         dashboard_user_oauth_clients_delete
     )
+
+    # F.18.8 /dashboard/provider-keys routes removed in F.5a.9.x —
+    # per-site AI provider keys replace the per-user page. See the
+    # per-site endpoints registered above:
+    #   GET    /api/sites/{id}/provider-keys
+    #   POST   /api/sites/{id}/provider-keys/{provider}
+    #   DELETE /api/sites/{id}/provider-keys/{provider}
 
     logger.info("Dashboard routes registered successfully")

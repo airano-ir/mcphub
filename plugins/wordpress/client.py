@@ -33,11 +33,42 @@ class ConnectionError(Exception):
     pass
 
 
+class SiteUnreachableError(ConnectionError):
+    """Raised when the WordPress site is not reachable at the TCP/DNS layer.
+
+    Subclass of :class:`ConnectionError` so existing ``except ConnectionError``
+    sites keep working. Carries a structured ``error_code='SITE_UNREACHABLE'``
+    plus optional ``install_hint`` so companion-backed handlers and the
+    capability probe can emit a uniform error payload that the dashboard
+    can render as a "check your URL / install companion" prompt in <10s
+    instead of the previous 35-85s hang.
+    """
+
+    error_code = "SITE_UNREACHABLE"
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        install_hint: dict[str, Any] | None = None,
+        reason: str = "site_unreachable",
+    ) -> None:
+        super().__init__(message)
+        self.install_hint = install_hint
+        self.reason = reason
+
+
 # Transient HTTP status codes that are worth retrying
 _RETRYABLE_STATUS_CODES = {502, 503, 504, 429}
 
-# Default request timeout in seconds
+# Default request timeout in seconds (wall clock).
 _REQUEST_TIMEOUT = 30
+# Connect timeout: how long to wait for the TCP handshake before giving
+# up. Five seconds is enough to rule out DNS/TCP failure on any real
+# site; beyond that the site is down. Short connect + long total lets us
+# fail fast on unreachable hosts while still allowing slow responses
+# from reachable ones to complete.
+_CONNECT_TIMEOUT = 5
 
 # Retry configuration
 _MAX_RETRIES = 2
@@ -126,7 +157,7 @@ class WordPressClient:
         """
         # Build URL based on endpoint type
         if use_custom_namespace:
-            # For custom namespaces like airano-mcp-seo-bridge/v1
+            # For custom namespaces like airano-mcp-bridge/v1
             url = f"{self.site_url}/wp-json/{endpoint}"
         elif use_woocommerce:
             # For WooCommerce endpoints
@@ -158,8 +189,10 @@ class WordPressClient:
         if json_data:
             json_data = {k: v for k, v in json_data.items() if should_include(v)}
 
-        # Make request with retry for transient errors
-        timeout = aiohttp.ClientTimeout(total=_REQUEST_TIMEOUT)
+        # Make request with retry for transient errors. connect=5
+        # short-circuits TCP/DNS failures in <10s (2 retries × 5s each
+        # worst case) instead of the previous 35-85s hang.
+        timeout = aiohttp.ClientTimeout(total=_REQUEST_TIMEOUT, connect=_CONNECT_TIMEOUT)
         last_exception = None
 
         for attempt in range(_MAX_RETRIES + 1):
@@ -209,11 +242,15 @@ class WordPressClient:
                 raise  # Never retry auth/config errors
 
             except TimeoutError:
-                last_exception = ConnectionError(
-                    f"Request timed out after {_REQUEST_TIMEOUT}s. "
-                    f"The site at {self.site_url} is not responding. "
-                    "Possible causes: site is overloaded, network is slow, "
-                    "or the server is down."
+                last_exception = SiteUnreachableError(
+                    (
+                        f"Request timed out after {_REQUEST_TIMEOUT}s. "
+                        f"The site at {self.site_url} is not responding. "
+                        "Possible causes: site is overloaded, network is "
+                        "slow, or the server is down."
+                    ),
+                    install_hint=self._site_unreachable_install_hint(),
+                    reason="site_timeout",
                 )
                 if attempt < _MAX_RETRIES:
                     wait = _RETRY_BACKOFF_BASE * (2**attempt)
@@ -225,40 +262,61 @@ class WordPressClient:
                     continue
 
             except aiohttp.ClientConnectorCertificateError as e:
-                raise ConnectionError(
-                    f"SSL certificate error for {self.site_url}. "
-                    "The site's SSL certificate is invalid or expired. "
-                    f"Details: {e}"
+                raise SiteUnreachableError(
+                    (
+                        f"SSL certificate error for {self.site_url}. "
+                        "The site's SSL certificate is invalid or expired. "
+                        f"Details: {e}"
+                    ),
+                    install_hint=self._site_unreachable_install_hint(),
+                    reason="site_ssl_error",
                 ) from e
 
             except aiohttp.ClientConnectorDNSError as e:
                 host = self.site_url.split("://")[-1].split("/")[0]
-                raise ConnectionError(
-                    f"DNS resolution failed for '{host}'. "
-                    "The domain name could not be found. "
-                    "Please check that the URL is correct."
+                raise SiteUnreachableError(
+                    (
+                        f"DNS resolution failed for '{host}'. "
+                        "The domain name could not be found. "
+                        "Please check that the URL is correct."
+                    ),
+                    install_hint=self._site_unreachable_install_hint(),
+                    reason="site_dns_error",
                 ) from e
 
             except aiohttp.ClientConnectorError as e:
                 os_error = getattr(e, "os_error", None)
                 if isinstance(os_error, socket.gaierror):
                     host = self.site_url.split("://")[-1].split("/")[0]
-                    raise ConnectionError(
-                        f"DNS resolution failed for '{host}'. "
-                        "The domain name could not be found. "
-                        "Please check that the URL is correct."
+                    raise SiteUnreachableError(
+                        (
+                            f"DNS resolution failed for '{host}'. "
+                            "The domain name could not be found. "
+                            "Please check that the URL is correct."
+                        ),
+                        install_hint=self._site_unreachable_install_hint(),
+                        reason="site_dns_error",
                     ) from e
 
-                raise ConnectionError(
-                    f"Cannot connect to {self.site_url}. "
-                    "The server is unreachable. Possible causes: "
-                    "wrong URL, server is down, firewall blocking, or wrong port."
+                raise SiteUnreachableError(
+                    (
+                        f"Cannot connect to {self.site_url}. "
+                        "The server is unreachable. Possible causes: "
+                        "wrong URL, server is down, firewall blocking, "
+                        "or wrong port."
+                    ),
+                    install_hint=self._site_unreachable_install_hint(),
+                    reason="site_connection_refused",
                 ) from e
 
             except aiohttp.InvalidURL:
-                raise ConnectionError(
-                    f"Invalid URL: {self.site_url}. "
-                    "Please provide a valid URL starting with https:// or http://."
+                raise SiteUnreachableError(
+                    (
+                        f"Invalid URL: {self.site_url}. "
+                        "Please provide a valid URL starting with "
+                        "https:// or http://."
+                    ),
+                    reason="site_invalid_url",
                 )
 
             except (aiohttp.ClientError, OSError) as e:
@@ -276,6 +334,25 @@ class WordPressClient:
 
         # All retries exhausted
         raise last_exception  # type: ignore[misc]
+
+    @staticmethod
+    def _site_unreachable_install_hint() -> dict[str, Any]:
+        """Structured install hint for SITE_UNREACHABLE errors.
+
+        Mirrors the shape produced by
+        ``plugins.wordpress.handlers._companion_hint.companion_install_hint``
+        so dashboard code can render one uniform "fix your connection"
+        prompt regardless of whether the error came from the low-level
+        client or a companion-backed handler.
+        """
+        from plugins.wordpress.handlers._companion_hint import (
+            companion_install_hint,
+        )
+
+        return companion_install_hint(
+            min_version="2.9.0",
+            required_capability="manage_options",
+        )
 
     def _parse_error_response(
         self, status_code: int, error_text: str, use_woocommerce: bool = False

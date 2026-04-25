@@ -27,7 +27,8 @@ RUN pip install --no-cache-dir --user -r requirements.txt
 FROM python:3.12-alpine AS production
 
 # CRITICAL: Install wget for health checks + docker-cli for WP-CLI tools
-RUN apk add --no-cache wget curl docker-cli
+# libmagic is required by python-magic (F.5a media upload MIME sniffing)
+RUN apk add --no-cache wget curl docker-cli libmagic
 
 # Create non-root user for security and grant Docker socket access
 # Docker group (GID 999) allows access to /var/run/docker.sock

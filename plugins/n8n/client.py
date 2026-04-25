@@ -1,5 +1,4 @@
-"""
-n8n REST API Client
+"""n8n REST API Client.
 
 Handles all HTTP communication with n8n REST API.
 Separates API communication from business logic.
@@ -9,6 +8,64 @@ import logging
 from typing import Any
 
 import aiohttp
+
+
+class N8nApiError(Exception):
+    """Base exception for n8n API errors with structured error info."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        error_code: str = "API_ERROR",
+        status_code: int = 0,
+        hint: str = "",
+    ) -> None:
+        super().__init__(message)
+        self.error_code = error_code
+        self.status_code = status_code
+        self.hint = hint
+
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {"error_code": self.error_code, "message": str(self)}
+        if self.status_code:
+            d["status_code"] = self.status_code
+        if self.hint:
+            d["hint"] = self.hint
+        return d
+
+
+class N8nAuthError(N8nApiError):
+    """Raised on 401/403 — invalid or under-scoped API key."""
+
+    def __init__(self, message: str, *, status_code: int = 401, hint: str = "") -> None:
+        super().__init__(
+            message,
+            error_code="AUTH_FAILED",
+            status_code=status_code,
+            hint=hint or "Check the API key in n8n → Settings → API → API Keys.",
+        )
+
+
+class N8nNotFoundError(N8nApiError):
+    """Raised on 404 — resource doesn't exist."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, error_code="NOT_FOUND", status_code=404)
+
+
+class N8nValidationError(N8nApiError):
+    """Raised on 400/422 — bad payload."""
+
+    def __init__(self, message: str, *, status_code: int = 400) -> None:
+        super().__init__(message, error_code="VALIDATION_ERROR", status_code=status_code)
+
+
+class N8nConnectionError(N8nApiError):
+    """Raised on network-level failures."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, error_code="CONNECTION_ERROR")
 
 
 class N8nClient:
@@ -66,69 +123,63 @@ class N8nClient:
         json_data: dict | None = None,
         headers_override: dict | None = None,
     ) -> Any:
-        """
-        Make authenticated request to n8n REST API.
-
-        Args:
-            method: HTTP method (GET, POST, PUT, DELETE, PATCH)
-            endpoint: API endpoint (without base URL)
-            params: Query parameters
-            json_data: JSON body data
-            headers_override: Override default headers
-
-        Returns:
-            API response (dict, list, or None)
+        """Make authenticated request to n8n REST API.
 
         Raises:
-            Exception: On API errors with status code and message
+            N8nAuthError: On 401/403.
+            N8nNotFoundError: On 404.
+            N8nValidationError: On 400/422.
+            N8nApiError: On other 4xx/5xx.
+            N8nConnectionError: On network-level failure.
         """
-        # Build full URL
         url = f"{self.api_base}/{endpoint.lstrip('/')}"
-
-        # Setup headers
         headers = self._get_headers(headers_override)
 
-        # Filter out None values from params
         if params:
             params = {k: v for k, v in params.items() if v is not None}
-
-        # Filter None values from JSON data
         if json_data:
             json_data = {k: v for k, v in json_data.items() if v is not None}
 
-        # Make request
-        self.logger.debug(f"{method} {url}")
-        self.logger.debug(f"Params: {params}")
-        self.logger.debug(f"Data: {json_data}")
+        self.logger.debug("%s %s", method, url)
 
-        async with (
-            aiohttp.ClientSession() as session,
-            session.request(
-                method=method, url=url, params=params, json=json_data, headers=headers
-            ) as response,
-        ):
-            # Log response
-            self.logger.debug(f"Response status: {response.status}")
+        try:
+            async with (
+                aiohttp.ClientSession() as session,
+                session.request(
+                    method=method, url=url, params=params, json=json_data, headers=headers
+                ) as response,
+            ):
+                self.logger.debug("Response status: %d", response.status)
 
-            # Handle empty responses (e.g., 204 No Content)
-            if response.status == 204:
-                return {"success": True, "message": "Operation completed successfully"}
+                if response.status == 204:
+                    return {"success": True, "message": "Operation completed successfully"}
 
-            # Try to parse JSON response
-            try:
-                response_data = await response.json()
-            except Exception:
-                response_text = await response.text()
+                try:
+                    response_data = await response.json()
+                except Exception:
+                    response_text = await response.text()
+                    if response.status >= 400:
+                        self._raise_for_status(response.status, response_text)
+                    return {"success": True, "message": response_text}
+
                 if response.status >= 400:
-                    raise Exception(f"n8n API error (status {response.status}): {response_text}")
-                return {"success": True, "message": response_text}
+                    error_msg = response_data.get("message", str(response_data))
+                    self._raise_for_status(response.status, error_msg)
 
-            # Check for errors
-            if response.status >= 400:
-                error_msg = response_data.get("message", str(response_data))
-                raise Exception(f"n8n API error (status {response.status}): {error_msg}")
+                return response_data
 
-            return response_data
+        except (aiohttp.ClientError, OSError) as exc:
+            raise N8nConnectionError(f"Cannot reach n8n at {self.site_url}: {exc}") from exc
+
+    @staticmethod
+    def _raise_for_status(status: int, message: str) -> None:
+        if status in (401, 403):
+            raise N8nAuthError(message, status_code=status)
+        if status == 404:
+            raise N8nNotFoundError(message)
+        if status in (400, 422):
+            raise N8nValidationError(message, status_code=status)
+        raise N8nApiError(message, error_code="API_ERROR", status_code=status)
 
     # =====================
     # WORKFLOW ENDPOINTS
@@ -176,8 +227,18 @@ class N8nClient:
         """Execute a workflow manually"""
         return await self.request("POST", f"workflows/{workflow_id}/run", json_data=data or {})
 
+    async def transfer_workflow(
+        self, workflow_id: str, destination_project_id: str
+    ) -> dict[str, Any]:
+        """Transfer workflow to another project (Enterprise)."""
+        return await self.request(
+            "PUT",
+            f"workflows/{workflow_id}/transfer",
+            json_data={"destinationProjectId": destination_project_id},
+        )
+
     async def get_workflow_tags(self, workflow_id: str) -> list[dict[str, Any]]:
-        """Get tags assigned to a workflow"""
+        """Get tags assigned to a workflow."""
         workflow = await self.get_workflow(workflow_id)
         return workflow.get("tags", [])
 
@@ -189,14 +250,16 @@ class N8nClient:
         self,
         workflow_id: str | None = None,
         status: str | None = None,
+        project_id: str | None = None,
         include_data: bool = False,
         limit: int = 20,
         cursor: str | None = None,
     ) -> dict[str, Any]:
-        """List workflow executions with filters"""
+        """List workflow executions with filters."""
         params = {
             "workflowId": workflow_id,
             "status": status,
+            "projectId": project_id,
             "includeData": str(include_data).lower(),
             "limit": limit,
             "cursor": cursor,
@@ -391,12 +454,17 @@ class N8nClient:
             data["variables"] = variables
         return await self.request("POST", "source-control/pull", json_data=data)
 
+    async def get_current_user(self) -> dict[str, Any]:
+        """Get current authenticated user info (for capability probe)."""
+        return await self.request("GET", "user")
+
     async def health_check(self) -> dict[str, Any]:
-        """Check n8n instance health"""
-        # Use direct URL, not API base
+        """Check n8n instance health."""
         url = f"{self.site_url}/healthz"
-        async with aiohttp.ClientSession() as session, session.get(url) as response:
-            if response.status == 200:
-                return {"healthy": True, "status": "ok"}
-            else:
+        try:
+            async with aiohttp.ClientSession() as session, session.get(url) as response:
+                if response.status == 200:
+                    return {"healthy": True, "status": "ok"}
                 return {"healthy": False, "status": f"unhealthy (status {response.status})"}
+        except (aiohttp.ClientError, OSError) as exc:
+            raise N8nConnectionError(f"Cannot reach n8n health endpoint at {url}: {exc}") from exc

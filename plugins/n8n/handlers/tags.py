@@ -1,9 +1,15 @@
-"""Tags Handler - manages n8n tags"""
+"""Tags Handler - manages n8n tags."""
 
 import json
 from typing import Any
 
-from plugins.n8n.client import N8nClient
+from plugins.n8n.client import N8nApiError, N8nClient
+
+
+def _error_json(exc: Exception) -> str:
+    if isinstance(exc, N8nApiError):
+        return json.dumps({"success": False, **exc.to_dict()}, indent=2)
+    return json.dumps({"success": False, "error": str(exc)}, indent=2)
 
 
 def get_tool_specifications() -> list[dict[str, Any]]:
@@ -99,7 +105,7 @@ async def list_tags(client: N8nClient, limit: int = 100, cursor: str | None = No
         }
         return json.dumps(result, indent=2)
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def get_tag(client: N8nClient, tag_id: str) -> str:
@@ -109,7 +115,7 @@ async def get_tag(client: N8nClient, tag_id: str) -> str:
             {"success": True, "tag": {"id": tag.get("id"), "name": tag.get("name")}}, indent=2
         )
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def create_tag(client: N8nClient, name: str) -> str:
@@ -124,7 +130,7 @@ async def create_tag(client: N8nClient, name: str) -> str:
             indent=2,
         )
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def update_tag(client: N8nClient, tag_id: str, name: str) -> str:
@@ -139,7 +145,7 @@ async def update_tag(client: N8nClient, tag_id: str, name: str) -> str:
             indent=2,
         )
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def delete_tag(client: N8nClient, tag_id: str) -> str:
@@ -147,7 +153,7 @@ async def delete_tag(client: N8nClient, tag_id: str) -> str:
         await client.delete_tag(tag_id)
         return json.dumps({"success": True, "message": f"Tag {tag_id} deleted"}, indent=2)
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def delete_tags(client: N8nClient, tag_ids: list[str]) -> str:
@@ -164,4 +170,4 @@ async def delete_tags(client: N8nClient, tag_ids: list[str]) -> str:
             indent=2,
         )
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)

@@ -70,12 +70,27 @@ def _check_user_rate_limit(user_id: str) -> tuple[bool, str]:
     return True, ""
 
 
-def _tools_to_mcp_schema(tools: list[ToolDefinition]) -> list[dict[str, Any]]:
+def _tools_to_mcp_schema(
+    tools: list[ToolDefinition],
+    *,
+    configured_providers: list[str] | None = None,
+) -> list[dict[str, Any]]:
     """Convert ToolDefinition objects into MCP ``tools/list`` response shape.
 
     Strips the auto-injected ``site`` parameter, since user endpoints bind a
     single site per alias.
+
+    F.X.fix-pass6 — when ``configured_providers`` is given (i.e. the
+    site has at least one AI provider key configured), narrow the
+    ``provider`` enum on the AI image tool to that subset. The model
+    only sees providers that will actually succeed, instead of trying
+    OpenAI / Stability / Replicate and getting NO_PROVIDER_KEY when
+    only OpenRouter is configured.
     """
+    ai_image_tools = {
+        "wordpress_generate_and_upload_image",
+        "woocommerce_generate_and_upload_image",
+    }
     result = []
     for tool_def in tools:
         schema = deepcopy(tool_def.input_schema)
@@ -83,6 +98,22 @@ def _tools_to_mcp_schema(tools: list[ToolDefinition]) -> list[dict[str, Any]]:
             schema["properties"].pop("site", None)
         if "required" in schema and "site" in schema["required"]:
             schema["required"] = [r for r in schema["required"] if r != "site"]
+
+        if (
+            configured_providers
+            and tool_def.name in ai_image_tools
+            and "properties" in schema
+            and "provider" in schema["properties"]
+        ):
+            schema["properties"]["provider"] = {
+                **schema["properties"]["provider"],
+                "enum": list(configured_providers),
+                "description": (
+                    "AI provider to use. This site has the following providers "
+                    f"configured: {', '.join(configured_providers)}. Add more "
+                    "in Connection Settings → AI Image Generation."
+                ),
+            }
 
         result.append(
             {
@@ -99,14 +130,41 @@ async def _get_visible_tools_for_site(
     key_scopes: list[str],
     plugin_type: str,
 ) -> list[dict[str, Any]]:
-    """Return tools/list payload filtered by key scope + site scope + toggles (F.7b)."""
+    """Return tools/list payload filtered by key scope + site scope + toggles (F.7b).
+
+    F.5a.9.x: additionally hide ``wordpress_generate_and_upload_image`` when
+    the site has no provider API key configured — the tool would fail at
+    call-time with ``NO_PROVIDER_KEY`` anyway, so hiding it keeps the
+    surface honest for AI clients.
+    """
     from core.tool_access import get_tool_access_manager
 
     access = get_tool_access_manager()
     tools = await access.get_visible_tools(
         site_id=site_id, key_scopes=key_scopes, plugin_type=plugin_type
     )
-    return _tools_to_mcp_schema(tools)
+
+    configured_providers: list[str] = []
+    if plugin_type in {"wordpress", "woocommerce"}:
+        from core.site_api import list_site_providers_set
+
+        configured = await list_site_providers_set(site_id)
+        if not configured:
+            tools = [
+                t
+                for t in tools
+                if t.name
+                not in {
+                    "wordpress_generate_and_upload_image",
+                    "woocommerce_generate_and_upload_image",
+                }
+            ]
+        else:
+            # F.X.fix-pass6 — pass the configured set so the AI image
+            # tool's `provider` enum can be narrowed at /tools/list time.
+            configured_providers = sorted(configured)
+
+    return _tools_to_mcp_schema(tools, configured_providers=configured_providers)
 
 
 async def _execute_tool(
@@ -466,10 +524,16 @@ async def user_mcp_handler(request: Request) -> Response:
             )
 
         # Build config dict for plugin instantiation
+        # F.5a.4: pass user_id so plugins can look up per-user secrets.
+        # F.5a.9.x: pass site_id so the WP AI-media handler can resolve
+        # per-site provider API keys (replaces per-user keys for
+        # wordpress_generate_and_upload_image).
         config_dict = {
             "site_url": site["url"],
             "url": site["url"],
             "alias": alias,
+            "user_id": user_id,
+            "site_id": site["id"],
             **credentials,
         }
 

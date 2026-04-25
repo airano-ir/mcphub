@@ -1,9 +1,9 @@
-"""Workflow Handler - manages n8n workflows"""
+"""Workflow Handler - manages n8n workflows."""
 
 import json
 from typing import Any
 
-from plugins.n8n.client import N8nClient
+from plugins.n8n.client import N8nApiError, N8nClient
 
 
 def get_tool_specifications() -> list[dict[str, Any]]:
@@ -318,10 +318,43 @@ def get_tool_specifications() -> list[dict[str, Any]]:
             },
             "scope": "write",
         },
+        # === TRANSFER WORKFLOW TO PROJECT (Enterprise) ===
+        {
+            "name": "transfer_workflow_to_project",
+            "method_name": "transfer_workflow_to_project",
+            "description": (
+                "Transfer a workflow to a different project (Enterprise/Pro). "
+                "The destination project must exist and the API key must have "
+                "access to both the source and destination projects."
+            ),
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "workflow_id": {
+                        "type": "string",
+                        "description": "Workflow ID to transfer",
+                        "minLength": 1,
+                    },
+                    "destination_project_id": {
+                        "type": "string",
+                        "description": "Target project ID",
+                        "minLength": 1,
+                    },
+                },
+                "required": ["workflow_id", "destination_project_id"],
+            },
+            "scope": "write",
+        },
     ]
 
 
 # === HANDLER FUNCTIONS ===
+
+
+def _error_json(exc: Exception) -> str:
+    if isinstance(exc, N8nApiError):
+        return json.dumps({"success": False, **exc.to_dict()}, indent=2)
+    return json.dumps({"success": False, "error": str(exc)}, indent=2)
 
 
 async def list_workflows(
@@ -361,7 +394,7 @@ async def list_workflows(
         return json.dumps(result, indent=2)
 
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def get_workflow(client: N8nClient, workflow_id: str) -> str:
@@ -388,7 +421,7 @@ async def get_workflow(client: N8nClient, workflow_id: str) -> str:
         return json.dumps(result, indent=2)
 
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def create_workflow(
@@ -429,7 +462,7 @@ async def create_workflow(
         return json.dumps(result, indent=2)
 
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def update_workflow(
@@ -470,7 +503,7 @@ async def update_workflow(
         return json.dumps(result, indent=2)
 
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def delete_workflow(client: N8nClient, workflow_id: str) -> str:
@@ -483,7 +516,7 @@ async def delete_workflow(client: N8nClient, workflow_id: str) -> str:
         return json.dumps(result, indent=2)
 
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def activate_workflow(client: N8nClient, workflow_id: str) -> str:
@@ -504,7 +537,7 @@ async def activate_workflow(client: N8nClient, workflow_id: str) -> str:
         return json.dumps(result, indent=2)
 
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def deactivate_workflow(client: N8nClient, workflow_id: str) -> str:
@@ -525,7 +558,7 @@ async def deactivate_workflow(client: N8nClient, workflow_id: str) -> str:
         return json.dumps(result, indent=2)
 
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def execute_workflow(client: N8nClient, workflow_id: str) -> str:
@@ -546,7 +579,7 @@ async def execute_workflow(client: N8nClient, workflow_id: str) -> str:
         return json.dumps(result, indent=2)
 
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def execute_workflow_with_data(
@@ -570,7 +603,7 @@ async def execute_workflow_with_data(
         return json.dumps(result, indent=2)
 
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def duplicate_workflow(client: N8nClient, workflow_id: str, new_name: str) -> str:
@@ -599,7 +632,7 @@ async def duplicate_workflow(client: N8nClient, workflow_id: str, new_name: str)
         return json.dumps(result, indent=2)
 
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def export_workflow(client: N8nClient, workflow_id: str) -> str:
@@ -613,7 +646,7 @@ async def export_workflow(client: N8nClient, workflow_id: str) -> str:
         return json.dumps(result, indent=2)
 
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def import_workflow(
@@ -646,7 +679,7 @@ async def import_workflow(
         return json.dumps(result, indent=2)
 
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def get_workflow_tags(client: N8nClient, workflow_id: str) -> str:
@@ -659,7 +692,7 @@ async def get_workflow_tags(client: N8nClient, workflow_id: str) -> str:
         return json.dumps(result, indent=2)
 
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def set_workflow_tags(
@@ -693,4 +726,23 @@ async def set_workflow_tags(
         return json.dumps(result, indent=2)
 
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
+
+
+async def transfer_workflow_to_project(
+    client: N8nClient, workflow_id: str, destination_project_id: str
+) -> str:
+    """Transfer a workflow to another project (Enterprise)."""
+    try:
+        await client.transfer_workflow(workflow_id, destination_project_id)
+        return json.dumps(
+            {
+                "success": True,
+                "message": f"Workflow {workflow_id} transferred to project {destination_project_id}",
+                "workflow_id": workflow_id,
+                "destination_project_id": destination_project_id,
+            },
+            indent=2,
+        )
+    except Exception as e:
+        return _error_json(e)

@@ -62,13 +62,20 @@
                     {% set fields = plugin_fields.get(site.plugin_type, []) %}
                     {% for field in fields %}
                     {% if not field.get('advanced', False) %}
-                    <div>
-                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                            {{ field.label }}{% if field.required %} *{% endif %}
+                    {% set is_stored = cred_states.get(field.name, False) %}
+                    <div data-cred-row="{{ field.name }}">
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-2">
+                            <span>{{ field.label }}{% if field.required %} *{% endif %}</span>
+                            {% if is_stored %}
+                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300" data-cred-stored>
+                                ✓ {% if lang == 'fa' %}ذخیره‌شده{% else %}Stored{% endif %}
+                            </span>
+                            {% endif %}
                         </label>
                         <input type="{{ field.type }}" name="cred_{{ field.name }}"
-                            placeholder="{% if field.required %}{{ t.keep_existing }}{% else %}{{ t.leave_blank_to_clear }}{% endif %}"
+                            placeholder="{% if is_stored %}{{ t.keep_existing }}{% elif field.required %}{{ t.keep_existing }}{% else %}{% if lang == 'fa' %}اختیاری — خالی بگذارید{% else %}Optional — leave empty{% endif %}{% endif %}"
                             data-required="{{ field.required | lower }}"
+                            data-stored="{{ is_stored | lower }}"
                             class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                         {% if field.hint %}
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ field.hint }}</p>
@@ -81,15 +88,30 @@
                     {% if has_advanced %}
                     <details class="mt-2 border border-gray-200 dark:border-gray-600 rounded-lg">
                         <summary class="cursor-pointer px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white select-none">
-                            Advanced Settings
+                            {% if lang == 'fa' %}تنظیمات پیشرفته{% else %}Advanced Settings{% endif %}
                         </summary>
                         <div class="px-4 pb-4 pt-2 space-y-4">
                             {% for field in fields %}
                             {% if field.get('advanced', False) %}
-                            <div>
-                                <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ field.label }}</label>
+                            {% set is_stored = cred_states.get(field.name, False) %}
+                            <div data-cred-row="{{ field.name }}">
+                                <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-2">
+                                    <span>{{ field.label }}</span>
+                                    {% if is_stored %}
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300" data-cred-stored>
+                                        ✓ {% if lang == 'fa' %}ذخیره‌شده{% else %}Stored{% endif %}
+                                    </span>
+                                    <button type="button"
+                                        data-cred-clear="{{ field.name }}"
+                                        class="ml-auto inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border border-red-300 dark:border-red-500/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10">
+                                        {% if lang == 'fa' %}🗑 پاک کن{% else %}🗑 Clear{% endif %}
+                                    </button>
+                                    {% endif %}
+                                </label>
                                 <input type="{{ field.type }}" name="cred_{{ field.name }}"
-                                    placeholder="{{ t.leave_blank_to_clear }}" data-required="false"
+                                    placeholder="{% if is_stored %}{{ t.keep_existing }}{% else %}{% if lang == 'fa' %}اختیاری — خالی بگذارید{% else %}Optional — leave empty{% endif %}{% endif %}"
+                                    data-required="false"
+                                    data-stored="{{ is_stored | lower }}"
                                     class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                                 {% if field.hint %}
                                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ field.hint }}</p>
@@ -118,6 +140,113 @@
         </div>
     </div>
 
+    {% if provider_keys_supported %}
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- Section 1b: AI Image Generation (per-site provider keys)       -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+        <button type="button" onclick="toggleSection('aikeys')" class="w-full flex items-center justify-between p-6 cursor-pointer">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-pink-500/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-4 h-4 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-base font-semibold text-gray-900 dark:text-white">
+                        {% if lang == 'fa' %}تولید تصویر با هوش مصنوعی{% else %}AI Image Generation{% endif %}
+                    </h3>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        {% if lang == 'fa' %}
+                        کلید API هر ارائه‌دهنده را تنها برای این سایت ذخیره کنید. بدون کلید، ابزار <code class="font-mono">wordpress_generate_and_upload_image</code> غیرفعال است.
+                        {% else %}
+                        Store an API key per provider, scoped only to this site. Without a key, <code class="font-mono">wordpress_generate_and_upload_image</code> is disabled for this site.
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+            <svg id="aikeys-chevron" class="w-5 h-5 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+        </button>
+        <div id="aikeys-section" class="hidden border-t border-gray-200 dark:border-gray-700 p-6 space-y-3">
+            <div id="aikeys-flash" class="hidden rounded-lg p-3 text-sm"></div>
+            <div class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for row in provider_key_rows %}
+                <div class="py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3" data-site-ai-row="{{ row.provider }}">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center space-x-3 {% if lang == 'fa' %}space-x-reverse{% endif %}">
+                            <h4 class="text-sm font-semibold text-gray-900 dark:text-white">{{ row.label }}</h4>
+                            {% if row.status == 'set' %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300">
+                                {% if lang == 'fa' %}تنظیم‌شده{% else %}Set{% endif %}
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                                {% if lang == 'fa' %}تنظیم نشده{% else %}Unset{% endif %}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2 {% if lang == 'fa' %}space-x-reverse{% endif %}">
+                        <form class="flex items-center gap-2"
+                              data-site-ai-set="{{ row.provider }}"
+                              onsubmit="return window.__siteAiKeys.setKey(event, '{{ row.provider }}')">
+                            <input type="password"
+                                   name="api_key"
+                                   required
+                                   minlength="8"
+                                   autocomplete="new-password"
+                                   placeholder="{% if lang == 'fa' %}کلید API{% else %}New API key{% endif %}"
+                                   class="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-500 focus:border-transparent w-48"/>
+                            <button type="submit"
+                                    class="px-3 py-2 rounded-lg bg-pink-600 hover:bg-pink-500 text-white text-sm font-medium transition-colors">
+                                {% if lang == 'fa' %}ذخیره{% else %}Save{% endif %}
+                            </button>
+                        </form>
+                        <button type="button"
+                                data-site-ai-remove="{{ row.provider }}"
+                                onclick="return window.__siteAiKeys.deleteKey('{{ row.provider }}')"
+                                class="px-3 py-2 rounded-lg border border-red-300 dark:border-red-500/50 text-red-600 dark:text-red-400 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors {% if row.status != 'set' %}hidden{% endif %}">
+                            {% if lang == 'fa' %}حذف{% else %}Remove{% endif %}
+                        </button>
+                    </div>
+                </div>
+                {% if row.provider == 'openrouter' %}
+                <details class="ml-0 sm:ml-0 mt-1 text-xs"
+                         data-site-ai-models="openrouter"
+                         data-current-default="{{ row.default_model or '' }}">
+                    <summary class="cursor-pointer inline-block px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 select-none">
+                        {% if lang == 'fa' %}🖼 مدل‌های تصویری در دسترس{% if row.default_model %} — پیش‌فرض: <code class="font-mono">{{ row.default_model }}</code>{% endif %}{% else %}🖼 Available image models{% if row.default_model %} — default: <code class="font-mono">{{ row.default_model }}</code>{% endif %}{% endif %}
+                    </summary>
+                    <div class="mt-2 rounded-lg border border-gray-200 dark:border-gray-700 p-3 bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-200">
+                        <div class="text-gray-500 dark:text-gray-400" data-models-placeholder>
+                            {% if lang == 'fa' %}در حال بارگذاری…{% else %}Loading…{% endif %}
+                        </div>
+                        <ul class="space-y-2 hidden" data-models-list></ul>
+                        <p class="mt-2 text-[11px] text-gray-500 dark:text-gray-400" data-models-hint>
+                            {% if lang == 'fa' %}
+                            با کلیک روی «پیش‌فرض» مدل به‌عنوان مدل پیش‌فرض این سایت ذخیره می‌شود — اگر <code class="font-mono">model</code> در فراخوانی <code class="font-mono">wordpress_generate_and_upload_image</code> داده نشود، از این مقدار استفاده می‌شود.
+                            {% else %}
+                            Click "Set default" to make a model the site's default — used when <code class="font-mono">wordpress_generate_and_upload_image</code> is called without an explicit <code class="font-mono">model</code>.
+                            {% endif %}
+                        </p>
+                    </div>
+                </details>
+                {% endif %}
+                {% endfor %}
+            </div>
+            <p class="text-xs text-gray-500 dark:text-gray-400 pt-2">
+                {% if lang == 'fa' %}
+                کلیدها با AES-256-GCM رمزگذاری می‌شوند و فقط برای همین سایت قابل استفاده‌اند.
+                {% else %}
+                Keys are encrypted at rest (AES-256-GCM) and scoped to this site only.
+                {% endif %}
+            </p>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <!-- Section 2: Tool Access                                         -->
     <!-- ═══════════════════════════════════════════════════════════════ -->
@@ -141,6 +270,31 @@
             </svg>
         </button>
         <div id="tools-section" class="hidden border-t border-gray-200 dark:border-gray-700 p-6 space-y-4">
+            {% if companion_download_url %}
+            <!-- F.20 prep: companion-plugin hint (compact, WP/WC only) -->
+            <div class="bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/30 rounded-lg p-3 text-xs text-indigo-800 dark:text-indigo-300">
+                {% if lang == 'fa' %}
+                برای قابلیت‌های کامل (آپلود بزرگ، cache purge، site-health، و…) افزونه‌ی
+                <a href="{{ companion_download_url }}" class="underline font-medium hover:no-underline">Airano MCP Bridge</a>
+                را در وردپرس نصب کنید (اختیاری).
+                {% else %}
+                For full capability (large uploads, cache purge, site-health, bulk meta, audit hooks, …), install the
+                <a href="{{ companion_download_url }}" class="underline font-medium hover:no-underline">Airano MCP Bridge</a>
+                plugin on your WordPress (optional).
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {# F.7e: capability probe badge — tells the user whether the
+               saved credential can actually back the selected tier,
+               before they hit a 403 from a real tool call. #}
+            {# F.X.fix #9: badge is an HTMX-swappable partial. Re-check
+               button hits /api/sites/{id}/capabilities/badge and swaps
+               this element in place — no full-page reload. #}
+            {% if capability_probe %}
+              {% include "dashboard/sites/_capability_badge.html" %}
+            {% endif %}
+
             <div id="tool-access-loading" class="text-gray-400 dark:text-gray-500 text-sm">
                 {% if lang == 'fa' %}در حال بارگذاری...{% else %}Loading...{% endif %}
             </div>
@@ -303,6 +457,30 @@
     }
 
     // ── Connection form ─────────────────────────────────────────────
+    // F.X.fix-pass5 — Clear-button wiring. Marks the matching input
+    // with data-clear="1" + visually flashes the row so the user
+    // knows the next Save will wipe the stored value.
+    document.querySelectorAll('[data-cred-clear]').forEach(btn => {
+        btn.addEventListener('click', (ev) => {
+            ev.preventDefault();
+            const fieldName = btn.dataset.credClear;
+            const input = document.querySelector(`[name="cred_${fieldName}"]`);
+            if (!input) return;
+            input.value = '';
+            input.dataset.clear = '1';
+            input.classList.add('border-red-400', 'dark:border-red-500');
+            const row = btn.closest('[data-cred-row]');
+            const stored = row?.querySelector('[data-cred-stored]');
+            if (stored) {
+                stored.textContent = '{% if lang == "fa" %}پس از Save پاک می‌شود{% else %}Will clear on Save{% endif %}';
+                stored.classList.remove('bg-green-100', 'dark:bg-green-900/40', 'text-green-700', 'dark:text-green-300');
+                stored.classList.add('bg-red-100', 'dark:bg-red-900/40', 'text-red-700', 'dark:text-red-300');
+            }
+            btn.disabled = true;
+            btn.classList.add('opacity-50');
+        });
+    });
+
     document.getElementById('edit-site-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const btn = document.getElementById('submit-btn');
@@ -313,13 +491,22 @@
 
         const url = document.getElementById('url').value;
         const creds = {};
+        // F.X.fix-pass5 — Empty input means "keep existing"; clearing
+        // a stored optional value requires an explicit Clear button
+        // click (which sets data-clear="1" on the input). Old
+        // behaviour silently wiped optional fields on every save.
         if (pluginFields[pluginType]) {
             pluginFields[pluginType].forEach(field => {
                 const input = document.querySelector(`[name="cred_${field.name}"]`);
                 if (!input) return;
                 const val = input.value.trim();
-                if (val) creds[field.name] = val;
-                else if (input.dataset.required === 'false') creds[field.name] = '';
+                if (val) {
+                    creds[field.name] = val;
+                } else if (input.dataset.clear === '1') {
+                    // Explicit clear: send empty string to wipe.
+                    creds[field.name] = '';
+                }
+                // else: leave out → server keeps existing value.
             });
         }
 
@@ -390,6 +577,11 @@
             renderToolAccess();
         } catch (_) {}
     }
+
+    // F.X.fix-pass2 — exposed so the AI-keys set/delete handlers can
+    // trigger a live refresh of the gating UI after configuring a
+    // provider key (no full-page reload).
+    window.loadToolAccess = loadToolAccess;
 
     function renderToolAccess() {
         document.getElementById('tool-access-loading').classList.add('hidden');
@@ -642,16 +834,35 @@
 
     function renderToolRow(tool) {
         const inScope = isToolInScope(tool);
+        // F.X.fix-pass3 — central prerequisite gating. Backend has
+        // already evaluated `available` + `unavailable_reason` so the
+        // UI just renders accordingly. Reasons we know how to handle:
+        //   provider_key   — needs an AI provider key on this site
+        //   companion_route — needs the Airano MCP Bridge companion plugin
+        //   feature        — needs an SEO plugin (Rank Math / Yoast)
+        const reason = tool.unavailable_reason || null;
+        const missingProviderKey = reason === 'provider_key';
+        const missingCompanion = reason === 'companion_route';
+        const missingSeoPlugin = reason === 'feature';
+        const missingWpCreds = reason === 'wp_credentials';
+        const unavailable = !tool.available;
+        const dimmed = !inScope || unavailable;
         const row = document.createElement('div');
-        row.className = 'flex items-center justify-between py-1.5 px-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700/30' + (inScope ? '' : ' opacity-40');
+        row.className = 'flex items-center justify-between py-1.5 px-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700/30' + (dimmed ? ' opacity-40' : '');
 
         const left = document.createElement('div');
         left.className = 'flex items-center gap-2 flex-1 min-w-0';
 
         const nameEl = document.createElement('span');
-        nameEl.className = 'text-sm truncate font-mono ' + (inScope ? 'text-gray-800 dark:text-gray-200' : 'text-gray-400 dark:text-gray-500 line-through');
+        nameEl.className = 'text-sm truncate font-mono ' + (dimmed ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-800 dark:text-gray-200');
         nameEl.textContent = tool.name;
-        nameEl.title = (tool.description || '') + (inScope ? '' : ' — {% if lang == "fa" %}خارج از سطح دسترسی{% else %}outside current scope{% endif %}');
+        const titleParts = [tool.description || ''];
+        if (!inScope) titleParts.push('— {% if lang == "fa" %}خارج از سطح دسترسی{% else %}outside current scope{% endif %}');
+        if (missingProviderKey) titleParts.push('— {% if lang == "fa" %}نیاز به تنظیم کلید AI Provider{% else %}needs an AI provider key{% endif %}');
+        if (missingCompanion) titleParts.push('— {% if lang == "fa" %}نیاز به افزونه Airano MCP Bridge{% else %}needs the Airano MCP Bridge companion plugin{% endif %}');
+        if (missingSeoPlugin) titleParts.push('— {% if lang == "fa" %}نیاز به افزونه‌ی SEO (Rank Math یا Yoast){% else %}needs an SEO plugin (Rank Math or Yoast){% endif %}');
+        if (missingWpCreds) titleParts.push('— {% if lang == "fa" %}نیاز به Application Password وردپرس{% else %}needs a WordPress Application Password{% endif %}');
+        nameEl.title = titleParts.join(' ');
         left.appendChild(nameEl);
 
         if (!inScope) {
@@ -668,29 +879,74 @@
             left.appendChild(badge);
         }
 
+        if (missingProviderKey) {
+            const configurePill = document.createElement('button');
+            configurePill.type = 'button';
+            configurePill.className = 'flex-shrink-0 px-1.5 py-0.5 rounded text-xs font-medium bg-pink-100 dark:bg-pink-500/20 text-pink-700 dark:text-pink-300 hover:bg-pink-200 dark:hover:bg-pink-500/30 transition-colors';
+            configurePill.textContent = '{% if lang == "fa" %}⚙ تنظیم کلید{% else %}⚙ Configure key{% endif %}';
+            configurePill.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                const section = document.getElementById('aikeys-section');
+                if (section && section.classList.contains('hidden')) {
+                    toggleSection('aikeys');
+                }
+                const target = document.getElementById('aikeys-section');
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+            left.appendChild(configurePill);
+        } else if (missingCompanion) {
+            const pill = document.createElement('span');
+            pill.className = 'flex-shrink-0 px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300';
+            pill.textContent = '{% if lang == "fa" %}🧩 افزونه‌ی همراه نیاز است{% else %}🧩 needs companion plugin{% endif %}';
+            left.appendChild(pill);
+        } else if (missingSeoPlugin) {
+            const pill = document.createElement('span');
+            pill.className = 'flex-shrink-0 px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300';
+            pill.textContent = '{% if lang == "fa" %}🔍 SEO plugin نیاز است{% else %}🔍 needs SEO plugin{% endif %}';
+            left.appendChild(pill);
+        } else if (missingWpCreds) {
+            const pill = document.createElement('button');
+            pill.type = 'button';
+            pill.className = 'flex-shrink-0 px-1.5 py-0.5 rounded text-xs font-medium bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-500/30 transition-colors';
+            pill.textContent = '{% if lang == "fa" %}🔑 WP App Password نیاز{% else %}🔑 needs WP App Password{% endif %}';
+            pill.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                const link = document.createElement('a');
+                link.href = '/dashboard/sites/' + encodeURIComponent(siteId) + '/edit';
+                link.click();
+            });
+            left.appendChild(pill);
+        }
+
         const label = document.createElement('label');
-        label.className = 'relative inline-flex items-center cursor-pointer flex-shrink-0';
+        label.className = 'relative inline-flex items-center flex-shrink-0 ' + (unavailable ? 'cursor-not-allowed' : 'cursor-pointer');
         const input = document.createElement('input');
         input.type = 'checkbox';
         input.className = 'sr-only peer';
-        input.checked = tool.enabled !== false;
-        input.onchange = async () => {
-            const enabled = input.checked;
-            try {
-                const r = await fetch('/api/sites/' + siteId + '/tools/' + tool.name, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ enabled }),
-                });
-                if (!r.ok) input.checked = !enabled;
-                else {
-                    tool.enabled = enabled;
-                    const en = allTools.filter(t => t.enabled !== false).length;
-                    document.getElementById('tool-summary').textContent =
-                        '{% if lang == "fa" %}' + en + ' از ' + allTools.length + ' ابزار فعال{% else %}' + en + ' of ' + allTools.length + ' tools enabled{% endif %}';
-                }
-            } catch (_) { input.checked = !enabled; }
-        };
+        // When prerequisites unmet, force toggle visually OFF regardless
+        // of the user's saved preference — backend filter already drops
+        // the tool from the live endpoint.
+        input.checked = tool.available !== false && tool.enabled !== false;
+        input.disabled = unavailable;
+        if (!unavailable) {
+            input.onchange = async () => {
+                const enabled = input.checked;
+                try {
+                    const r = await fetch('/api/sites/' + siteId + '/tools/' + tool.name, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ enabled }),
+                    });
+                    if (!r.ok) input.checked = !enabled;
+                    else {
+                        tool.enabled = enabled;
+                        const en = allTools.filter(t => t.enabled !== false).length;
+                        document.getElementById('tool-summary').textContent =
+                            '{% if lang == "fa" %}' + en + ' از ' + allTools.length + ' ابزار فعال{% else %}' + en + ' of ' + allTools.length + ' tools enabled{% endif %}';
+                    }
+                } catch (_) { input.checked = !enabled; }
+            };
+        }
         const slider = document.createElement('div');
         slider.className = 'w-9 h-5 bg-gray-300 dark:bg-gray-600 peer-checked:bg-blue-600 rounded-full peer peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 transition-colors after:content-[""] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4';
         label.appendChild(input);
@@ -758,6 +1014,252 @@
         } catch (e) { alert('Network error'); }
         btn.disabled = false;
     }
+
+    // ── Per-site AI provider keys (F.5a.9.x) ────────────────────────
+    {% if provider_keys_supported %}
+    (function () {
+        const flash = document.getElementById('aikeys-flash');
+        function show(kind, msg) {
+            if (!flash) return;
+            flash.textContent = msg;
+            flash.className = 'rounded-lg p-3 text-sm ' + (
+                kind === 'ok'
+                    ? 'bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-500/30'
+                    : 'bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30'
+            );
+            flash.classList.remove('hidden');
+        }
+
+        // F.X.fix-pass2 — in-place DOM update after set/delete (no
+        // window.location.reload()), so the AI Image Generation panel
+        // stays expanded and the scroll position is preserved. Also
+        // triggers a Tool Access reload + a capability-badge re-check
+        // so the gating UI reflects the new provider state live.
+        function _updateRowStatus(provider, isSet) {
+            const row = document.querySelector('[data-site-ai-row="' + provider + '"]');
+            if (!row) return;
+            const badge = row.querySelector('span.inline-flex');
+            if (badge) {
+                if (isSet) {
+                    badge.className = 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300';
+                    badge.textContent = '{% if lang == "fa" %}تنظیم‌شده{% else %}Set{% endif %}';
+                } else {
+                    badge.className = 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300';
+                    badge.textContent = '{% if lang == "fa" %}تنظیم نشده{% else %}Unset{% endif %}';
+                }
+            }
+            const removeBtn = document.querySelector('[data-site-ai-remove="' + provider + '"]');
+            if (removeBtn) {
+                removeBtn.classList.toggle('hidden', !isSet);
+            }
+            const form = document.querySelector('[data-site-ai-set="' + provider + '"]');
+            if (form) {
+                const input = form.querySelector('input[name="api_key"]');
+                if (input) input.value = '';
+            }
+        }
+
+        function _refreshLinkedUi() {
+            // Re-fetch tools so the AI tool's gating updates inline.
+            if (typeof window.loadToolAccess === 'function') {
+                window.loadToolAccess();
+            }
+            // Trigger the HTMX re-check button so the capability badge
+            // re-renders with the new ai_providers_configured state.
+            const recheck = document.querySelector('#capability-badge button[hx-get]');
+            if (recheck && window.htmx) {
+                window.htmx.trigger(recheck, 'click');
+            }
+        }
+
+        async function setKey(ev, provider) {
+            ev.preventDefault();
+            const form = ev.target;
+            const fd = new FormData(form);
+            const apiKey = (fd.get('api_key') || '').toString();
+            if (!apiKey || apiKey.length < 8) {
+                show('err', '{% if lang == "fa" %}کلید باید حداقل ۸ کاراکتر باشد{% else %}Key must be at least 8 characters{% endif %}');
+                return false;
+            }
+            try {
+                const resp = await fetch('/api/sites/' + encodeURIComponent(siteId) + '/provider-keys/' + encodeURIComponent(provider), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ api_key: apiKey }),
+                    credentials: 'same-origin',
+                });
+                const data = await resp.json();
+                if (!resp.ok || !data.ok) {
+                    show('err', data.message || data.error || 'save failed');
+                    return false;
+                }
+                _updateRowStatus(provider, true);
+                _refreshLinkedUi();
+                show('ok', '{% if lang == "fa" %}ذخیره شد{% else %}Saved{% endif %} — last4: ' + (data.secret_last4 || ''));
+            } catch (e) {
+                show('err', e.message || String(e));
+            }
+            return false;
+        }
+
+        async function deleteKey(provider) {
+            if (!window.confirm('{% if lang == "fa" %}آیا مطمئن هستید؟{% else %}Remove this provider key?{% endif %}')) {
+                return false;
+            }
+            try {
+                const resp = await fetch('/api/sites/' + encodeURIComponent(siteId) + '/provider-keys/' + encodeURIComponent(provider), {
+                    method: 'DELETE',
+                    credentials: 'same-origin',
+                });
+                const data = await resp.json();
+                if (!resp.ok || !data.ok) {
+                    show('err', data.message || data.error || 'delete failed');
+                    return false;
+                }
+                _updateRowStatus(provider, false);
+                _refreshLinkedUi();
+                show('ok', '{% if lang == "fa" %}حذف شد{% else %}Removed{% endif %}');
+            } catch (e) {
+                show('err', e.message || String(e));
+            }
+            return false;
+        }
+
+        // F.X.fix-pass2 — OpenRouter model discovery UI. Lazy-loaded on
+        // first <details> expand so the panel open doesn't pay the
+        // network cost unless the user asks. Falls back gracefully
+        // when no key is set (catalog is public but availability
+        // flags reflect the operator's account when we pass a key).
+        async function _loadOpenRouterModels(details) {
+            if (details.dataset.loaded === '1') return;
+            details.dataset.loaded = '1';
+            const placeholder = details.querySelector('[data-models-placeholder]');
+            const list = details.querySelector('[data-models-list]');
+            try {
+                const resp = await fetch(
+                    '/api/providers/openrouter/models?site_id=' + encodeURIComponent(siteId),
+                    { credentials: 'same-origin' }
+                );
+                const data = await resp.json();
+                if (!resp.ok || !data.ok) {
+                    placeholder.textContent = data.message || data.error || '{% if lang == "fa" %}خطا در دریافت لیست{% else %}Failed to load models{% endif %}';
+                    return;
+                }
+                const models = Array.isArray(data.models) ? data.models : [];
+                if (!models.length) {
+                    placeholder.textContent = '{% if lang == "fa" %}هیچ مدلی یافت نشد{% else %}No image models found{% endif %}';
+                    return;
+                }
+                placeholder.classList.add('hidden');
+                list.classList.remove('hidden');
+                list.innerHTML = '';
+                const provider = details.dataset.siteAiModels || 'openrouter';
+                let currentDefault = details.dataset.currentDefault || '';
+                const renderRow = (m) => {
+                    const li = document.createElement('li');
+                    li.className = 'flex items-start justify-between gap-2 pb-1 border-b border-gray-200 dark:border-gray-700 last:border-0';
+                    const info = document.createElement('div');
+                    info.className = 'flex-1 min-w-0';
+                    const id = document.createElement('code');
+                    id.className = 'font-mono text-gray-800 dark:text-gray-200 break-all';
+                    id.textContent = m.id;
+                    const nameLine = document.createElement('div');
+                    nameLine.className = 'text-[11px] text-gray-500 dark:text-gray-400 mt-0.5';
+                    const nameBits = [];
+                    if (m.name && m.name !== m.id) nameBits.push(m.name);
+                    if (m.price_per_image_usd != null) {
+                        nameBits.push('$' + Number(m.price_per_image_usd).toFixed(4) + '/img');
+                    }
+                    nameLine.textContent = nameBits.join(' · ');
+                    info.appendChild(id);
+                    if (nameBits.length) info.appendChild(nameLine);
+
+                    const actions = document.createElement('div');
+                    actions.className = 'flex-shrink-0 flex items-center gap-1';
+
+                    const isDefault = currentDefault === m.id;
+                    const defaultBtn = document.createElement('button');
+                    defaultBtn.type = 'button';
+                    defaultBtn.className = 'px-2 py-0.5 rounded border text-[11px] transition-colors ' + (
+                        isDefault
+                            ? 'border-emerald-300 dark:border-emerald-600 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                            : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    );
+                    defaultBtn.textContent = isDefault
+                        ? '{% if lang == "fa" %}★ پیش‌فرض{% else %}★ Default{% endif %}'
+                        : '{% if lang == "fa" %}پیش‌فرض{% else %}Set default{% endif %}';
+                    defaultBtn.addEventListener('click', async () => {
+                        const target = isDefault ? null : m.id;
+                        defaultBtn.disabled = true;
+                        const orig = defaultBtn.textContent;
+                        defaultBtn.textContent = '…';
+                        try {
+                            const resp = await fetch(
+                                '/api/sites/' + encodeURIComponent(siteId) +
+                                '/provider-keys/' + encodeURIComponent(provider) +
+                                '/default-model',
+                                {
+                                    method: 'PATCH',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ model: target }),
+                                    credentials: 'same-origin',
+                                }
+                            );
+                            const data = await resp.json();
+                            if (!resp.ok || !data.ok) {
+                                defaultBtn.textContent = orig;
+                                show('err', data.message || data.error || '{% if lang == "fa" %}خطا{% else %}Error{% endif %}');
+                                return;
+                            }
+                            currentDefault = target || '';
+                            details.dataset.currentDefault = currentDefault;
+                            // Re-render the entire list so all rows reflect the new default.
+                            list.innerHTML = '';
+                            for (const x of models) list.appendChild(renderRow(x));
+                            show('ok', '{% if lang == "fa" %}پیش‌فرض ذخیره شد{% else %}Default saved{% endif %}');
+                        } catch (e) {
+                            defaultBtn.textContent = orig;
+                            show('err', e.message || String(e));
+                        } finally {
+                            defaultBtn.disabled = false;
+                        }
+                    });
+
+                    const copy = document.createElement('button');
+                    copy.type = 'button';
+                    copy.className = 'px-2 py-0.5 rounded border border-gray-300 dark:border-gray-600 text-[11px] text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700';
+                    copy.textContent = '{% if lang == "fa" %}کپی{% else %}Copy{% endif %}';
+                    copy.addEventListener('click', () => {
+                        navigator.clipboard.writeText(m.id);
+                        copy.textContent = '{% if lang == "fa" %}کپی شد{% else %}Copied{% endif %}';
+                        setTimeout(() => { copy.textContent = '{% if lang == "fa" %}کپی{% else %}Copy{% endif %}'; }, 1500);
+                    });
+
+                    actions.appendChild(defaultBtn);
+                    actions.appendChild(copy);
+                    li.appendChild(info);
+                    li.appendChild(actions);
+                    return li;
+                };
+                for (const m of models) list.appendChild(renderRow(m));
+            } catch (e) {
+                placeholder.textContent = e.message || String(e);
+            }
+        }
+
+        document.querySelectorAll('details[data-site-ai-models]').forEach((d) => {
+            d.addEventListener('toggle', () => {
+                if (d.open) _loadOpenRouterModels(d);
+            });
+        });
+
+        window.__siteAiKeys = { setKey, deleteKey };
+    })();
+    {% endif %}
+
+    // F.X.fix #9: Re-check is now an HTMX partial swap — see the
+    // hx-get attribute on the button in _capability_badge.html. No JS
+    // shim needed here any more.
 
     // ── Init ────────────────────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', () => {

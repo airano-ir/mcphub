@@ -1,9 +1,15 @@
-"""Users Handler - manages n8n users"""
+"""Users Handler - manages n8n users."""
 
 import json
 from typing import Any
 
-from plugins.n8n.client import N8nClient
+from plugins.n8n.client import N8nApiError, N8nClient
+
+
+def _error_json(exc: Exception) -> str:
+    if isinstance(exc, N8nApiError):
+        return json.dumps({"success": False, **exc.to_dict()}, indent=2)
+    return json.dumps({"success": False, "error": str(exc)}, indent=2)
 
 
 def get_tool_specifications() -> list[dict[str, Any]]:
@@ -115,7 +121,7 @@ async def list_users(
         }
         return json.dumps(result, indent=2)
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def get_user(client: N8nClient, user_id: str, include_role: bool = True) -> str:
@@ -136,7 +142,7 @@ async def get_user(client: N8nClient, user_id: str, include_role: bool = True) -
             indent=2,
         )
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def create_user(client: N8nClient, email: str, role: str = "global:member") -> str:
@@ -152,7 +158,7 @@ async def create_user(client: N8nClient, email: str, role: str = "global:member"
             indent=2,
         )
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def delete_user(client: N8nClient, user_id: str) -> str:
@@ -160,7 +166,7 @@ async def delete_user(client: N8nClient, user_id: str) -> str:
         await client.delete_user(user_id)
         return json.dumps({"success": True, "message": f"User {user_id} deleted"}, indent=2)
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def change_user_role(client: N8nClient, user_id: str, new_role: str) -> str:
@@ -170,4 +176,4 @@ async def change_user_role(client: N8nClient, user_id: str, new_role: str) -> st
             {"success": True, "message": f"User {user_id} role changed to {new_role}"}, indent=2
         )
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)

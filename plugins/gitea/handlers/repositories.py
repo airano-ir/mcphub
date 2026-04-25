@@ -482,6 +482,202 @@ def get_tool_specifications() -> list[dict[str, Any]]:
             },
             "scope": "write",
         },
+        # === F.17 ergonomics: batch files, tree, search, compare, releases, fork ===
+        {
+            "name": "create_files",
+            "method_name": "create_files",
+            "description": (
+                "Create or update multiple files in a single commit. Uses Gitea's "
+                "``/repos/{owner}/{repo}/contents`` batch endpoint. Per-file operations: "
+                "``create`` | ``update`` | ``delete``. For create/update, pass raw UTF-8 "
+                "``content`` (default) or a base64 string with ``content_is_base64=true`` "
+                "per file. Delete requires each file's current ``sha``."
+            ),
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "owner": {"type": "string", "minLength": 1},
+                    "repo": {"type": "string", "minLength": 1},
+                    "message": {
+                        "type": "string",
+                        "description": "Single commit message for the whole batch.",
+                        "minLength": 1,
+                    },
+                    "branch": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+                    "new_branch": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "If set, commit on a new branch created from ``branch``.",
+                    },
+                    "files": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 100,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "operation": {
+                                    "type": "string",
+                                    "enum": ["create", "update", "delete"],
+                                },
+                                "path": {"type": "string", "minLength": 1},
+                                "content": {
+                                    "anyOf": [{"type": "string"}, {"type": "null"}],
+                                    "description": "Required for create/update.",
+                                },
+                                "sha": {
+                                    "anyOf": [{"type": "string"}, {"type": "null"}],
+                                    "description": "Required for update/delete.",
+                                },
+                                "content_is_base64": {"type": "boolean", "default": False},
+                            },
+                            "required": ["operation", "path"],
+                        },
+                    },
+                },
+                "required": ["owner", "repo", "files", "message"],
+            },
+            "scope": "write",
+        },
+        {
+            "name": "get_tree",
+            "method_name": "get_tree",
+            "description": (
+                "List the file tree of a Gitea repository. ``sha`` may be a branch "
+                "name, tag, or commit (default: HEAD). ``recursive=true`` returns "
+                "the entire tree in one payload. Use this instead of issuing many "
+                "``get_file`` calls when you don't know the paths ahead of time."
+            ),
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "owner": {"type": "string", "minLength": 1},
+                    "repo": {"type": "string", "minLength": 1},
+                    "sha": {"type": "string", "default": "HEAD"},
+                    "recursive": {"type": "boolean", "default": False},
+                    "page": {"type": "integer", "minimum": 1, "default": 1},
+                    "per_page": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100,
+                        "default": 100,
+                    },
+                },
+                "required": ["owner", "repo"],
+            },
+            "scope": "read",
+        },
+        {
+            "name": "search_code",
+            "method_name": "search_code",
+            "description": (
+                "Search code inside Gitea. When ``owner`` and ``repo`` are set, the "
+                "search scopes to that repository; otherwise it's an instance-wide "
+                "code search. Returns Gitea's raw ``{ok, data: [...]}`` shape."
+            ),
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "keyword": {"type": "string", "minLength": 1},
+                    "owner": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+                    "repo": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+                    "page": {"type": "integer", "minimum": 1, "default": 1},
+                    "per_page": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 50,
+                        "default": 30,
+                    },
+                },
+                "required": ["keyword"],
+            },
+            "scope": "read",
+        },
+        {
+            "name": "compare",
+            "method_name": "compare",
+            "description": (
+                "Compare two commits / branches / tags in a Gitea repository. Returns "
+                "commits + file diffs between ``base`` and ``head`` (the Gitea "
+                "``compare`` endpoint)."
+            ),
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "owner": {"type": "string", "minLength": 1},
+                    "repo": {"type": "string", "minLength": 1},
+                    "base": {"type": "string", "minLength": 1},
+                    "head": {"type": "string", "minLength": 1},
+                },
+                "required": ["owner", "repo", "base", "head"],
+            },
+            "scope": "read",
+        },
+        {
+            "name": "list_releases",
+            "method_name": "list_releases",
+            "description": "List releases of a Gitea repository (paginated).",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "owner": {"type": "string", "minLength": 1},
+                    "repo": {"type": "string", "minLength": 1},
+                    "page": {"type": "integer", "minimum": 1, "default": 1},
+                    "per_page": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 50,
+                        "default": 30,
+                    },
+                },
+                "required": ["owner", "repo"],
+            },
+            "scope": "read",
+        },
+        {
+            "name": "create_release",
+            "method_name": "create_release",
+            "description": (
+                "Create a release (tag + release metadata) on a Gitea repository. "
+                "Set ``draft`` to hide it from users until published."
+            ),
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "owner": {"type": "string", "minLength": 1},
+                    "repo": {"type": "string", "minLength": 1},
+                    "tag_name": {"type": "string", "minLength": 1},
+                    "name": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+                    "body": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+                    "target_commitish": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Branch or commit to tag (default: default branch).",
+                    },
+                    "draft": {"type": "boolean", "default": False},
+                    "prerelease": {"type": "boolean", "default": False},
+                },
+                "required": ["owner", "repo", "tag_name"],
+            },
+            "scope": "write",
+        },
+        {
+            "name": "fork_repository",
+            "method_name": "fork_repository",
+            "description": (
+                "Fork a Gitea repository. Without ``organization``, forks under the "
+                "calling user. ``name`` optionally renames the fork."
+            ),
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "owner": {"type": "string", "minLength": 1},
+                    "repo": {"type": "string", "minLength": 1},
+                    "organization": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+                    "name": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+                },
+                "required": ["owner", "repo"],
+            },
+            "scope": "write",
+        },
     ]
 
 
@@ -724,3 +920,180 @@ async def delete_file(
     await client.delete_file(owner, repo, path, sha, message, branch)
     result = {"success": True, "message": f"File '{path}' deleted successfully"}
     return json.dumps(result, indent=2)
+
+
+# ---------------------------------------------------------------------------
+# F.17 ergonomics: batch files, tree, search, compare, releases, fork
+# ---------------------------------------------------------------------------
+
+
+async def create_files(
+    client: GiteaClient,
+    owner: str,
+    repo: str,
+    files: list[dict[str, Any]],
+    message: str,
+    branch: str | None = None,
+    new_branch: str | None = None,
+) -> str:
+    """Apply a batch of create / update / delete file operations in a single commit.
+
+    Each entry in ``files`` is normalised so Gitea's batch endpoint
+    receives base64-encoded content with the ``content_is_base64`` flag
+    stripped (the server expects base64). Validation:
+
+    * ``operation`` is ``create`` / ``update`` / ``delete``.
+    * ``path`` required on every entry.
+    * ``content`` required on create / update.
+    * ``sha`` required on update / delete (current file SHA).
+    """
+    prepared: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+
+    for idx, f in enumerate(files or []):
+        op = (f.get("operation") or "").strip().lower()
+        path = f.get("path")
+        if op not in {"create", "update", "delete"}:
+            errors.append({"index": idx, "path": path, "error": f"invalid_operation:{op!r}"})
+            continue
+        if not path:
+            errors.append({"index": idx, "error": "missing_path"})
+            continue
+        if op in {"update", "delete"} and not f.get("sha"):
+            errors.append({"index": idx, "path": path, "error": f"missing_sha_for_{op}"})
+            continue
+
+        entry: dict[str, Any] = {"operation": op, "path": path}
+        if op in {"create", "update"}:
+            content = f.get("content")
+            if content is None:
+                errors.append({"index": idx, "path": path, "error": "missing_content"})
+                continue
+            try:
+                entry["content"] = client._normalise_file_content(
+                    content, bool(f.get("content_is_base64", False))
+                )
+            except ValueError as exc:
+                errors.append({"index": idx, "path": path, "error": str(exc)})
+                continue
+        if f.get("sha"):
+            entry["sha"] = f["sha"]
+        if f.get("from_path"):  # Gitea also supports rename via from_path
+            entry["from_path"] = f["from_path"]
+        prepared.append(entry)
+
+    if errors:
+        return json.dumps(
+            {
+                "success": False,
+                "error": "validation_failed",
+                "errors": errors,
+                "total": len(files or []),
+                "prepared": len(prepared),
+            },
+            indent=2,
+        )
+
+    payload: dict[str, Any] = {"message": message, "files": prepared}
+    if branch:
+        payload["branch"] = branch
+    if new_branch:
+        payload["new_branch"] = new_branch
+
+    result = await client.change_files(owner, repo, payload)
+    return json.dumps(
+        {
+            "success": True,
+            "message": f"Batched {len(prepared)} file operation(s) into one commit",
+            "result": result,
+        },
+        indent=2,
+    )
+
+
+async def get_tree(
+    client: GiteaClient,
+    owner: str,
+    repo: str,
+    sha: str = "HEAD",
+    recursive: bool = False,
+    page: int = 1,
+    per_page: int = 100,
+) -> str:
+    tree = await client.get_tree(
+        owner, repo, sha, recursive=recursive, page=page, per_page=per_page
+    )
+    return json.dumps({"success": True, "tree": tree}, indent=2)
+
+
+async def search_code(
+    client: GiteaClient,
+    keyword: str,
+    owner: str | None = None,
+    repo: str | None = None,
+    page: int = 1,
+    per_page: int = 30,
+) -> str:
+    result = await client.search_code(
+        keyword=keyword, owner=owner, repo=repo, page=page, per_page=per_page
+    )
+    return json.dumps({"success": True, "result": result}, indent=2)
+
+
+async def compare(
+    client: GiteaClient,
+    owner: str,
+    repo: str,
+    base: str,
+    head: str,
+) -> str:
+    diff = await client.compare(owner, repo, base, head)
+    return json.dumps({"success": True, "compare": diff}, indent=2)
+
+
+async def list_releases(
+    client: GiteaClient,
+    owner: str,
+    repo: str,
+    page: int = 1,
+    per_page: int = 30,
+) -> str:
+    releases = await client.list_releases(owner, repo, page=page, per_page=per_page)
+    return json.dumps({"success": True, "releases": releases}, indent=2)
+
+
+async def create_release(
+    client: GiteaClient,
+    owner: str,
+    repo: str,
+    tag_name: str,
+    name: str | None = None,
+    body: str | None = None,
+    target_commitish: str | None = None,
+    draft: bool = False,
+    prerelease: bool = False,
+) -> str:
+    data: dict[str, Any] = {
+        "tag_name": tag_name,
+        "draft": draft,
+        "prerelease": prerelease,
+    }
+    if name is not None:
+        data["name"] = name
+    if body is not None:
+        data["body"] = body
+    if target_commitish is not None:
+        data["target_commitish"] = target_commitish
+    release = await client.create_release(owner, repo, data)
+    return json.dumps({"success": True, "release": release}, indent=2)
+
+
+async def fork_repository(
+    client: GiteaClient,
+    owner: str,
+    repo: str,
+    organization: str | None = None,
+    name: str | None = None,
+) -> str:
+    fork = await client.fork_repository(owner, repo, organization=organization, name=name)
+    return json.dumps({"success": True, "fork": fork}, indent=2)

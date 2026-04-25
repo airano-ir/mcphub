@@ -1,10 +1,16 @@
-"""Execution Handler - manages n8n workflow executions"""
+"""Execution Handler - manages n8n workflow executions."""
 
 import asyncio
 import json
 from typing import Any
 
-from plugins.n8n.client import N8nClient
+from plugins.n8n.client import N8nApiError, N8nClient
+
+
+def _error_json(exc: Exception) -> str:
+    if isinstance(exc, N8nApiError):
+        return json.dumps({"success": False, **exc.to_dict()}, indent=2)
+    return json.dumps({"success": False, "error": str(exc)}, indent=2)
 
 
 def get_tool_specifications() -> list[dict[str, Any]]:
@@ -26,6 +32,10 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                         "type": "string",
                         "enum": ["success", "error", "waiting", "running", "new"],
                         "description": "OPTIONAL: Filter by execution status. Omit for all statuses.",
+                    },
+                    "project_id": {
+                        "type": "string",
+                        "description": "OPTIONAL: Filter by project ID (Enterprise). Omit for all projects.",
                     },
                     "include_data": {
                         "type": "boolean",
@@ -200,15 +210,17 @@ async def list_executions(
     client: N8nClient,
     workflow_id: str | None = None,
     status: str | None = None,
+    project_id: str | None = None,
     include_data: bool = False,
     limit: int = 20,
     cursor: str | None = None,
 ) -> str:
-    """List workflow executions"""
+    """List workflow executions."""
     try:
         response = await client.list_executions(
             workflow_id=workflow_id,
             status=status,
+            project_id=project_id,
             include_data=include_data,
             limit=limit,
             cursor=cursor,
@@ -239,7 +251,7 @@ async def list_executions(
         return json.dumps(result, indent=2)
 
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def get_execution(client: N8nClient, execution_id: str, include_data: bool = True) -> str:
@@ -270,7 +282,7 @@ async def get_execution(client: N8nClient, execution_id: str, include_data: bool
         return json.dumps(result, indent=2)
 
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def delete_execution(client: N8nClient, execution_id: str) -> str:
@@ -283,7 +295,7 @@ async def delete_execution(client: N8nClient, execution_id: str) -> str:
         return json.dumps(result, indent=2)
 
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def delete_executions(client: N8nClient, execution_ids: list[str]) -> str:
@@ -309,7 +321,7 @@ async def delete_executions(client: N8nClient, execution_ids: list[str]) -> str:
         return json.dumps(result, indent=2)
 
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def stop_execution(client: N8nClient, execution_id: str) -> str:
@@ -322,7 +334,7 @@ async def stop_execution(client: N8nClient, execution_id: str) -> str:
         return json.dumps(result, indent=2)
 
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def retry_execution(client: N8nClient, execution_id: str) -> str:
@@ -366,7 +378,7 @@ async def retry_execution(client: N8nClient, execution_id: str) -> str:
         return json.dumps(result, indent=2)
 
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def get_execution_data(client: N8nClient, execution_id: str) -> str:
@@ -390,7 +402,7 @@ async def get_execution_data(client: N8nClient, execution_id: str) -> str:
         return json.dumps(result, indent=2)
 
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def wait_for_execution(
@@ -444,4 +456,4 @@ async def wait_for_execution(
         return json.dumps(result, indent=2)
 
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)

@@ -65,7 +65,40 @@ class WordPressPlugin(BasePlugin):
 
         # Initialize core WordPress handlers
         self.posts = handlers.PostsHandler(self.client)
-        self.media = handlers.MediaHandler(self.client)
+        self.media = handlers.MediaHandler(self.client, user_id=config.get("user_id"))
+        # F.5a.4 / F.5a.9.x: AI image handler receives user_id AND site_id.
+        # site_id is the primary input for resolving per-site provider API
+        # keys; user_id is retained for audit / rate-limit context and for
+        # the admin/env-fallback path when no site is known.
+        self.ai_media = handlers.AIMediaHandler(
+            self.client,
+            user_id=config.get("user_id"),
+            site_id=config.get("site_id"),
+        )
+        # F.5a.5: chunked media uploads (session store + disk spill)
+        self.media_chunked = handlers.MediaChunkedHandler(
+            self.client, user_id=config.get("user_id")
+        )
+        # F.5a.6.3: probe WP upload limits (24h cache)
+        self.media_probe = handlers.ProbeHandler(self.client)
+        # F.18.1: probe companion-plugin capabilities (24h cache)
+        self.capabilities = handlers.CapabilitiesHandler(self.client)
+        # F.18.2: batch post_meta writes via companion plugin
+        self.bulk_meta = handlers.BulkMetaHandler(self.client)
+        # F.18.3: structured JSON export via companion plugin
+        self.export = handlers.ExportHandler(self.client)
+        # F.18.4: cache purge via companion plugin
+        self.cache_purge_handler = handlers.CachePurgeHandler(self.client)
+        # F.18.5: native transient flush via companion plugin
+        self.transient_flush_handler = handlers.TransientFlushHandler(self.client)
+        # F.18.6: unified site-health snapshot via companion plugin
+        self.site_health_handler = handlers.SiteHealthHandler(self.client)
+        # F.18.7: audit-hook configuration + query
+        self.audit_hook_handler = handlers.AuditHookHandler(self.client)
+        # F.5a.8.2: regenerate attachment sub-sizes via companion plugin
+        self.regenerate_thumbnails_handler = handlers.RegenerateThumbnailsHandler(self.client)
+        # F.5a.8.3: bulk delete / reassign attachments via stock WP REST
+        self.media_bulk = handlers.MediaBulkHandler(self.client)
         self.taxonomy = handlers.TaxonomyHandler(self.client)
         self.comments = handlers.CommentsHandler(self.client)
         self.users = handlers.UsersHandler(self.client)
@@ -103,7 +136,19 @@ class WordPressPlugin(BasePlugin):
 
         # Core WordPress handlers
         specs.extend(handlers.get_posts_specs())  # 13 tools
-        specs.extend(handlers.get_media_specs())  # 5 tools
+        specs.extend(handlers.get_media_specs())  # 6 tools (F.5a.1: added base64 upload)
+        specs.extend(handlers.get_ai_media_specs())  # 1 tool (F.5a.4: generate+upload)
+        specs.extend(handlers.get_media_chunked_specs())  # 5 tools (F.5a.5 + F.5a.8.4 status)
+        specs.extend(handlers.get_media_probe_specs())  # 1 tool (F.5a.6.3: probe limits)
+        specs.extend(handlers.get_capabilities_specs())  # 1 tool (F.18.1: probe capabilities)
+        specs.extend(handlers.get_bulk_meta_specs())  # 1 tool (F.18.2: bulk meta write)
+        specs.extend(handlers.get_export_specs())  # 1 tool (F.18.3: structured export)
+        specs.extend(handlers.get_cache_purge_specs())  # 1 tool (F.18.4: cache purge)
+        specs.extend(handlers.get_transient_flush_specs())  # 1 tool (F.18.5: transient flush)
+        specs.extend(handlers.get_site_health_specs())  # 1 tool (F.18.6: site health)
+        specs.extend(handlers.get_audit_hook_specs())  # 3 tools (F.18.7: audit hook)
+        specs.extend(handlers.get_regenerate_thumbnails_specs())  # 1 tool (F.5a.8.2)
+        specs.extend(handlers.get_media_bulk_specs())  # 2 tools (F.5a.8.3: bulk delete+reassign)
         specs.extend(handlers.get_taxonomy_specs())  # 11 tools
         specs.extend(handlers.get_comments_specs())  # 5 tools
         specs.extend(handlers.get_users_specs())  # 2 tools
@@ -127,6 +172,68 @@ class WordPressPlugin(BasePlugin):
             Dict with health status, WooCommerce, and SEO plugin availability
         """
         return await self.site.health_check()
+
+    async def probe_credential_capabilities(self) -> dict[str, Any]:
+        """F.7e — return the capabilities the saved app_password grants.
+
+        Delegates to the companion-plugin-backed ``CapabilitiesHandler``
+        (F.18.1), which reads ``GET /airano-mcp/v1/capabilities`` — the
+        WordPress user's effective capability map. When the companion
+        isn't installed we return an empty-granted payload marked as
+        unavailable so the caller can show a "companion plugin needed"
+        hint rather than falsely claim the key is under-privileged.
+
+        F.X.fix #3 — fast-fail on unreachable sites. When the low-level
+        client raises :class:`SiteUnreachableError` (DNS/TCP/timeout),
+        we short-circuit to a structured ``probe_available=False``
+        payload carrying the ``install_hint`` so the dashboard renders
+        the "check your URL / install companion" prompt in <10s instead
+        of hanging on the 30s total timeout.
+        """
+        from plugins.wordpress.client import SiteUnreachableError
+        from plugins.wordpress.handlers.capabilities import _empty_capabilities_payload
+
+        try:
+            payload = await self.capabilities._fetch_capabilities()
+        except SiteUnreachableError as exc:
+            out: dict[str, Any] = {
+                "probe_available": False,
+                "granted": [],
+                "source": "wordpress_companion",
+                "reason": f"site_unreachable: {exc.reason}",
+            }
+            if exc.install_hint:
+                out["install_hint"] = exc.install_hint
+            return out
+        except Exception as exc:  # noqa: BLE001
+            payload = _empty_capabilities_payload(
+                self.client.site_url, reason=f"probe_failed: {exc}"
+            )
+
+        if not payload.get("companion_available"):
+            return {
+                "probe_available": False,
+                "granted": [],
+                "source": "wordpress_companion",
+                "reason": (payload.get("reason") or "companion_not_installed"),
+            }
+
+        user_caps = (payload.get("user") or {}).get("capabilities") or {}
+        granted = sorted(k for k, v in user_caps.items() if v)
+        roles = list((payload.get("user") or {}).get("roles") or [])
+        # F.X.fix-pass3 — surface routes + features so the central
+        # tool-prerequisites resolver in core/tool_access can decide
+        # which tools to auto-disable (SEO needs Rank Math/Yoast,
+        # cache_purge/etc. need the matching companion route, …).
+        return {
+            "probe_available": True,
+            "granted": granted,
+            "source": "wordpress_companion",
+            "roles": roles,
+            "plugin_version": payload.get("plugin_version"),
+            "routes": dict(payload.get("routes") or {}),
+            "features": dict(payload.get("features") or {}),
+        }
 
     # ========================================
     # Method Delegation to Handlers
@@ -187,11 +294,83 @@ class WordPressPlugin(BasePlugin):
     async def upload_media_from_url(self, **kwargs):
         return await self.media.upload_media_from_url(**kwargs)
 
+    async def upload_media_from_base64(self, **kwargs):
+        return await self.media.upload_media_from_base64(**kwargs)
+
     async def update_media(self, **kwargs):
         return await self.media.update_media(**kwargs)
 
     async def delete_media(self, **kwargs):
         return await self.media.delete_media(**kwargs)
+
+    # === AI Image Generation (F.5a.4) ===
+    async def generate_and_upload_image(self, **kwargs):
+        return await self.ai_media.generate_and_upload_image(**kwargs)
+
+    # === Chunked Media Upload (F.5a.5) ===
+    async def upload_media_chunked_start(self, **kwargs):
+        return await self.media_chunked.upload_media_chunked_start(**kwargs)
+
+    async def upload_media_chunked_chunk(self, **kwargs):
+        return await self.media_chunked.upload_media_chunked_chunk(**kwargs)
+
+    async def upload_media_chunked_finish(self, **kwargs):
+        return await self.media_chunked.upload_media_chunked_finish(**kwargs)
+
+    async def upload_media_chunked_abort(self, **kwargs):
+        return await self.media_chunked.upload_media_chunked_abort(**kwargs)
+
+    async def upload_media_chunked_status(self, **kwargs):
+        return await self.media_chunked.upload_media_chunked_status(**kwargs)
+
+    # === Probe Upload Limits (F.5a.6.3) ===
+    async def probe_upload_limits(self, **kwargs):
+        return await self.media_probe.probe_upload_limits(**kwargs)
+
+    # === Probe Companion Capabilities (F.18.1) ===
+    async def probe_capabilities(self, **kwargs):
+        return await self.capabilities.probe_capabilities(**kwargs)
+
+    # === Bulk Meta Write (F.18.2) ===
+    async def bulk_update_meta(self, **kwargs):
+        return await self.bulk_meta.bulk_update_meta(**kwargs)
+
+    # === Structured Export (F.18.3) ===
+    async def export_content(self, **kwargs):
+        return await self.export.export_content(**kwargs)
+
+    # === Cache Purge (F.18.4) ===
+    async def cache_purge(self, **kwargs):
+        return await self.cache_purge_handler.cache_purge(**kwargs)
+
+    # === Regenerate Thumbnails (F.5a.8.2) ===
+    async def regenerate_thumbnails(self, **kwargs):
+        return await self.regenerate_thumbnails_handler.regenerate_thumbnails(**kwargs)
+
+    # === Bulk Media Operations (F.5a.8.3) ===
+    async def bulk_delete_media(self, **kwargs):
+        return await self.media_bulk.bulk_delete_media(**kwargs)
+
+    async def bulk_reassign_media(self, **kwargs):
+        return await self.media_bulk.bulk_reassign_media(**kwargs)
+
+    # === Transient Flush (F.18.5) ===
+    async def transient_flush(self, **kwargs):
+        return await self.transient_flush_handler.transient_flush(**kwargs)
+
+    # === Unified Site Health (F.18.6) ===
+    async def site_health(self, **kwargs):
+        return await self.site_health_handler.site_health(**kwargs)
+
+    # === Audit Hook (F.18.7) ===
+    async def audit_hook_status(self, **kwargs):
+        return await self.audit_hook_handler.audit_hook_status(**kwargs)
+
+    async def audit_hook_configure(self, **kwargs):
+        return await self.audit_hook_handler.audit_hook_configure(**kwargs)
+
+    async def audit_hook_disable(self, **kwargs):
+        return await self.audit_hook_handler.audit_hook_disable(**kwargs)
 
     # === Taxonomy (Categories & Tags) ===
     async def list_categories(self, **kwargs):

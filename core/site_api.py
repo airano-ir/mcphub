@@ -35,14 +35,18 @@ PLUGIN_CREDENTIAL_FIELDS: dict[str, list[dict[str, Any]]] = {
             "label": "Username",
             "type": "text",
             "required": True,
-            "hint": "Your WordPress admin username",
+            "hint": "Your WordPress admin username (used as the HTTP Basic username for every API call).",
         },
         {
             "name": "app_password",
             "label": "Application Password",
             "type": "password",
             "required": True,
-            "hint": "WordPress Admin → Users → Profile → Application Passwords",
+            "hint": (
+                "WordPress Admin → Users → Profile → Application Passwords. "
+                "This IS the API credential — no separate API key is needed. "
+                "Paste the value WP shows once after creation (spaces can stay or be removed)."
+            ),
         },
     ],
     "woocommerce": [
@@ -51,14 +55,53 @@ PLUGIN_CREDENTIAL_FIELDS: dict[str, list[dict[str, Any]]] = {
             "label": "Consumer Key",
             "type": "text",
             "required": True,
-            "hint": "WooCommerce → Settings → Advanced → REST API",
+            "hint": (
+                "WooCommerce → Settings → Advanced → REST API → Add Key. "
+                "Read/Write permission. This pair IS the API auth — no extra API key field exists."
+            ),
         },
         {
             "name": "consumer_secret",
             "label": "Consumer Secret",
             "type": "password",
             "required": True,
-            "hint": "Shown once when creating the REST API key",
+            "hint": (
+                "Shown once when the REST API key is created. "
+                "Starts with ``cs_``. Save it immediately — WooCommerce will not display it again."
+            ),
+        },
+        # F.X.fix-pass4 — optional WP Application Password, only used by
+        # media tools (upload_and_attach_to_product / attach_media_to_
+        # product / set_featured_image). WooCommerce's Consumer Key +
+        # Secret authenticate ``/wc/v3/*`` but NOT ``/wp/v2/media``;
+        # WordPress core REST media uploads require an Application
+        # Password from the WP admin user. Leave blank if the store
+        # never needs MCP-driven image uploads.
+        {
+            "name": "wp_username",
+            "label": "WordPress Username (for media tools)",
+            "type": "text",
+            "required": False,
+            "advanced": True,
+            "hint": (
+                "Only required if you want the AI / media tools "
+                "(upload_and_attach_to_product, attach_media_to_product, "
+                "set_featured_image, generate_and_upload_image with attach_to_post). "
+                "Other WC tools work with Consumer Key / Secret alone."
+            ),
+        },
+        {
+            "name": "wp_app_password",
+            "label": "WordPress Application Password (for media tools)",
+            "type": "password",
+            "required": False,
+            "advanced": True,
+            "hint": (
+                "WP Admin → Users → Profile → Application Passwords. "
+                "WC media uploads hit /wp/v2/media which only accepts "
+                "Application Passwords (not Consumer Key / Secret). "
+                "Leave empty if you don't use MCP for image uploads."
+            ),
         },
     ],
     "wordpress_advanced": [
@@ -67,21 +110,24 @@ PLUGIN_CREDENTIAL_FIELDS: dict[str, list[dict[str, Any]]] = {
             "label": "Username",
             "type": "text",
             "required": True,
-            "hint": "Your WordPress admin username",
+            "hint": "Your WordPress admin username (HTTP Basic username for every API call).",
         },
         {
             "name": "app_password",
             "label": "Application Password",
             "type": "password",
             "required": True,
-            "hint": "WordPress Admin → Users → Profile → Application Passwords",
+            "hint": (
+                "WordPress Admin → Users → Profile → Application Passwords. "
+                "IS the API credential — no separate API key needed."
+            ),
         },
         {
             "name": "container",
             "label": "Docker Container Name",
             "type": "text",
             "required": False,
-            "hint": "Docker container running WordPress (for WP-CLI access)",
+            "hint": "Docker container running WordPress (for WP-CLI access). Leave empty if unused.",
         },
     ],
     "gitea": [
@@ -652,6 +698,170 @@ async def update_user_site(
     site_dict.pop("credentials", None)
     logger.info("Updated site %s (%s) for user %s", site_id, plugin_type, user_id)
     return site_dict
+
+
+# ---------------------------------------------------------------------------
+# F.5a.9.x: per-site AI provider keys (OpenAI / Stability / Replicate)
+# ---------------------------------------------------------------------------
+
+# Only WordPress / WooCommerce sites can host AI image provider keys — the
+# only consumer is ``wordpress_generate_and_upload_image``, which uploads into
+# a WordPress media library. Other plugin types never surface the section.
+PROVIDER_KEYS_ALLOWED_PLUGIN_TYPES: frozenset[str] = frozenset({"wordpress", "woocommerce"})
+
+# Providers supported for per-site keys. Must stay in sync with
+# plugins/ai_image/registry.py ``_PROVIDERS`` (order is preserved to
+# drive the UI).
+SITE_PROVIDERS: tuple[str, ...] = ("openai", "stability", "replicate", "openrouter")
+
+
+def site_provider_scope(site_id: str, provider: str) -> str:
+    """Return the HKDF scope used for per-site provider-key encryption.
+
+    Format: ``site_provider:{site_id}:{provider}`` — distinct from the
+    per-site credentials scope (bare ``site_id``) so the same master key
+    never produces the same derived key for both credential types.
+    """
+    return f"site_provider:{site_id}:{provider}"
+
+
+def site_supports_provider_keys(plugin_type: str) -> bool:
+    """Return True if the plugin type can hold AI provider keys."""
+    return plugin_type in PROVIDER_KEYS_ALLOWED_PLUGIN_TYPES
+
+
+async def set_site_provider_key(
+    site_id: str,
+    user_id: str,
+    provider: str,
+    api_key: str,
+) -> dict[str, Any]:
+    """Encrypt and store an AI provider API key for a user-owned site.
+
+    Args:
+        site_id: Site UUID.
+        user_id: Owner's UUID (enforces tenant isolation).
+        provider: One of :data:`SITE_PROVIDERS`.
+        api_key: The plaintext API key to store.
+
+    Returns:
+        The stored row (without plaintext).
+
+    Raises:
+        ValueError: If the site is not found, the plugin type does not
+            support provider keys, the provider is unknown, or the key
+            is empty.
+    """
+    from core.database import get_database
+    from core.encryption import get_credential_encryption
+
+    if provider not in SITE_PROVIDERS:
+        raise ValueError(
+            f"Unsupported provider '{provider}'. " f"Supported: {', '.join(SITE_PROVIDERS)}"
+        )
+    if not api_key or not api_key.strip():
+        raise ValueError("API key must not be empty")
+
+    db = get_database()
+    site = await db.get_site(site_id, user_id)
+    if site is None:
+        raise ValueError("Site not found")
+
+    if not site_supports_provider_keys(site["plugin_type"]):
+        raise ValueError(
+            f"Plugin type '{site['plugin_type']}' does not support AI "
+            f"provider keys (only WordPress/WooCommerce)."
+        )
+
+    encryptor = get_credential_encryption()
+    ciphertext = encryptor.encrypt_for_scope(
+        api_key.strip(), site_provider_scope(site_id, provider)
+    )
+
+    row = await db.upsert_site_provider_key(site_id, provider, ciphertext)
+    logger.info("Stored %s provider key for site %s (user %s)", provider, site_id, user_id)
+    return row
+
+
+async def get_site_provider_key(
+    site_id: str,
+    provider: str,
+) -> str | None:
+    """Return the decrypted AI provider key for a site, or None.
+
+    Caller is responsible for verifying site ownership — this helper is
+    also called from the AI tool handler which already trusts the
+    resolved site_id.
+
+    Args:
+        site_id: Site UUID.
+        provider: Provider identifier.
+
+    Returns:
+        Decrypted API key string, or None if no key is stored.
+    """
+    from core.database import get_database
+    from core.encryption import get_credential_encryption
+
+    if provider not in SITE_PROVIDERS:
+        return None
+
+    db = get_database()
+    row = await db.get_site_provider_key(site_id, provider)
+    if row is None:
+        return None
+
+    encryptor = get_credential_encryption()
+    try:
+        return encryptor.decrypt_for_scope(
+            row["key_ciphertext"], site_provider_scope(site_id, provider)
+        )
+    except Exception:
+        logger.exception(
+            "Failed to decrypt site provider key (site=%s provider=%s)",
+            site_id,
+            provider,
+        )
+        return None
+
+
+async def list_site_providers_set(site_id: str) -> set[str]:
+    """Return the set of providers that have a key stored for the site."""
+    from core.database import get_database
+
+    db = get_database()
+    rows = await db.list_site_provider_keys(site_id)
+    return {row["provider"] for row in rows}
+
+
+async def delete_site_provider_key(
+    site_id: str,
+    user_id: str,
+    provider: str,
+) -> bool:
+    """Remove an AI provider key for a site. Returns True if a row was deleted.
+
+    Args:
+        site_id: Site UUID.
+        user_id: Owner's UUID — enforces tenant isolation before deletion.
+        provider: Provider identifier.
+    """
+    from core.database import get_database
+
+    db = get_database()
+    site = await db.get_site(site_id, user_id)
+    if site is None:
+        return False
+
+    deleted = await db.delete_site_provider_key(site_id, provider)
+    if deleted:
+        logger.info(
+            "Deleted %s provider key for site %s (user %s)",
+            provider,
+            site_id,
+            user_id,
+        )
+    return deleted
 
 
 async def test_site_connection(site_id: str, user_id: str) -> tuple[bool, str]:

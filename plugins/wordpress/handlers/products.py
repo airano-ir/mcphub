@@ -255,6 +255,18 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                                 "items": {
                                     "type": "object",
                                     "properties": {
+                                        "id": {
+                                            "type": "integer",
+                                            "minimum": 1,
+                                            "description": (
+                                                "Optional. Pass the global attribute "
+                                                "id from list_product_attributes to "
+                                                "link this product to an existing "
+                                                "global attribute (e.g. pa_color). "
+                                                "Omit (or set 0) to create an inline "
+                                                "custom attribute on this product only."
+                                            ),
+                                        },
                                         "name": {"type": "string"},
                                         "options": {"type": "array", "items": {"type": "string"}},
                                         "visible": {"type": "boolean"},
@@ -264,7 +276,12 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                             },
                             {"type": "null"},
                         ],
-                        "description": 'Product attributes for variable products (e.g., [{"name": "Color", "options": ["Red", "Blue"], "variation": true}])',
+                        "description": (
+                            "Product attributes for variable products. "
+                            'Custom (per-product): [{"name": "Color", "options": ["Red", "Blue"], "variation": true}]. '
+                            'Global (linked, recommended): [{"id": 1, "options": ["Red", "Blue"], "variation": true}] — '
+                            "use list_product_attributes to find existing ids."
+                        ),
                     },
                 },
                 "required": ["name"],

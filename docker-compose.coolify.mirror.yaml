@@ -1,0 +1,84 @@
+# ===================================
+# MCP Hub — Docker Compose (Coolify, mirror + proxy-fallback variant)
+# ===================================
+#
+# Identical to docker-compose.coolify.yaml except `dockerfile:` points
+# to Dockerfile.mirror. That file pulls base images from mirror.gcr.io,
+# uses a Yandex apk mirror, and falls back to a temporary HTTP proxy
+# when direct apk/pip calls fail. Switch the Coolify Source back to
+# docker-compose.coolify.yaml once the build host can reach Docker Hub,
+# Alpine CDN, and pypi.org directly again.
+#
+# Source mirror note (2026-04-16):
+#   Primary repo:  github.com/airano-ir/coolify-mcp-hub  (public)
+#   Gitea mirror:  gitea.palebluedot.live/atlatl/mcphub-internal  (private)
+#
+#   If Coolify cannot reach api.github.com (e.g. cURL error 28 on the
+#   api.github.com/zen health probe), point the Coolify Source at the
+#   Gitea mirror instead. Revert the source back to GitHub once the
+#   GitHub App connection is restored.
+# ===================================
+
+services:
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.mirror
+    container_name: mcphub
+    restart: unless-stopped
+
+    # No 'ports' — Coolify reverse proxy routes traffic via EXPOSE 8000
+
+    environment:
+      - PYTHONUNBUFFERED=1
+
+      # === REQUIRED ===
+      - MASTER_API_KEY=${MASTER_API_KEY}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - DASHBOARD_SESSION_SECRET=${DASHBOARD_SESSION_SECRET}
+
+      # === OAUTH SOCIAL LOGIN (for user registration) ===
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - PUBLIC_URL=${PUBLIC_URL:-}
+      - SESSION_EXPIRY_HOURS=${SESSION_EXPIRY_HOURS:-168}
+
+      # === ADMIN SYSTEM (F.4) ===
+      - ADMIN_EMAILS=${ADMIN_EMAILS:-}
+      - DISABLE_MASTER_KEY_LOGIN=${DISABLE_MASTER_KEY_LOGIN:-false}
+
+      # === LOGGING ===
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+
+      # === SITE MANAGEMENT (E.3) ===
+      - MAX_SITES_PER_USER=${MAX_SITES_PER_USER:-10}
+      - USER_RATE_LIMIT_PER_MIN=${USER_RATE_LIMIT_PER_MIN:-30}
+      - USER_RATE_LIMIT_PER_HR=${USER_RATE_LIMIT_PER_HR:-500}
+
+      # === SITES ===
+      # Sites are managed via the web dashboard (DB-based).
+      # After deployment, open the dashboard to add sites.
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    volumes:
+      - mcp-data:/app/data          # SQLite DB, API keys, OAuth data
+      - mcp-logs:/app/logs          # Audit logs, health reports
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+    # Coolify uses GID 988 for Docker socket
+    group_add:
+      - "988"
+
+volumes:
+  mcp-data:
+    driver: local
+  mcp-logs:
+    driver: local

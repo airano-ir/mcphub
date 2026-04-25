@@ -1,9 +1,15 @@
-"""Variables Handler - manages n8n environment variables"""
+"""Variables Handler - manages n8n environment variables."""
 
 import json
 from typing import Any
 
-from plugins.n8n.client import N8nClient
+from plugins.n8n.client import N8nApiError, N8nClient
+
+
+def _error_json(exc: Exception) -> str:
+    if isinstance(exc, N8nApiError):
+        return json.dumps({"success": False, **exc.to_dict()}, indent=2)
+    return json.dumps({"success": False, "error": str(exc)}, indent=2)
 
 
 def get_tool_specifications() -> list[dict[str, Any]]:
@@ -106,7 +112,7 @@ async def list_variables(client: N8nClient, limit: int = 100, cursor: str | None
         }
         return json.dumps(result, indent=2)
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def get_variable(client: N8nClient, key: str) -> str:
@@ -120,7 +126,7 @@ async def get_variable(client: N8nClient, key: str) -> str:
             indent=2,
         )
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def create_variable(client: N8nClient, key: str, value: str) -> str:
@@ -135,7 +141,7 @@ async def create_variable(client: N8nClient, key: str, value: str) -> str:
             indent=2,
         )
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def update_variable(client: N8nClient, key: str, value: str) -> str:
@@ -150,7 +156,7 @@ async def update_variable(client: N8nClient, key: str, value: str) -> str:
             indent=2,
         )
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def delete_variable(client: N8nClient, key: str) -> str:
@@ -158,7 +164,7 @@ async def delete_variable(client: N8nClient, key: str) -> str:
         await client.delete_variable(key)
         return json.dumps({"success": True, "message": f"Variable '{key}' deleted"}, indent=2)
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)
 
 
 async def set_variables(client: N8nClient, variables: dict[str, str]) -> str:
@@ -190,4 +196,4 @@ async def set_variables(client: N8nClient, variables: dict[str, str]) -> str:
             indent=2,
         )
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, indent=2)
+        return _error_json(e)

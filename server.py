@@ -57,6 +57,7 @@ from core import (
     get_tool_registry,
     set_api_key_context,
 )
+from core.capability_probe import api_site_capabilities, api_site_capabilities_badge
 from core.dashboard.routes import (
     # F.7b: Per-site tool visibility
     api_bulk_toggle_site_tools,
@@ -74,6 +75,11 @@ from core.dashboard.routes import (
     api_save_setting,
     api_scope_presets,
     api_set_site_tool_scope,
+    # F.18.8: Provider Keys Dashboard UI
+    api_site_provider_default_model,
+    api_site_provider_keys_delete,
+    api_site_provider_keys_list,
+    api_site_provider_keys_set,
     api_test_site,
     api_update_site,
     # E.2: OAuth Social Login routes
@@ -130,6 +136,7 @@ from core.i18n import detect_language, get_all_translations
 
 # OAuth and CSRF (Phase E)
 from core.oauth import get_csrf_manager
+from plugins.ai_image.providers.openrouter import api_openrouter_models
 
 # Configure logging
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -4743,9 +4750,17 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
         if hm:
             await hm.start_background_checks(interval_seconds=60)
 
+        # F.5a.5: reap expired chunked-upload sessions
+        from core.upload_sessions import CleanupTask as _UploadCleanupTask
+
+        upload_cleanup = _UploadCleanupTask()
+        await upload_cleanup.start()
+        logger.info("Upload-session cleanup task started")
+
         try:
             yield
         finally:
+            await upload_cleanup.stop()
             # Stop health monitor background checks
             if hm:
                 await hm.stop_background_checks()
@@ -4772,9 +4787,17 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
 
     # Build routes
     # Note: Order matters! More specific routes first
+    from core.companion_audit import handle_companion_audit_request
+
     routes = [
         # Health check
         Route("/health", health_check, methods=["GET"]),
+        # F.18.7: Companion plugin audit webhook receiver.
+        Route(
+            "/api/companion-audit",
+            handle_companion_audit_request,
+            methods=["POST"],
+        ),
         # Root redirect
         Route("/", root_redirect, methods=["GET"]),
         # Auth routes (E.2: OAuth Social Login)
@@ -4787,6 +4810,9 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
         Route("/dashboard/login", dashboard_login_submit, methods=["POST"]),
         Route("/dashboard/logout", dashboard_logout, methods=["GET", "POST"]),
         Route("/dashboard/profile", dashboard_profile_page, methods=["GET"]),
+        # F.18.8 /dashboard/provider-keys removed in F.5a.9.x — replaced by
+        # per-site AI keys in /dashboard/sites/{id}. See per-site routes
+        # registered below under "Site Management API".
         Route("/dashboard/sites/add", dashboard_sites_add, methods=["GET"]),
         Route("/dashboard/sites/{id}/edit", dashboard_sites_edit, methods=["GET"]),
         Route("/dashboard/sites/{id}", dashboard_sites_view, methods=["GET"]),
@@ -4874,6 +4900,46 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
         Route("/api/sites/{id}/test", api_test_site, methods=["POST"]),
         Route("/api/sites/{id}", api_delete_site, methods=["DELETE"]),
         Route("/api/sites/{id}", api_update_site, methods=["PATCH"]),
+        # F.5a.9.x: per-site AI provider keys
+        Route(
+            "/api/sites/{id}/provider-keys",
+            api_site_provider_keys_list,
+            methods=["GET"],
+        ),
+        # F.7e: credential capability probe
+        Route(
+            "/api/sites/{id}/capabilities",
+            api_site_capabilities,
+            methods=["GET"],
+        ),
+        # F.X.fix #9: HTMX partial for the capability badge
+        Route(
+            "/api/sites/{id}/capabilities/badge",
+            api_site_capabilities_badge,
+            methods=["GET"],
+        ),
+        # F.X.fix #12: OpenRouter image-model discovery
+        Route(
+            "/api/providers/openrouter/models",
+            api_openrouter_models,
+            methods=["GET"],
+        ),
+        Route(
+            "/api/sites/{id}/provider-keys/{provider}",
+            api_site_provider_keys_set,
+            methods=["POST"],
+        ),
+        Route(
+            "/api/sites/{id}/provider-keys/{provider}",
+            api_site_provider_keys_delete,
+            methods=["DELETE"],
+        ),
+        # F.X.fix-pass3: per-site default image model
+        Route(
+            "/api/sites/{id}/provider-keys/{provider}/default-model",
+            api_site_provider_default_model,
+            methods=["PATCH"],
+        ),
         # User API Key routes (E.3)
         Route("/api/keys", api_list_keys, methods=["GET"]),
         Route("/api/keys", api_create_key, methods=["POST"]),

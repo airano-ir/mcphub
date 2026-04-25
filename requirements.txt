@@ -27,3 +27,7 @@ aiosqlite>=0.20.0       # Async SQLite for user data, sites, API keys
 
 # User API key hashing (Track E.3)
 bcrypt>=4.0.0           # Secure password hashing for user API keys
+
+# Media upload (F.5a): image optimization and MIME sniffing
+Pillow>=10.2.0          # Image resize / compress / EXIF strip
+python-magic>=0.4.27    # Magic-byte MIME sniffing (requires libmagic system package)

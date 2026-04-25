@@ -565,60 +565,89 @@ class PostsHandler:
 
         Args:
             post_id: Post ID to retrieve
-            fields: Comma-separated list of fields to return (e.g., 'id,title,status')
+            fields: Comma-separated list of fields to return (e.g., 'id,title,status').
+                When set, behaves as a STRICT allow-list — only the
+                requested names (plus ``id``) are returned. Unknown
+                names are ignored.
 
         Returns:
-            JSON string with post data
+            JSON string with post data. Default projection includes
+            ``featured_media`` (int or 0), ``slug`` (str), and
+            ``featured_media_url`` (derived from
+            ``_embedded['wp:featuredmedia'][0].source_url``; empty
+            string when no featured image is set) so callers can
+            verify a post's featured image was set without a separate
+            media-fetch round trip.
         """
         try:
+            # F.X.fix #4: default projection includes the fields every
+            # caller asked for during F.X.test (featured_media, slug,
+            # featured_media_url). When ``fields`` is supplied we honour
+            # it as a STRICT allow-list — callers must opt in to each
+            # name explicitly, no hidden always-on subset beyond id.
             params = {"_embed": "true"}
+            field_map = {
+                "id": "id",
+                "title": "title",
+                "content": "content",
+                "excerpt": "excerpt",
+                "status": "status",
+                "date": "date",
+                "modified": "modified",
+                "author": "_embedded",
+                "categories": "categories",
+                "tags": "tags",
+                "link": "link",
+                "slug": "slug",
+                "featured_media": "featured_media",
+                "featured_media_url": "_embedded",
+                "word_count": "content",
+            }
             if fields:
-                # Map our field names to WordPress API _fields
-                wp_fields = set()
-                requested = {f.strip().lower() for f in fields.split(",")}
-                field_map = {
-                    "id": "id",
-                    "title": "title",
-                    "content": "content",
-                    "excerpt": "excerpt",
-                    "status": "status",
-                    "date": "date",
-                    "modified": "modified",
-                    "author": "_embedded",
-                    "categories": "categories",
-                    "tags": "tags",
-                    "link": "link",
-                    "slug": "slug",
-                }
+                wp_fields: set[str] = set()
+                requested = {f.strip().lower() for f in fields.split(",") if f.strip()}
                 for f in requested:
                     if f in field_map:
                         wp_fields.add(field_map[f])
-                # Always include id and title for basic identification
-                wp_fields.update({"id", "title"})
+                wp_fields.add("id")
                 params["_fields"] = ",".join(wp_fields)
 
             post = await self.client.get(f"posts/{post_id}", params=params)
+
+            # Derive featured_media_url from the embedded media entry.
+            # WP returns the embedded resource under
+            # ``_embedded['wp:featuredmedia']`` (hyphenated key, list of
+            # one). Empty string when no featured image is attached.
+            featured_media_url = ""
+            embedded = post.get("_embedded") or {}
+            media_entries = embedded.get("wp:featuredmedia") or []
+            if isinstance(media_entries, list) and media_entries:
+                first = media_entries[0] or {}
+                if isinstance(first, dict):
+                    featured_media_url = first.get("source_url") or ""
 
             # Build full result
             full_result = {
                 "id": post["id"],
                 "title": post.get("title", {}).get("rendered", ""),
+                "slug": post.get("slug", ""),
                 "content": post.get("content", {}).get("rendered", ""),
                 "excerpt": post.get("excerpt", {}).get("rendered", ""),
                 "status": post.get("status", ""),
                 "date": post.get("date", ""),
                 "modified": post.get("modified", ""),
-                "author": post.get("_embedded", {}).get("author", [{}])[0].get("name", "Unknown"),
+                "author": embedded.get("author", [{}])[0].get("name", "Unknown"),
                 "categories": post.get("categories", []),
                 "tags": post.get("tags", []),
                 "link": post.get("link", ""),
+                "featured_media": post.get("featured_media", 0) or 0,
+                "featured_media_url": featured_media_url,
                 "word_count": _count_words(post.get("content", {}).get("rendered", "")),
             }
 
-            # Filter to requested fields only
+            # Strict allow-list filtering when ``fields`` is provided.
             if fields:
-                requested = {f.strip().lower() for f in fields.split(",")}
-                # Always include id
+                requested = {f.strip().lower() for f in fields.split(",") if f.strip()}
                 requested.add("id")
                 result = {k: v for k, v in full_result.items() if k in requested}
             else:

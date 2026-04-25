@@ -188,7 +188,7 @@ class SEOHandler:
             # First, try to use the new health check endpoint (v1.1.0+)
             try:
                 status_result = await self.client.get(
-                    "airano-mcp-seo-bridge/v1/status", use_custom_namespace=True
+                    "airano-mcp-bridge/v1/status", use_custom_namespace=True
                 )
 
                 if status_result and isinstance(status_result, dict):
@@ -234,12 +234,17 @@ class SEOHandler:
             first_item = result[0] if isinstance(result, list) and len(result) > 0 else {}
             meta = first_item.get("meta", {})
 
-            # Check for Rank Math fields
+            # Check for Rank Math fields. Note: Rank Math stores the
+            # meta title under ``rank_math_title`` (NOT
+            # ``rank_math_seo_title``). The SEO API Bridge companion
+            # plugin reads/writes the canonical key; this detection
+            # must match or the plugin goes undetected even when
+            # active.
             rank_math_active = any(
                 key in meta
                 for key in [
                     "rank_math_focus_keyword",
-                    "rank_math_seo_title",
+                    "rank_math_title",
                     "rank_math_description",
                 ]
             )
@@ -312,7 +317,12 @@ class SEOHandler:
                 seo_data.update(
                     {
                         "focus_keyword": meta.get("rank_math_focus_keyword", ""),
-                        "seo_title": meta.get("rank_math_seo_title", ""),
+                        # F.X.fix #2: Rank Math's canonical meta-title key
+                        # is ``rank_math_title``. The previous reader
+                        # used ``rank_math_seo_title`` which does not
+                        # exist in the Rank Math schema, so seo_title
+                        # was always blank.
+                        "seo_title": meta.get("rank_math_title", ""),
                         "meta_description": meta.get("rank_math_description", ""),
                         "additional_keywords": meta.get("rank_math_additional_keywords", ""),
                         "canonical_url": meta.get("rank_math_canonical_url", ""),
@@ -383,7 +393,7 @@ class SEOHandler:
         try:
             # Use SEO API Bridge endpoint for products (same as update_product_seo)
             result = await self.client.get(
-                f"airano-mcp-seo-bridge/v1/products/{product_id}/seo", use_custom_namespace=True
+                f"airano-mcp-bridge/v1/products/{product_id}/seo", use_custom_namespace=True
             )
 
             return json.dumps(result, indent=2)
@@ -452,11 +462,14 @@ class SEOHandler:
             meta = {}
 
             if seo_check.get("rank_math", {}).get("active"):
-                # Use Rank Math field names
+                # Use Rank Math field names. F.X.fix #2: canonical meta
+                # title key is ``rank_math_title`` (NOT
+                # ``rank_math_seo_title``) — the latter was silently
+                # written to an unread key so seo_title never appeared.
                 if focus_keyword is not None:
                     meta["rank_math_focus_keyword"] = focus_keyword
                 if seo_title is not None:
-                    meta["rank_math_seo_title"] = seo_title
+                    meta["rank_math_title"] = seo_title
                 if meta_description is not None:
                     meta["rank_math_description"] = meta_description
                 if additional_keywords is not None:
@@ -592,7 +605,7 @@ class SEOHandler:
 
             # Use SEO API Bridge endpoint for products
             await self.client.post(
-                f"airano-mcp-seo-bridge/v1/products/{product_id}/seo",
+                f"airano-mcp-bridge/v1/products/{product_id}/seo",
                 json_data=data,
                 use_custom_namespace=True,
             )

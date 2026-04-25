@@ -57,7 +57,7 @@ Your personal MCP endpoint:
 https://mcp.example.com/u/{your-user-id}/{alias}/mcp
 ```
 
-**WordPress users:** Install the [Airano MCP SEO Bridge](https://wordpress.org/plugins/airano-mcp-seo-bridge/) plugin for SEO tools, and create an [Application Password](https://make.wordpress.org/core/2020/11/05/application-passwords-integration-guide/) (Users → Profile) for authentication.
+**WordPress users:** Install the [Airano MCP SEO Bridge](https://wordpress.org/plugins/airano-mcp-bridge/) plugin for SEO tools, and create an [Application Password](https://make.wordpress.org/core/2020/11/05/application-passwords-integration-guide/) (Users → Profile) for authentication.
 
 > If you prefer self-hosting, continue with the options below.
 

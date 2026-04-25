@@ -604,6 +604,103 @@ class TestSiteToolToggles:
         assert await db.get_site_tool_scope("does-not-exist") == "admin"
 
 
+class TestSiteProviderKeys:
+    """F.5a.9.x: per-site AI provider key CRUD + cascade on site delete."""
+
+    @pytest.mark.unit
+    async def test_empty_list_by_default(self, db, site_row):
+        assert await db.list_site_provider_keys(site_row["id"]) == []
+
+    @pytest.mark.unit
+    async def test_upsert_and_get(self, db, site_row):
+        row = await db.upsert_site_provider_key(site_row["id"], "openai", b"ciphertext-bytes")
+        assert row["provider"] == "openai"
+        assert row["site_id"] == site_row["id"]
+
+        fetched = await db.get_site_provider_key(site_row["id"], "openai")
+        assert fetched is not None
+        assert fetched["key_ciphertext"] == b"ciphertext-bytes"
+
+    @pytest.mark.unit
+    async def test_upsert_replaces_existing(self, db, site_row):
+        await db.upsert_site_provider_key(site_row["id"], "openai", b"first")
+        await db.upsert_site_provider_key(site_row["id"], "openai", b"second")
+
+        fetched = await db.get_site_provider_key(site_row["id"], "openai")
+        assert fetched is not None
+        assert fetched["key_ciphertext"] == b"second"
+
+    @pytest.mark.unit
+    async def test_list_orders_by_provider(self, db, site_row):
+        await db.upsert_site_provider_key(site_row["id"], "stability", b"s")
+        await db.upsert_site_provider_key(site_row["id"], "openai", b"o")
+        await db.upsert_site_provider_key(site_row["id"], "replicate", b"r")
+
+        rows = await db.list_site_provider_keys(site_row["id"])
+        providers = [r["provider"] for r in rows]
+        assert providers == ["openai", "replicate", "stability"]
+        # list_* excludes ciphertext
+        assert all("key_ciphertext" not in r for r in rows)
+
+    @pytest.mark.unit
+    async def test_delete(self, db, site_row):
+        await db.upsert_site_provider_key(site_row["id"], "openai", b"x")
+        deleted = await db.delete_site_provider_key(site_row["id"], "openai")
+        assert deleted is True
+        assert await db.get_site_provider_key(site_row["id"], "openai") is None
+
+    @pytest.mark.unit
+    async def test_delete_missing_returns_false(self, db, site_row):
+        assert await db.delete_site_provider_key(site_row["id"], "openai") is False
+
+    @pytest.mark.unit
+    async def test_touch_updates_last_used(self, db, site_row):
+        await db.upsert_site_provider_key(site_row["id"], "openai", b"x")
+        fetched_before = await db.get_site_provider_key(site_row["id"], "openai")
+        assert fetched_before is not None
+        assert fetched_before["last_used"] is None
+
+        await db.touch_site_provider_key(site_row["id"], "openai")
+        fetched_after = await db.get_site_provider_key(site_row["id"], "openai")
+        assert fetched_after is not None
+        assert fetched_after["last_used"] is not None
+
+    @pytest.mark.unit
+    async def test_cascade_delete_on_site(self, db, user_row, site_row):
+        await db.upsert_site_provider_key(site_row["id"], "openai", b"x")
+        await db.delete_site(site_row["id"], user_row["id"])
+
+        rows = await db.fetchall(
+            "SELECT * FROM site_provider_keys WHERE site_id = ?",
+            (site_row["id"],),
+        )
+        assert rows == []
+
+    @pytest.mark.unit
+    async def test_two_sites_keys_are_isolated(self, db, user_row):
+        s1 = await db.create_site(
+            user_id=user_row["id"],
+            plugin_type="wordpress",
+            alias="a",
+            url="https://a.example.com",
+            credentials=b"c1",
+        )
+        s2 = await db.create_site(
+            user_id=user_row["id"],
+            plugin_type="woocommerce",
+            alias="b",
+            url="https://b.example.com",
+            credentials=b"c2",
+        )
+        await db.upsert_site_provider_key(s1["id"], "openai", b"A")
+        await db.upsert_site_provider_key(s2["id"], "openai", b"B")
+
+        got_a = await db.get_site_provider_key(s1["id"], "openai")
+        got_b = await db.get_site_provider_key(s2["id"], "openai")
+        assert got_a is not None and got_a["key_ciphertext"] == b"A"
+        assert got_b is not None and got_b["key_ciphertext"] == b"B"
+
+
 class TestModuleHelpers:
     """Test get_database() and initialize_database() helpers."""
 

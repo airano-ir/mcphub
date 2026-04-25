@@ -178,6 +178,35 @@ class CredentialEncryption:
         json_str = self.decrypt(cipherdata, site_id)
         return json.loads(json_str)
 
+    def encrypt_for_scope(self, plaintext: str, scope: str) -> bytes:
+        """Encrypt a plaintext string using an arbitrary HKDF scope string.
+
+        Used when the encrypted value is not a per-site credentials blob but
+        still needs per-key isolation (e.g. per-site AI provider API keys
+        where scope is ``site_provider:{site_id}:{provider}``).
+
+        Args:
+            plaintext: The string to encrypt.
+            scope: Scope string used as HKDF info for key derivation. Any
+                caller reading back the ciphertext must pass the same scope.
+
+        Returns:
+            Encrypted bytes (same wire format as :meth:`encrypt`).
+        """
+        return self.encrypt(plaintext, scope)
+
+    def decrypt_for_scope(self, cipherdata: bytes, scope: str) -> str:
+        """Decrypt cipherdata produced by :meth:`encrypt_for_scope`.
+
+        Args:
+            cipherdata: Encrypted bytes.
+            scope: Scope string — must exactly match what was used to encrypt.
+
+        Returns:
+            Original plaintext string.
+        """
+        return self.decrypt(cipherdata, scope)
+
 
 # Global credential encryption instance
 _credential_encryption: CredentialEncryption | None = None

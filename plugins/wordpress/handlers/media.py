@@ -1,11 +1,23 @@
 """Media Handler - manages WordPress media library operations"""
 
+import base64 as _b64
+import binascii
 import json
 from typing import Any
 
-import aiohttp
-
+from core.media_audit import log_media_upload
 from plugins.wordpress.client import WordPressClient
+from plugins.wordpress.handlers._media_core import (
+    fetch_url_bytes,
+    wp_raw_upload,
+    wp_set_featured_media,
+    wp_update_media_metadata,
+)
+from plugins.wordpress.handlers._media_security import (
+    DEFAULT_MAX_BYTES,
+    UploadError,
+    ssrf_check,
+)
 
 
 def get_tool_specifications() -> list[dict[str, Any]]:
@@ -61,13 +73,17 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         {
             "name": "upload_media_from_url",
             "method_name": "upload_media_from_url",
-            "description": "Upload media from URL to media library (sideload). Downloads file from public URL and uploads to WordPress.",
+            "description": "Upload media from a public URL to the WordPress media library (sideload). Downloads the file with SSRF protection, sniffs MIME, and uploads via raw-binary POST.",
             "schema": {
                 "type": "object",
                 "properties": {
                     "url": {
                         "type": "string",
-                        "description": "Public URL of the media file to upload (image, video, document, etc.)",
+                        "description": "Public HTTPS URL of the media file",
+                    },
+                    "filename": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Override filename (default: derived from URL)",
                     },
                     "title": {
                         "anyOf": [{"type": "string"}, {"type": "null"}],
@@ -75,14 +91,93 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                     },
                     "alt_text": {
                         "anyOf": [{"type": "string"}, {"type": "null"}],
-                        "description": "Alternative text for accessibility (important for images)",
+                        "description": "Alternative text for accessibility",
                     },
                     "caption": {
                         "anyOf": [{"type": "string"}, {"type": "null"}],
-                        "description": "Media caption (displayed below image when inserted into content)",
+                        "description": "Media caption",
+                    },
+                    "attach_to_post": {
+                        "anyOf": [{"type": "integer"}, {"type": "null"}],
+                        "description": "Attach uploaded media to this post/page ID",
+                    },
+                    "set_featured": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": "If true and attach_to_post is set, also set as the post's featured image",
+                    },
+                    "skip_optimize": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": "Skip server-side image optimization (F.5a.2)",
+                    },
+                    "convert_to": {
+                        "anyOf": [{"type": "string", "enum": ["webp", "avif"]}, {"type": "null"}],
+                        "description": (
+                            "F.5a.8.1: re-encode the image in a modern format before upload. "
+                            "'webp' or 'avif'. Falls back to WebP if AVIF is unavailable. "
+                            "Leave null to keep source format (or use WP_MEDIA_CONVERT_TO env default)."
+                        ),
                     },
                 },
                 "required": ["url"],
+            },
+            "scope": "write",
+        },
+        {
+            "name": "upload_media_from_base64",
+            "method_name": "upload_media_from_base64",
+            "description": "Upload a base64-encoded file directly to the WordPress media library. For chat-attached images/files smaller than ~10 MB. Use upload_media_from_url for larger files or chunked path later.",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "type": "string",
+                        "description": "Base64-encoded file bytes (no data: URL prefix required; prefix will be stripped if present)",
+                    },
+                    "filename": {
+                        "type": "string",
+                        "description": "Filename including extension (e.g. 'cover.jpg')",
+                    },
+                    "mime": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Client-supplied MIME hint; ignored if magic-byte sniff says otherwise",
+                    },
+                    "title": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Media title",
+                    },
+                    "alt_text": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Alternative text",
+                    },
+                    "caption": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Caption",
+                    },
+                    "attach_to_post": {
+                        "anyOf": [{"type": "integer"}, {"type": "null"}],
+                        "description": "Attach to this post/page ID",
+                    },
+                    "set_featured": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": "Also set as the post's featured image",
+                    },
+                    "skip_optimize": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": "Skip server-side image optimization",
+                    },
+                    "convert_to": {
+                        "anyOf": [{"type": "string", "enum": ["webp", "avif"]}, {"type": "null"}],
+                        "description": (
+                            "F.5a.8.1: re-encode the image in a modern format before upload. "
+                            "'webp' or 'avif'. Falls back to WebP if AVIF is unavailable."
+                        ),
+                    },
+                },
+                "required": ["data", "filename"],
             },
             "scope": "write",
         },
@@ -157,17 +252,162 @@ def get_tool_specifications() -> list[dict[str, Any]]:
     ]
 
 
+def _decode_base64(data: str) -> bytes:
+    """Accept raw base64 or data: URL prefix; return decoded bytes."""
+    s = (data or "").strip()
+    if s.startswith("data:") and "," in s:
+        s = s.split(",", 1)[1]
+    s = s.replace("\n", "").replace("\r", "").replace(" ", "")
+    try:
+        return _b64.b64decode(s, validate=True)
+    except (binascii.Error, ValueError) as e:
+        raise UploadError("BAD_BASE64", f"Invalid base64 payload: {e}") from e
+
+
+def _maybe_optimize(
+    data: bytes,
+    mime_hint: str | None,
+    *,
+    skip: bool,
+    convert_to: str | None = None,
+) -> tuple[bytes, str | None]:
+    """Route image bytes through the F.5a.2 optimize pipeline.
+
+    F.5a.8.1: ``convert_to`` is forwarded to the optimizer so callers can
+    force WebP/AVIF output. A falsy value defers to the ``WP_MEDIA_CONVERT_TO``
+    env var.
+    """
+    if skip:
+        return data, mime_hint
+    try:
+        from plugins.wordpress.handlers._media_optimize import optimize  # type: ignore
+    except ImportError:
+        return data, mime_hint
+    return optimize(data, mime_hint, convert_to=convert_to)
+
+
+async def _apply_metadata_and_attach(
+    client: WordPressClient,
+    media: dict[str, Any],
+    *,
+    title: str | None,
+    alt_text: str | None,
+    caption: str | None,
+    attach_to_post: int | None,
+    set_featured: bool,
+    wc_client: WordPressClient | None = None,
+) -> dict[str, Any]:
+    """Apply metadata + attach to post / featured-image.
+
+    F.5a.8.5 — when the companion's single-call ``upload-and-attach``
+    route already applied these fields, skip everything (saves 1-2
+    redundant round-trips).
+
+    F.X.fix-pass6 — return a status dict so callers can surface
+    "media uploaded but featured failed" as partial success instead
+    of a misleading GENERATION_FAILED. When ``set_featured`` targets
+    a WooCommerce product (CPT, not addressable via /wp/v2/posts/{id}),
+    route through the WC products endpoint via ``wc_client``. Both
+    "metadata applied" and "featured set" steps are reported
+    independently in the result dict.
+    """
+    status: dict[str, Any] = {
+        "metadata_applied": False,
+        "featured_set": False,
+        "featured_context": None,
+        "warnings": [],
+    }
+    if media.get("_upload_route") == "companion_unified":
+        # Companion did metadata + attach + featured atomically.
+        status["metadata_applied"] = True
+        status["featured_set"] = bool(set_featured and attach_to_post)
+        status["featured_context"] = "companion_unified"
+        return status
+
+    if any(v is not None for v in (title, alt_text, caption)) or attach_to_post is not None:
+        try:
+            await wp_update_media_metadata(
+                client,
+                media["id"],
+                title=title,
+                alt_text=alt_text,
+                caption=caption,
+                post=attach_to_post,
+            )
+            status["metadata_applied"] = True
+        except Exception as exc:  # noqa: BLE001
+            status["warnings"].append(f"metadata_failed: {exc}")
+
+    if set_featured and attach_to_post is not None:
+        # 1. WC product first (CPT). Falls through to /wp/v2/posts on miss.
+        wc = wc_client or client
+        wc_product = None
+        try:
+            wc_product = await wc.get(f"products/{attach_to_post}", use_woocommerce=True)
+        except Exception:
+            wc_product = None
+
+        if isinstance(wc_product, dict) and wc_product.get("id"):
+            try:
+                existing_images = list(wc_product.get("images") or [])
+                # Featured = images[0]; preserve gallery via the same
+                # merge primitive used by attach_media_to_product.
+                from plugins.wordpress.handlers.media_attach import _merge_product_images
+
+                new_images = _merge_product_images(
+                    existing=existing_images,
+                    new_ids=[media["id"]],
+                    role="main",
+                    mode="replace",
+                )
+                await wc.put(
+                    f"products/{attach_to_post}",
+                    json_data={"images": new_images},
+                    use_woocommerce=True,
+                )
+                status["featured_set"] = True
+                status["featured_context"] = "product"
+            except Exception as exc:  # noqa: BLE001
+                status["warnings"].append(f"featured_set_failed (product): {exc}")
+        else:
+            try:
+                await wp_set_featured_media(client, attach_to_post, media["id"])
+                status["featured_set"] = True
+                status["featured_context"] = "post"
+            except Exception as exc:  # noqa: BLE001
+                status["warnings"].append(f"featured_set_failed (post): {exc}")
+
+    return status
+
+
+def _format_upload_result(media: dict[str, Any], *, source: str) -> dict[str, Any]:
+    title = media.get("title")
+    rendered_title = title.get("rendered") if isinstance(title, dict) else title
+    return {
+        "id": media["id"],
+        "title": rendered_title or "",
+        "url": media.get("source_url", ""),
+        "mime_type": media.get("mime_type", ""),
+        "media_type": media.get("media_type", ""),
+        "size_bytes": media.get("media_details", {}).get("filesize"),
+        "source": source,
+        "message": f"Media uploaded successfully (id={media['id']}).",
+    }
+
+
 class MediaHandler:
     """Handle media-related operations for WordPress"""
 
-    def __init__(self, client: WordPressClient):
+    def __init__(self, client: WordPressClient, *, user_id: str | None = None):
         """
         Initialize media handler.
 
         Args:
             client: WordPress API client instance
+            user_id: Calling user id, used for audit logging (None = admin/env)
         """
         self.client = client
+        self.user_id = user_id
 
     # === MEDIA ===
 
@@ -207,6 +447,11 @@ class MediaHandler:
                         "date": m["date"],
                         "alt_text": m.get("alt_text", ""),
                         "link": m.get("link", ""),
+                        # F.X.fix #6: expose post_parent so callers can
+                        # verify "is media X attached to post Y" without
+                        # a second WP REST round trip. WP returns 0 for
+                        # unattached media; we preserve that.
+                        "post_parent": m.get("post") or 0,
                     }
                     for m in media
                 ],
@@ -244,6 +489,9 @@ class MediaHandler:
                 "modified": media.get("modified", ""),
                 "link": media.get("link", ""),
                 "media_details": media.get("media_details", {}),
+                # F.X.fix #6: expose post_parent so attach-verification
+                # doesn't need a second round trip via posts/{id}.
+                "post_parent": media.get("post") or 0,
             }
 
             return json.dumps(result, indent=2)
@@ -255,82 +503,123 @@ class MediaHandler:
     async def upload_media_from_url(
         self,
         url: str,
+        filename: str | None = None,
         title: str | None = None,
         alt_text: str | None = None,
         caption: str | None = None,
+        attach_to_post: int | None = None,
+        set_featured: bool = False,
+        skip_optimize: bool = False,
+        convert_to: str | None = None,
     ) -> str:
-        """
-        Upload media from URL to media library (sideload).
-
-        Downloads file from a public URL and uploads it to WordPress media library.
-
-        Args:
-            url: Public URL of the media file to upload
-            title: Media title (used in media library)
-            alt_text: Alternative text for accessibility
-            caption: Media caption (displayed below image)
-
-        Returns:
-            JSON string with uploaded media data
-        """
+        """Upload media from a public URL to the WordPress media library."""
         try:
-            # Download file from URL
-            async with aiohttp.ClientSession() as session, session.get(url) as response:
-                if response.status >= 400:
-                    raise Exception(f"Failed to download from URL: HTTP {response.status}")
+            ssrf = ssrf_check(url)
+            if not ssrf.allowed:
+                raise UploadError(
+                    "SSRF", ssrf.reason or "URL rejected by SSRF guard.", {"url": url}
+                )
 
-                file_content = await response.read()
-                content_type = response.headers.get("Content-Type", "application/octet-stream")
+            data, declared_ct, fname_guess = await fetch_url_bytes(url, max_bytes=DEFAULT_MAX_BYTES)
+            data, mime_hint = _maybe_optimize(
+                data, declared_ct, skip=skip_optimize, convert_to=convert_to
+            )
 
-                # Extract filename from URL
-                filename = url.split("/")[-1].split("?")[0]
-                if not filename:
-                    filename = "downloaded_file"
+            media = await wp_raw_upload(
+                self.client,
+                data,
+                filename=filename or fname_guess,
+                mime_hint=mime_hint or declared_ct,
+                # F.5a.8.5: forward metadata so the companion's single-
+                # call route (when advertised) bundles upload + attach +
+                # featured in one PHP request. ``_apply_metadata_and_attach``
+                # below is a no-op in that case.
+                attach_to_post=attach_to_post,
+                set_featured=set_featured,
+                title=title,
+                alt_text=alt_text,
+                caption=caption,
+            )
+            await _apply_metadata_and_attach(
+                self.client,
+                media,
+                title=title,
+                alt_text=alt_text,
+                caption=caption,
+                attach_to_post=attach_to_post,
+                set_featured=set_featured,
+            )
 
-            # Create FormData for upload
-            form = aiohttp.FormData()
-            form.add_field("file", file_content, filename=filename, content_type=content_type)
-
-            # Upload to WordPress using client's upload method
-            # Note: We need to use the client's base_url and auth directly for file upload
-            upload_url = f"{self.client.base_url}/media"
-            headers = {
-                "Authorization": self.client.auth_header,
-                "Content-Disposition": f'attachment; filename="{filename}"',
-            }
-
-            async with aiohttp.ClientSession() as session:
-                async with session.post(upload_url, data=form, headers=headers) as response:
-                    if response.status >= 400:
-                        error_text = await response.text()
-                        raise Exception(f"Upload failed (HTTP {response.status}): {error_text}")
-
-                    media = await response.json()
-
-            # Update metadata if provided
-            if title or alt_text or caption:
-                update_data = {}
-                if title:
-                    update_data["title"] = title
-                if alt_text:
-                    update_data["alt_text"] = alt_text
-                if caption:
-                    update_data["caption"] = caption
-
-                await self.client.post(f"media/{media['id']}", json_data=update_data)
-
-            result = {
-                "id": media["id"],
-                "title": media["title"]["rendered"],
-                "url": media["source_url"],
-                "mime_type": media["mime_type"],
-                "message": f"Media uploaded from URL successfully with ID {media['id']}",
-            }
-
-            return json.dumps(result, indent=2)
+            log_media_upload(
+                site=self.client.site_url,
+                user_id=self.user_id,
+                mime=media.get("mime_type") or mime_hint or declared_ct,
+                size_bytes=len(data),
+                source="url",
+                media_id=media.get("id"),
+            )
+            return json.dumps(_format_upload_result(media, source=url), indent=2)
+        except UploadError as e:
+            return json.dumps(e.to_dict(), indent=2)
         except Exception as e:
             return json.dumps(
-                {"error": str(e), "message": f"Failed to upload media from URL: {str(e)}"}, indent=2
+                {"error_code": "INTERNAL", "message": f"Upload from URL failed: {e}"}, indent=2
+            )
+
+    async def upload_media_from_base64(
+        self,
+        data: str,
+        filename: str,
+        mime: str | None = None,
+        title: str | None = None,
+        alt_text: str | None = None,
+        caption: str | None = None,
+        attach_to_post: int | None = None,
+        set_featured: bool = False,
+        skip_optimize: bool = False,
+        convert_to: str | None = None,
+    ) -> str:
+        """Upload a base64-encoded file to the WordPress media library."""
+        try:
+            raw = _decode_base64(data)
+            raw, mime_hint = _maybe_optimize(raw, mime, skip=skip_optimize, convert_to=convert_to)
+
+            media = await wp_raw_upload(
+                self.client,
+                raw,
+                filename=filename,
+                mime_hint=mime_hint or mime,
+                # F.5a.8.5: single-call path when companion advertises it.
+                attach_to_post=attach_to_post,
+                set_featured=set_featured,
+                title=title,
+                alt_text=alt_text,
+                caption=caption,
+            )
+            await _apply_metadata_and_attach(
+                self.client,
+                media,
+                title=title,
+                alt_text=alt_text,
+                caption=caption,
+                attach_to_post=attach_to_post,
+                set_featured=set_featured,
+            )
+
+            log_media_upload(
+                site=self.client.site_url,
+                user_id=self.user_id,
+                mime=media.get("mime_type") or mime_hint or mime,
+                size_bytes=len(raw),
+                source="base64",
+                media_id=media.get("id"),
+            )
+            return json.dumps(_format_upload_result(media, source="base64"), indent=2)
+        except UploadError as e:
+            return json.dumps(e.to_dict(), indent=2)
+        except Exception as e:
+            return json.dumps(
+                {"error_code": "INTERNAL", "message": f"Base64 upload failed: {e}"}, indent=2
             )
 
     async def update_media(

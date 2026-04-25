@@ -6,6 +6,7 @@ and audit trail.
 """
 
 import hashlib
+import hmac
 import json
 import logging
 import os
@@ -185,13 +186,60 @@ class APIKeyManager:
         """Hash API key for storage using bcrypt."""
         return bcrypt.hashpw(api_key.encode(), bcrypt.gensalt()).decode()
 
+    @staticmethod
+    def _is_bcrypt_hash(key_hash: str) -> bool:
+        """Return True if the stored hash is in bcrypt format ($2a/$2b/$2y)."""
+        return key_hash.startswith("$2")
+
     def _verify_key(self, api_key: str, key_hash: str) -> bool:
-        """Verify API key against stored hash (supports bcrypt and legacy SHA-256)."""
-        if key_hash.startswith("$2"):
-            # bcrypt hash
-            return bcrypt.checkpw(api_key.encode(), key_hash.encode())
-        # Legacy SHA-256 fallback
-        return hashlib.sha256(api_key.encode()).hexdigest() == key_hash
+        """Verify API key against stored hash.
+
+        Supports both the current bcrypt format and a legacy SHA-256
+        fallback so pre-bcrypt keys keep working. F.8 security-
+        hardening note: SHA-256 is a fast hash with no per-hash salt —
+        a stolen keys.json file would enable offline brute-force on
+        any legacy entry. We therefore:
+
+        1. accept legacy hashes here (so customers aren't locked out), and
+        2. opportunistically upgrade every legacy hash to bcrypt the
+           first time it's successfully verified (see
+           :meth:`_upgrade_legacy_hash`).
+
+        Brand-new keys created via :meth:`create_key` are always
+        bcrypt-hashed — legacy SHA-256 only appears for rows that
+        existed before the F.4 / F.8 hardening passes.
+        """
+        if self._is_bcrypt_hash(key_hash):
+            try:
+                return bcrypt.checkpw(api_key.encode(), key_hash.encode())
+            except ValueError:
+                # Truncated / corrupt bcrypt hash — treat as mismatch
+                # rather than raising.
+                return False
+        # Legacy SHA-256 fallback (constant-time compare to avoid
+        # timing oracles on the legacy-hash path).
+        expected = hashlib.sha256(api_key.encode()).hexdigest()
+        return hmac.compare_digest(expected, key_hash)
+
+    def _upgrade_legacy_hash(self, key: APIKey, api_key: str) -> bool:
+        """Re-hash a legacy SHA-256 entry with bcrypt and persist.
+
+        Called from the verify paths the moment a legacy hash is
+        successfully matched, so the next verify uses bcrypt. Returns
+        True when an upgrade happened, False otherwise. Errors during
+        persist are logged but swallowed — the key still validates,
+        we just try again next time.
+        """
+        if self._is_bcrypt_hash(key.key_hash):
+            return False
+        try:
+            key.key_hash = self._hash_key(api_key)
+            self._save_keys()
+            logger.info("Upgraded legacy SHA-256 key hash %s to bcrypt", key.key_id)
+            return True
+        except Exception as exc:  # pragma: no cover — defensive
+            logger.warning("Failed to upgrade legacy hash for key %s: %s", key.key_id, exc)
+            return False
 
     def create_key(
         self,
@@ -283,6 +331,9 @@ class APIKeyManager:
         for key_id, key in self.keys.items():
             if not self._verify_key(api_key, key.key_hash):
                 continue
+            # F.8: opportunistically upgrade legacy SHA-256 hashes to bcrypt
+            # the moment they validate successfully.
+            self._upgrade_legacy_hash(key, api_key)
 
             # Check if valid (not revoked, not expired)
             if not key.is_valid():
@@ -351,6 +402,8 @@ class APIKeyManager:
         """
         for key_id, key in self.keys.items():
             if self._verify_key(api_key, key.key_hash):
+                # F.8: upgrade legacy SHA-256 hashes on first successful match.
+                self._upgrade_legacy_hash(key, api_key)
                 logger.debug(f"Found API key {key_id} by token")
                 return key
 

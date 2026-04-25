@@ -10,6 +10,15 @@
 #   2. Fill environment variables in Coolify UI
 #   3. Set domain (e.g., mcp.yourdomain.com)
 #   4. Deploy
+#
+# Source mirror note (2026-04-16):
+#   Primary repo:  github.com/airano-ir/coolify-mcp-hub  (public)
+#   Gitea mirror:  gitea.palebluedot.live/atlatl/mcphub-internal  (private)
+#
+#   If Coolify cannot reach api.github.com (e.g. cURL error 28 on the
+#   api.github.com/zen health probe), point the Coolify Source at the
+#   Gitea mirror instead. Revert the source back to GitHub once the
+#   GitHub App connection is restored.
 # ===================================
 
 services:
