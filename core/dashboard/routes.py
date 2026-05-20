@@ -5126,14 +5126,16 @@ async def api_list_sites(request: Request) -> Response:
     if redirect:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
-    from core.site_api import MAX_SITES_PER_USER, get_user_sites
+    from core.settings import get_cached_max_sites
+    from core.site_api import get_user_sites
 
     sites = await get_user_sites(user_session["user_id"])
+    limit = get_cached_max_sites()
     return JSONResponse(
         {
             "sites": sites,
-            "limit": MAX_SITES_PER_USER,
-            "remaining": max(0, MAX_SITES_PER_USER - len(sites)),
+            "limit": limit,
+            "remaining": max(0, limit - len(sites)),
         }
     )
 
