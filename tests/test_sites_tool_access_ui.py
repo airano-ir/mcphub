@@ -75,48 +75,53 @@ def client(monkeypatch, user_row, patched_db, patched_access):
 
 class TestSitesEditRedirect:
     def test_edit_page_redirects_to_manage(self, client, coolify_site):
-        """F.7c: /sites/{id}/edit now redirects to unified /sites/{id}."""
-        r = client.get(f"/dashboard/sites/{coolify_site['id']}/edit")
-        assert r.status_code == 301
-        assert f"/dashboard/sites/{coolify_site['id']}" in r.headers["location"]
+        """F.7c: /sites/{id}/edit now redirects to unified /sites/{id}.
+
+        The handler returns 302 (not 301) on purpose — see the comment in
+        dashboard_sites_edit — so reloads always re-hit the server instead
+        of browsers caching the redirect by exact URL+query.
+        """
+        r = client.get(f"/dashboard-legacy/sites/{coolify_site['id']}/edit")
+        assert r.status_code == 302
+        assert f"/dashboard-legacy/sites/{coolify_site['id']}" in r.headers["location"]
 
 
 class TestUnifiedSiteManagePage:
     def test_manage_page_renders_without_500(self, client, coolify_site):
-        r = client.get(f"/dashboard/sites/{coolify_site['id']}")
+        r = client.get(f"/dashboard-legacy/sites/{coolify_site['id']}")
         assert r.status_code == 200
 
     def test_manage_page_has_connection_section(self, client, coolify_site):
-        r = client.get(f"/dashboard/sites/{coolify_site['id']}")
+        r = client.get(f"/dashboard-legacy/sites/{coolify_site['id']}")
         assert r.status_code == 200
         assert "connection-section" in r.text
 
     def test_manage_page_has_tool_access_section(self, client, coolify_site):
-        r = client.get(f"/dashboard/sites/{coolify_site['id']}")
+        r = client.get(f"/dashboard-legacy/sites/{coolify_site['id']}")
         assert r.status_code == 200
         assert "tool-access-content" in r.text or "Tool Access" in r.text
 
     def test_manage_page_has_scope_tiers(self, client, coolify_site):
-        r = client.get(f"/dashboard/sites/{coolify_site['id']}")
+        r = client.get(f"/dashboard-legacy/sites/{coolify_site['id']}")
         assert r.status_code == 200
         assert "scope-tiers" in r.text
 
     def test_manage_page_shows_mcp_url(self, client, coolify_site):
-        r = client.get(f"/dashboard/sites/{coolify_site['id']}")
+        r = client.get(f"/dashboard-legacy/sites/{coolify_site['id']}")
         assert r.status_code == 200
         assert "mcp-url" in r.text
         assert coolify_site["alias"] in r.text
 
     def test_manage_page_has_config_snippets(self, client, coolify_site):
-        r = client.get(f"/dashboard/sites/{coolify_site['id']}")
+        r = client.get(f"/dashboard-legacy/sites/{coolify_site['id']}")
         assert r.status_code == 200
         assert "config-client" in r.text
 
     def test_manage_page_has_quick_key_create(self, client, coolify_site):
-        r = client.get(f"/dashboard/sites/{coolify_site['id']}")
+        r = client.get(f"/dashboard-legacy/sites/{coolify_site['id']}")
         assert r.status_code == 200
         assert "quick-key-btn" in r.text
 
     def test_nonexistent_site_redirects(self, client):
-        r = client.get("/dashboard/sites/nonexistent-id")
+        r = client.get("/dashboard-legacy/sites/nonexistent-id")
         assert r.status_code in (302, 303)

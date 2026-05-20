@@ -520,7 +520,7 @@ class HealthMonitor:
         if not self.site_manager:
             return {"healthy": False, "message": "SiteManager not available"}
 
-        # Look up site info by full_id (handles multi-word plugin types like wordpress_advanced)
+        # Look up site info by full_id (handles multi-word plugin types like wordpress_specialist)
         site_info = self._find_site_info(project_id)
         if not site_info:
             return {"healthy": False, "message": f"Site not found: {project_id}"}
@@ -547,7 +547,11 @@ class HealthMonitor:
             )
 
         # Fallback: authenticated health check for WordPress-based plugins
-        if plugin_type in ("wordpress", "wordpress_advanced", "woocommerce"):
+        if plugin_type in (
+            "wordpress",
+            "wordpress_specialist",
+            "woocommerce",
+        ):
             try:
                 import aiohttp
 

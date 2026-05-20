@@ -19,7 +19,6 @@ Usage:
 
 import json
 import logging
-import os
 import time
 from copy import deepcopy
 from typing import Any
@@ -31,16 +30,12 @@ from core.tool_registry import ToolDefinition
 
 logger = logging.getLogger(__name__)
 
-# Per-user rate limiting defaults
-USER_RATE_LIMIT_PER_MIN = int(os.getenv("USER_RATE_LIMIT_PER_MIN", "30"))
-USER_RATE_LIMIT_PER_HR = int(os.getenv("USER_RATE_LIMIT_PER_HR", "500"))
-
 # In-memory rate limit tracking: user_id -> list of timestamps
 _rate_limits: dict[str, list[float]] = {}
 
 
 def _check_user_rate_limit(user_id: str) -> tuple[bool, str]:
-    """Check per-user rate limits.
+    """Check per-user rate limits using the live cached settings (DB > ENV > default).
 
     Args:
         user_id: User UUID.
@@ -48,6 +43,11 @@ def _check_user_rate_limit(user_id: str) -> tuple[bool, str]:
     Returns:
         Tuple of (allowed, error_message). error_message is empty if allowed.
     """
+    from core.settings import get_cached_rate_per_hr, get_cached_rate_per_min
+
+    per_min = get_cached_rate_per_min()
+    per_hr = get_cached_rate_per_hr()
+
     now = time.time()
     timestamps = _rate_limits.setdefault(user_id, [])
 
@@ -59,12 +59,12 @@ def _check_user_rate_limit(user_id: str) -> tuple[bool, str]:
     # Check per-minute limit
     cutoff_min = now - 60
     recent_min = sum(1 for t in timestamps if t > cutoff_min)
-    if recent_min >= USER_RATE_LIMIT_PER_MIN:
-        return False, f"Rate limit exceeded: {USER_RATE_LIMIT_PER_MIN} requests/minute"
+    if recent_min >= per_min:
+        return False, f"Rate limit exceeded: {per_min} requests/minute"
 
     # Check per-hour limit
-    if len(timestamps) >= USER_RATE_LIMIT_PER_HR:
-        return False, f"Rate limit exceeded: {USER_RATE_LIMIT_PER_HR} requests/hour"
+    if len(timestamps) >= per_hr:
+        return False, f"Rate limit exceeded: {per_hr} requests/hour"
 
     timestamps.append(now)
     return True, ""
@@ -357,19 +357,40 @@ async def user_mcp_handler(request: Request) -> Response:
                 status_code=401,
             )
 
-    # --- Rate Limiting ---
-    allowed, rate_msg = _check_user_rate_limit(user_id)
-    if not allowed:
-        return JSONResponse(
-            _jsonrpc_error(None, -32600, rate_msg),
-            status_code=429,
+    # --- Rate Limiting (admin users are exempt) ---
+    # Fetch the user record early so we can check the role; it's also needed
+    # for the plugin-visibility check below, so we hoist it here.
+    _db_early = None
+    _user_record_early: dict | None = None
+    try:
+        from core.database import get_database
+
+        _db_early = get_database()
+        _user_record_early = await _db_early.get_user_by_id(user_id)
+    except Exception:
+        pass
+
+    _is_admin_user = False
+    if _user_record_early:
+        from core.admin_utils import is_admin_email
+
+        _is_admin_user = (_user_record_early.get("role") == "admin") or is_admin_email(
+            _user_record_early.get("email")
         )
+
+    if not _is_admin_user:
+        allowed, rate_msg = _check_user_rate_limit(user_id)
+        if not allowed:
+            return JSONResponse(
+                _jsonrpc_error(None, -32600, rate_msg),
+                status_code=429,
+            )
 
     # --- Look up site ---
     try:
         from core.database import get_database
 
-        db = get_database()
+        db = _db_early if _db_early is not None else get_database()
         site = await db.get_site_by_alias(user_id, alias)
     except RuntimeError:
         return JSONResponse(
@@ -389,13 +410,15 @@ async def user_mcp_handler(request: Request) -> Response:
             status_code=403,
         )
 
-    # --- Plugin visibility check ---
+    # --- Plugin visibility check (admins bypass entirely) ---
     from core.plugin_visibility import is_plugin_public
 
-    if not is_plugin_public(site["plugin_type"]):
+    if not _is_admin_user and not is_plugin_public(site["plugin_type"]):
         return JSONResponse(
             _jsonrpc_error(
-                None, -32600, f"Plugin '{site['plugin_type']}' is not currently available"
+                None,
+                -32600,
+                f"Plugin '{site['plugin_type']}' is not currently available",
             ),
             status_code=403,
         )
@@ -462,27 +485,59 @@ async def user_mcp_handler(request: Request) -> Response:
         # key_scopes is set during authentication (both mhu_ and JWT paths)
 
         # F.7b: enforce category-based scope allowlist in addition to the
-        # legacy read/write/admin hierarchy. A tool is allowed only if BOTH
-        #   (a) the legacy hierarchy grants it, AND
-        #   (b) the tool's category is in BOTH the key-scope set AND the
-        #       site's stored tool_scope set (the narrower layer wins).
-        from core.tool_access import KNOWN_CATEGORIES, SCOPE_CUSTOM, scopes_to_categories
+        # universal scope tier. A tool is allowed only if BOTH
+        #   (a) the universal scope tier grants it (works for every plugin), AND
+        #   (b) for plugins with fine-grained categories (Coolify), the
+        #       tool's category is in BOTH the key-scope set AND the site's
+        #       stored tool_scope set (the narrower layer wins).
+        from core.tool_access import (
+            KNOWN_CATEGORIES,
+            SCOPE_CUSTOM,
+            UNIVERSAL_SCOPE_TIERS,
+            scopes_to_categories,
+        )
 
-        scope_hierarchy = {"read": 1, "write": 2, "admin": 3}
-        required_level = scope_hierarchy.get(required_scope, 0)
-        key_level = max([scope_hierarchy.get(s, 0) for s in key_scopes] + [0])
-        legacy_ok = key_level >= required_level
+        # F.19.5 introduced the ``editor`` tier (between ``read`` and
+        # ``write``). The legacy 3-level hierarchy here ({read:1, write:2,
+        # admin:3}) silently dropped ``editor`` to level 0, which made
+        # every tool call from an editor-scope key fail "Insufficient
+        # scope". Use the canonical UNIVERSAL_SCOPE_TIERS map from
+        # tool_access so this list stays single-sourced as new tiers
+        # land (F.19.2 introduces ``manage`` / ``install`` next).
+        allowed_scopes: set[str] = set()
+        for s in key_scopes:
+            allowed_scopes |= UNIVERSAL_SCOPE_TIERS.get(s.strip(), set())
+        legacy_ok = required_scope in allowed_scopes
 
-        key_cats = scopes_to_categories(key_scopes)
-        key_category_ok = tool_def.category not in KNOWN_CATEGORIES or tool_def.category in key_cats
+        plugin_type = tool_def.plugin_type
+        # Category check is for plugins with fine-grained categories
+        # (currently Coolify only). For other plugins ``tool_def.category``
+        # defaults to ``"read"`` which collides with one of Coolify's
+        # KNOWN_CATEGORIES — running the check against non-Coolify tools
+        # mis-rejected wordpress_specialist + wordpress + gitea tools when
+        # the key scope didn't happen to map to category "read".
+        if plugin_type == "coolify":
+            key_cats = scopes_to_categories(key_scopes)
+            key_category_ok = (
+                tool_def.category not in KNOWN_CATEGORIES or tool_def.category in key_cats
+            )
+        else:
+            key_category_ok = True
 
         # Site-level scope check (skipped for "custom" preset).
         site_scope = site.get("tool_scope") or "admin"
         if site_scope and site_scope != SCOPE_CUSTOM:
-            site_cats = scopes_to_categories([site_scope])
-            site_category_ok = (
-                tool_def.category not in KNOWN_CATEGORIES or tool_def.category in site_cats
-            )
+            if plugin_type == "coolify":
+                site_cats = scopes_to_categories([site_scope])
+                site_category_ok = (
+                    tool_def.category not in KNOWN_CATEGORIES or tool_def.category in site_cats
+                )
+            else:
+                # Non-Coolify plugins use the universal tier at site level
+                # too — site_scope is one of ``read`` / ``editor`` / ``write``
+                # / ``admin`` / ``custom``, same vocabulary as the key.
+                site_allowed = UNIVERSAL_SCOPE_TIERS.get(site_scope, set())
+                site_category_ok = required_scope in site_allowed
         else:
             site_category_ok = True
 

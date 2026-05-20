@@ -13,7 +13,7 @@ Connect your sites, stores, repos, and databases — manage them all through Cla
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776ab.svg)](https://www.python.org/)
 [![PyPI](https://img.shields.io/pypi/v/mcphub-server.svg)](https://pypi.org/project/mcphub-server/)
 [![Docker](https://img.shields.io/docker/v/airano/mcphub?label=docker)](https://hub.docker.com/r/airano/mcphub)
-[![Plugins: 10](https://img.shields.io/badge/plugins-10-orange.svg)]()
+[![Plugins: 8](https://img.shields.io/badge/plugins-8-orange.svg)]()
 [![CI](https://github.com/airano-ir/mcphub/actions/workflows/ci.yml/badge.svg)](https://github.com/airano-ir/mcphub/actions/workflows/ci.yml)
 
 </div>
@@ -48,7 +48,7 @@ MCP Hub is the first MCP server that lets you manage WordPress, WooCommerce, and
 
 ---
 
-## 10 Plugins, Hundreds of Tools
+## 8 Public Plugins, Hundreds of Tools
 
 The exact tool count grows as new plugins ship and existing ones gain endpoints.
 What you actually expose is controlled by your `ENABLED_PLUGINS` setting and per-key
@@ -58,13 +58,11 @@ scope — pick a plugin-specific endpoint to keep the surface area small.
 |--------|---------------:|-----------------|
 | **WordPress** | ~70 | Posts, pages, media (incl. AI image generation), users, menus, taxonomies, SEO (Rank Math/Yoast) |
 | **WooCommerce** | ~30 | Products, orders, customers, coupons, reports, shipping |
-| **WordPress Advanced** | ~20 | Database ops, bulk operations, WP-CLI, system management |
+| **WordPress Specialist** | ~50 | Plugins, themes, users, options, cron, page editing, site config + layout, db inspection, bulk fan-out (companion-backed; no Docker socket) |
 | **Gitea** | ~65 | Repos, issues, pull requests, releases, webhooks, organizations, labels, batch files, tree, search, compare |
 | **n8n** | ~55 | Workflows, executions, credentials, variables, audit |
 | **Supabase** | ~70 | Database, auth, storage, edge functions, realtime |
 | **OpenPanel** | ~40 | Events, export, insights, profiles, projects, system |
-| **Appwrite** | ~100 | Databases, auth, storage, functions, teams, messaging |
-| **Directus** | ~100 | Collections, items, users, files, flows, permissions |
 | **Coolify** | ~65 | Applications, deployments, servers, projects, databases, services |
 | **System** | ~25 | Health monitoring, API keys, OAuth management, audit |
 
@@ -163,13 +161,11 @@ MASTER_API_KEY=your-secure-key-here
 |--------|---------------------|-------|
 | WordPress | URL, Username, App Password | [How to create App Password](https://wordpress.org/documentation/article/application-passwords/) |
 | WooCommerce | URL, Consumer Key, Consumer Secret | WooCommerce → Settings → Advanced → REST API |
-| WordPress Advanced | URL, Username, App Password, Container | Container = Docker container name (for WP-CLI) |
+| WordPress Specialist | URL, Username, App Password | Requires [Airano MCP Bridge v2.18.0+](wordpress-plugin/airano-mcp-bridge.zip) on the WP site; user must have `manage_options` |
 | Gitea | URL, Token | Settings → Applications → Personal Access Token |
 | n8n | URL, API Key | Settings → API → Create API Key |
 | Supabase | URL, Service Role Key | Supabase Dashboard → Settings → API |
 | OpenPanel | URL, Client ID, Client Secret | OpenPanel Dashboard → Project Settings |
-| Appwrite | URL, API Key, Project ID | Appwrite Console → Settings → API Keys |
-| Directus | URL, Static Token | Directus Admin → Settings |
 
 </details>
 
@@ -275,13 +271,11 @@ MCP Hub supports **Open Dynamic Client Registration** (RFC 7591). ChatGPT can au
 /system/mcp                 → System tools only
 /wordpress/mcp              → WordPress tools
 /woocommerce/mcp            → WooCommerce tools
-/wordpress-advanced/mcp     → WordPress Advanced tools
+/wordpress-specialist/mcp   → WordPress Specialist tools (companion-backed)
 /gitea/mcp                  → Gitea tools
 /n8n/mcp                    → n8n tools
 /supabase/mcp               → Supabase tools
 /openpanel/mcp              → OpenPanel tools
-/appwrite/mcp               → Appwrite tools
-/directus/mcp               → Directus tools
 /coolify/mcp                → Coolify tools
 /project/{alias}/mcp        → Per-project endpoint (auto-injects site)
 /u/{user_id}/{alias}/mcp    → Per-user endpoint (hosted/OAuth users)
@@ -316,11 +310,11 @@ Some MCP Hub tools require companion WordPress plugins:
 |-------|-------------|
 | SEO + capability/audit tools (`wordpress_get_post_seo`, capability probe, audit hook, etc.) | [Airano MCP Bridge](https://wordpress.org/plugins/airano-mcp-bridge/) ([GitHub](wordpress-plugin/airano-mcp-bridge/)) + Rank Math or Yoast SEO |
 | WP-CLI tools (15 tools: `wp_cache_*`, `wp_db_*`, etc.) | Docker socket + `CONTAINER` config |
-| WordPress Advanced database/system tools | Docker socket + `CONTAINER` config |
+| WordPress Specialist (~50 tools: plugins / themes / users / options / cron / page editing / site config + layout / db inspection / bulk fan-out) | [Airano MCP Bridge v2.18.0+](wordpress-plugin/airano-mcp-bridge.zip) (no Docker socket needed) |
 | OpenPanel analytics integration | [OpenPanel Self-Hosted](wordpress-plugin/openpanel-self-hosted/) ([Download ZIP](wordpress-plugin/openpanel-self-hosted.zip)) |
 | WooCommerce tools | WooCommerce plugin installed on your WordPress site |
 
-**Docker socket** is needed for WP-CLI and WordPress Advanced system tools. Add to your docker-compose:
+**Docker socket** is needed for the legacy WP-CLI tools (15 helpers under `wordpress_wp_*`). Everything in `wordpress_specialist` works without it. Add to your docker-compose:
 
 ```yaml
 volumes:

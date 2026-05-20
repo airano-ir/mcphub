@@ -7,15 +7,24 @@ plugins listed in the ENABLED_PLUGINS setting (DB > ENV > default).
 Usage:
     from core.plugin_visibility import get_public_plugin_types, is_plugin_public
 
-    public_types = get_public_plugin_types()  # {"wordpress", "woocommerce", "supabase"}
+    public_types = get_public_plugin_types()
     if is_plugin_public("gitea"):  # True
         ...
 """
 
 import os
 
-# Default plugins available to public (OAuth) users
-DEFAULT_PUBLIC_PLUGINS = {"wordpress", "woocommerce", "supabase", "openpanel", "gitea"}
+# Default plugins available to public (OAuth) users.
+DEFAULT_PUBLIC_PLUGINS = {
+    "wordpress",
+    "woocommerce",
+    "wordpress_specialist",
+    "supabase",
+    "openpanel",
+    "gitea",
+    "n8n",
+    "coolify",
+}
 
 
 def _parse_plugins(val: str) -> set[str]:

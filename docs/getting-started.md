@@ -215,12 +215,13 @@ Some tools require specific WordPress plugins or infrastructure:
 |-------|-------------|
 | `wordpress_get_post_seo`, `wordpress_update_post_seo`, `wordpress_get_product_seo`, `wordpress_update_product_seo` | **Yoast SEO** or **RankMath** |
 | `wordpress_wp_cache_*`, `wordpress_wp_db_*`, `wordpress_wp_plugin_*`, `wordpress_wp_theme_*`, `wordpress_wp_core_*`, `wordpress_wp_search_replace_dry_run` (15 tools) | Docker socket + `CONTAINER` env var |
-| `wordpress_advanced_*` database/system tools | Docker socket + `CONTAINER` env var |
+| `wordpress_specialist_*` (51 tools — plugins, themes, users, options, cron, maintenance, page editing, site config + layout, db inspection, bulk fan-out) | **Airano MCP Bridge v2.18.0+** companion plugin (no Docker socket) |
 | `woocommerce_*` | **WooCommerce** plugin (separate `WOOCOMMERCE_` config) |
 
-### Docker Socket for WP-CLI / WordPress Advanced
+### Docker Socket for WP-CLI
 
-WP-CLI and WordPress Advanced system tools require Docker socket access:
+A subset of legacy `wordpress_*` tools (15 WP-CLI helpers under
+`wordpress_wp_*`) require Docker socket access:
 
 ```yaml
 services:
@@ -236,17 +237,17 @@ services:
       WORDPRESS_SITE1_APP_PASSWORD: xxxx xxxx xxxx xxxx
       WORDPRESS_SITE1_CONTAINER: wordpress-container-name
       WORDPRESS_SITE1_ALIAS: mysite
-      WORDPRESS_ADVANCED_SITE1_URL: https://your-site.com
-      WORDPRESS_ADVANCED_SITE1_USERNAME: admin
-      WORDPRESS_ADVANCED_SITE1_APP_PASSWORD: xxxx xxxx xxxx xxxx
-      WORDPRESS_ADVANCED_SITE1_CONTAINER: wordpress-container-name
-      WORDPRESS_ADVANCED_SITE1_ALIAS: mysite-admin
 ```
 
+`wordpress_specialist_*` tools do **not** need Docker — they're served
+through the Airano MCP Bridge companion plugin via REST. Install
+`wordpress-plugin/airano-mcp-bridge.zip` on the WordPress site and use
+an Application Password for a `manage_options` user.
+
 Without Docker socket:
-- WP-CLI tools return "not available" errors
-- WordPress Advanced database/system tools are unavailable
-- All REST API tools (bulk operations, content management) work normally
+- WP-CLI helpers (`wordpress_wp_*`) return "not available" errors
+- All REST API tools (bulk operations, content management,
+  `wordpress_specialist_*`) work normally
 
 ### Site Configuration
 
@@ -528,7 +529,7 @@ Use the most specific endpoint for your use case to minimize token usage:
 |----------|--------|------:|
 | `/wordpress/mcp` | WordPress | 67 |
 | `/woocommerce/mcp` | WooCommerce | 28 |
-| `/wordpress-advanced/mcp` | WordPress Advanced | 22 |
+| `/wordpress-specialist/mcp` | WordPress Specialist | 51 |
 | `/gitea/mcp` | Gitea | 56 |
 | `/n8n/mcp` | n8n | 56 |
 | `/supabase/mcp` | Supabase | 70 |

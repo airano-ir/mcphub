@@ -38,13 +38,85 @@ from core.tool_registry import ToolDefinition
 logger = logging.getLogger(__name__)
 
 
-# ── Universal 3-tier scope system (F.7c) ─────────────────────────────
+# ── Universal scope tier system (F.7c → F.19.2.0) ───────────────────
 # Maps a scope tier to the set of ``required_scope`` values it may access.
 # Works for ALL plugins because every tool has ``required_scope``.
+#
+# Ladder (each tier is a strict superset of the one above):
+#
+#   read     │ inventory + diagnostics only
+#   editor   │ + content / theme-file edits     (F.19.5 + F.19.7)
+#   settings │ + options / cron / maintenance / site-identity / permalinks (F.19.6)
+#   install  │ + plugin & theme install / activate / update from wp.org   (F.19.2)
+#   write    │ catch-all "non-destructive write" tier (legacy WP/WC/Gitea)
+#   admin    │ destructive ops (URL/zip install, delete user/plugin/theme,
+#            │   user CRUD, db_query, anything that can lose data)
+#
+# Why ``write`` is between ``install`` and ``admin``: keeps existing
+# WordPress/WooCommerce/Gitea/etc. keys (which use plain ``write``)
+# working. They retain the same effective access they had pre-F.19.2,
+# minus the destructive ops which now require ``admin``.
 UNIVERSAL_SCOPE_TIERS: dict[str, set[str]] = {
     "read": {"read"},
-    "write": {"read", "write"},
-    "admin": {"read", "write", "admin"},
+    # F.19.5 — ``editor``: page-content editing without unlocking
+    # destructive ops. wordpress_specialist uses it; other plugins fall
+    # through to the existing read/write/admin ladder.
+    "editor": {"read", "editor"},
+    # F.19.6 — ``settings``: options / cron / maintenance toggle /
+    # site identity / reading + permalinks. Fits between editor and
+    # install — settings changes are recoverable, plugin installs can
+    # reshape the site.
+    "settings": {"read", "editor", "settings"},
+    # F.19.2 — ``install``: plugin/theme install + activate + update
+    # from wp.org slugs. URL/zip install routes belong to ``admin``
+    # (sees more attack surface). delete_plugin / delete_theme also
+    # belong to ``admin`` because they can drop data with no undo.
+    "install": {"read", "editor", "settings", "install"},
+    # ``write`` is the historical catch-all for non-destructive writes
+    # (WordPress create_post, WooCommerce update_order, etc.).
+    "write": {"read", "editor", "settings", "install", "write"},
+    "admin": {"read", "editor", "settings", "install", "write", "admin"},
+}
+
+# Per-tier descriptions for dashboard tooltips + tier toggles. EN + FA
+# in lockstep with the rest of the dashboard's i18n.
+TIER_DESCRIPTIONS: dict[str, dict[str, str]] = {
+    "read": {
+        "label_en": "Read Only",
+        "label_fa": "فقط خواندن",
+        "hint_en": "Inventory and diagnostics — no changes.",
+        "hint_fa": "مشاهده و عیب‌یابی — بدون تغییر.",
+    },
+    "editor": {
+        "label_en": "Editor",
+        "label_fa": "ویرایشگر",
+        "hint_en": "Read + page / theme content edits.",
+        "hint_fa": "خواندن + ویرایش محتوا و فایل قالب.",
+    },
+    "settings": {
+        "label_en": "Settings",
+        "label_fa": "تنظیمات",
+        "hint_en": "Editor + site options, cron, identity, permalinks.",
+        "hint_fa": "ویرایشگر + تنظیمات سایت، کرون، هویت، پرمالینک.",
+    },
+    "install": {
+        "label_en": "Installer",
+        "label_fa": "نصب‌کننده",
+        "hint_en": "Settings + install / activate plugins & themes from wp.org.",
+        "hint_fa": "تنظیمات + نصب و فعال‌سازی پلاگین/قالب از wp.org.",
+    },
+    "write": {
+        "label_en": "Write",
+        "label_fa": "نوشتن",
+        "hint_en": "Non-destructive write tier (post/product CRUD, etc.).",
+        "hint_fa": "تیر نوشتن غیرتخریبی (ایجاد/ویرایش پست، محصول و …).",
+    },
+    "admin": {
+        "label_en": "Admin",
+        "label_fa": "مدیر",
+        "hint_en": "Includes destructive ops (delete, URL/zip install, user CRUD).",
+        "hint_fa": "شامل عملیات تخریبی (حذف، نصب از URL/zip، CRUD کاربر).",
+    },
 }
 
 # ── Legacy Coolify category mapping (kept for ``custom`` overlay) ─────
@@ -214,7 +286,7 @@ def get_scope_presets_for_plugin(plugin_type: str) -> list[dict[str, str]]:
             custom,
         ]
 
-    if plugin_type in {"wordpress", "wordpress_advanced"}:
+    if plugin_type == "wordpress":
         # WordPress has no admin-scope tools (read=27, write=40, admin=0).
         # SEO + plugin/theme tools require the Airano MCP SEO Bridge plugin
         # to be installed on the WP site itself. Present 2 tiers + custom.
@@ -232,6 +304,47 @@ def get_scope_presets_for_plugin(plugin_type: str) -> list[dict[str, str]]:
                 "label_fa": "دسترسی کامل",
                 "hint": "All tools (CRUD + SEO via add-on)",
                 "hint_fa": "همه ابزارها (CRUD و SEO با افزونه)",
+            },
+            custom,
+        ]
+
+    if plugin_type == "wordpress_specialist":
+        # F.19.1 ships READ-only tools (inventory + diagnostics).
+        # F.19.5 adds the EDITOR tier — page editing (Gutenberg + Elementor
+        # + Classic) on top of read.
+        # F.19.7 adds the THEME DEV surface on the editor tier (file CRUD)
+        # and the install/admin tiers for theme install/activate/delete.
+        # F.19.2.1 adds plugin install/activate/deactivate/update (install
+        # tier) and plugin install-from-zip + delete (admin tier).
+        # F.19.6 will surface a SETTINGS tier between editor and install.
+        return [
+            {
+                "value": "read",
+                "label": "Read Only",
+                "label_fa": "فقط خواندن",
+                "hint": "Inventory plugins/themes/users/options/cron — no changes",
+                "hint_fa": "مشاهده پلاگین‌ها/قالب‌ها/کاربران/تنظیمات/کرون — بدون تغییر",
+            },
+            {
+                "value": "editor",
+                "label": "Editor",
+                "label_fa": "ویرایشگر",
+                "hint": "Read + page editing (Gutenberg blocks, Elementor, Classic) + theme file CRUD",
+                "hint_fa": "خواندن + ویرایش صفحه (بلوک‌ها، المنتور، کلاسیک) + ویرایش فایل قالب",
+            },
+            {
+                "value": "install",
+                "label": "Installer",
+                "label_fa": "نصب‌کننده",
+                "hint": "Editor + install/activate plugins & themes from wp.org",
+                "hint_fa": "ویرایشگر + نصب و فعال‌سازی پلاگین/قالب از wp.org",
+            },
+            {
+                "value": "admin",
+                "label": "Admin",
+                "label_fa": "مدیر",
+                "hint": "Installer + URL/zip install, plugin/theme delete (destructive)",
+                "hint_fa": "نصب‌کننده + نصب از URL/zip، حذف پلاگین/قالب (تخریبی)",
             },
             custom,
         ]
@@ -614,7 +727,12 @@ class ToolAccessManager:
 
 # F.X.fix #8 — tools that need a per-site AI provider key to succeed.
 # Today only the AI image generator; expand as more AI tools land.
-_PROVIDER_KEY_REQUIRED_TOOLS: frozenset[str] = frozenset({"wordpress_generate_and_upload_image"})
+_PROVIDER_KEY_REQUIRED_TOOLS: frozenset[str] = frozenset(
+    {
+        "wordpress_generate_and_upload_image",
+        "woocommerce_generate_and_upload_image",
+    }
+)
 
 
 def _tool_requires_provider_key(tool_name: str) -> bool:

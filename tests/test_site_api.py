@@ -80,17 +80,18 @@ class TestCredentialFields:
 
     @pytest.mark.unit
     def test_get_credential_fields_all_plugins(self):
-        """All 9 plugin types should return non-empty credential field lists."""
+        """Every registered plugin type returns non-empty credential field lists."""
         expected_plugins = [
             "wordpress",
             "woocommerce",
-            "wordpress_advanced",
+            "wordpress_specialist",
             "gitea",
             "n8n",
             "supabase",
             "openpanel",
             "appwrite",
             "directus",
+            "coolify",
         ]
         for plugin_type in expected_plugins:
             fields = get_credential_fields(plugin_type)
@@ -143,13 +144,13 @@ class TestCredentialValidation:
 
     @pytest.mark.unit
     def test_validate_credentials_optional_field(self):
-        """Optional fields (like container) should not cause errors when missing."""
+        """Optional advanced fields should not cause errors when missing."""
         valid, errors = validate_credentials(
-            "wordpress_advanced",
+            "wordpress",
             {
                 "username": "admin",
                 "app_password": "xxxx xxxx xxxx xxxx",
-                # container is optional — should not cause error
+                # wp_app_password is optional — should not cause error
             },
         )
         assert valid is True

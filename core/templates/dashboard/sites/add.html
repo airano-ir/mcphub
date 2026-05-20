@@ -7,7 +7,11 @@
 <div class="max-w-3xl mx-auto space-y-6">
     <!-- Header -->
     <div class="flex items-center gap-4 mb-6">
-        <a href="/dashboard/sites{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}"
+        {# When the user arrives from /dashboard-v2, link the back arrow
+           there so they don't dump out into the legacy list. #}
+        {% set _qs = request.query_params if request else None %}
+        {% set _from_v2 = _qs and _qs.get('from') == 'dashboard-v2' %}
+        <a href="{% if _from_v2 %}/dashboard-v2/sites{% else %}/dashboard/sites{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}{% endif %}"
             class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
@@ -244,9 +248,13 @@
             });
             const data = await resp.json();
             if (resp.ok) {
-                // Redirect to manage page for the new site
+                // If the user came in from the v2 SPA shell, send them
+                // back there instead of the legacy Jinja list.
+                const fromV2 = new URLSearchParams(window.location.search).get('from') === 'dashboard-v2';
                 const siteId = data.site?.id || data.site_id;
-                if (siteId) {
+                if (fromV2) {
+                    window.location.href = '/dashboard-v2/sites?msg={{ t.site_added }}';
+                } else if (siteId) {
                     window.location.href = '/dashboard/sites/' + siteId + '{% if lang and lang != "en" %}?lang={{ lang }}{% endif %}';
                 } else {
                     window.location.href = '/dashboard/sites?msg={{ t.site_added }}{% if lang and lang != "en" %}&lang={{ lang }}{% endif %}';

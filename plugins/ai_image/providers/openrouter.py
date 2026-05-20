@@ -124,15 +124,18 @@ class OpenRouterProvider(BaseImageProvider):
         requested_model = request.model or _DEFAULT_MODEL
         replacement = _DEPRECATED_MODELS.get(requested_model)
         if replacement is not None:
-            raise ProviderError(
-                "PROVIDER_MODEL_DEPRECATED",
-                (
-                    f"OpenRouter model '{requested_model}' is deprecated. "
-                    f"Use '{replacement}' instead."
-                ),
-                {"requested_model": requested_model, "replacement_model": replacement},
+            # Auto-substitute deprecated → GA so per-site defaults pinned
+            # before the GA promotion don't break the generate-and-upload
+            # flow. Logged at WARNING so operators notice and can
+            # repin the site default in the dashboard.
+            _logger.warning(
+                "openrouter: model %r is deprecated; using %r instead",
+                requested_model,
+                replacement,
             )
-        model = requested_model
+            model = replacement
+        else:
+            model = requested_model
 
         # Chat-completions shape with image modality declared. The
         # prompt is sent as the single user message; size hints are

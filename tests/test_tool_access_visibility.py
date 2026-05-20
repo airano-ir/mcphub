@@ -24,6 +24,7 @@ from core.tool_access import (
 class TestProviderKeyHelpers:
     def test_ai_image_tool_requires_key(self):
         assert _tool_requires_provider_key("wordpress_generate_and_upload_image")
+        assert _tool_requires_provider_key("woocommerce_generate_and_upload_image")
 
     def test_normal_tool_does_not_require_key(self):
         assert not _tool_requires_provider_key("wordpress_create_post")
@@ -36,6 +37,8 @@ class TestProviderKeyHelpers:
     def test_configured_helper_gates_ai_on_providers_set(self):
         assert not _tool_has_configured_provider("wordpress_generate_and_upload_image", set())
         assert _tool_has_configured_provider("wordpress_generate_and_upload_image", {"openrouter"})
+        assert not _tool_has_configured_provider("woocommerce_generate_and_upload_image", set())
+        assert _tool_has_configured_provider("woocommerce_generate_and_upload_image", {"openai"})
 
 
 class _FakeToolDef:

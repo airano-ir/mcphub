@@ -58,7 +58,7 @@ class EndpointRegistry:
         """
         Initialize the default set of endpoints.
 
-        Creates admin, wordpress, wordpress-advanced, and gitea endpoints.
+        Creates admin, wordpress, wordpress-specialist, and gitea endpoints.
         """
         if self._initialized:
             logger.warning("Endpoints already initialized")

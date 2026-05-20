@@ -30,7 +30,8 @@ from plugins.wordpress.schemas.product import (
 )
 from plugins.wordpress.schemas.seo import SEOData, SEOUpdate
 
-# Note: Database, Bulk, and System schemas moved to wordpress_advanced plugin
+# Database / bulk / system schemas live on wordpress_specialist
+# (companion-backed; legacy wordpress_advanced was sunset 2026-05-04).
 
 __all__ = [
     # Common
@@ -64,5 +65,4 @@ __all__ = [
     # SEO
     "SEOData",
     "SEOUpdate",
-    # Note: Database, Bulk, and System schemas moved to wordpress_advanced plugin
 ]

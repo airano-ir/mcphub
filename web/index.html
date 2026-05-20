@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/static/logo.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark light" />
+    <title>MCP Hub</title>
+    <!--
+      Restore lang / dir / theme from localStorage BEFORE the React bundle
+      runs. This prevents the brief flash where the dashboard renders in
+      English-LTR-Dark before the persisted FA-RTL-Light user preference
+      kicks in. It also makes the html[dir="rtl"] CSS rules apply on the
+      first paint, so the sidebar lands on the correct side immediately.
+    -->
+    <script>
+      (function () {
+        try {
+          var raw = localStorage.getItem("mcphub-ui");
+          var parsed = raw ? JSON.parse(raw) : null;
+          var state = parsed && parsed.state ? parsed.state : null;
+          if (!state) return;
+          var lang = state.lang === "fa" ? "fa" : "en";
+          document.documentElement.setAttribute("lang", lang);
+          document.documentElement.setAttribute("dir", lang === "fa" ? "rtl" : "ltr");
+          var themePref = state.theme === "light" || state.theme === "system" ? state.theme : "dark";
+          var resolved = themePref;
+          if (themePref === "system" && window.matchMedia) {
+            resolved = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+          }
+          document.documentElement.setAttribute("data-theme", resolved);
+          document.documentElement.setAttribute("data-theme-pref", themePref);
+          if (state.brandHue) {
+            document.documentElement.style.setProperty("--brand-hue", String(state.brandHue));
+          }
+        } catch (_) {
+          /* localStorage unavailable; React will recover on hydrate */
+        }
+      })();
+    </script>
+    <!-- Fonts.bunny.net is a privacy-respecting, Google Fonts–compatible
+         mirror that resolves reliably from networks where
+         fonts.googleapis.com is rate-limited or blocked (e.g. Iran).
+         The CSS2 URL contract is identical — we only swap the host. -->
+    <link rel="preconnect" href="https://fonts.bunny.net" crossorigin />
+    <link
+      href="https://fonts.bunny.net/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=Vazirmatn:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

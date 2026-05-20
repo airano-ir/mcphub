@@ -30,13 +30,14 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 PLUGIN_DISPLAY_NAMES = {
     "n8n": "n8n",
     "wordpress": "WordPress",
-    "wordpress_advanced": "WordPress Advanced",
+    "wordpress_specialist": "WordPress Specialist",
     "woocommerce": "WooCommerce",
     "directus": "Directus",
     "supabase": "Supabase",
     "gitea": "Gitea",
     "openpanel": "OpenPanel",
     "appwrite": "Appwrite",
+    "coolify": "Coolify",
 }
 
 
@@ -150,6 +151,14 @@ DASHBOARD_TRANSLATIONS = {
         "select_site": "Select a site",
         "select_client": "Select client",
         "max_sites_reached": "Maximum sites reached",
+        "sites.limit_reached_body": (
+            "You have reached the maximum of {limit} services for this account. "
+            "Delete an existing service or ask an administrator to raise the limit."
+        ),
+        "sites.limit_reached_body_unknown": (
+            "You have reached the maximum number of services for this account. "
+            "Delete an existing service or ask an administrator to raise the limit."
+        ),
         # User dashboard
         "my_services": "My Services",
         "active_connections": "Active Connections",
@@ -162,6 +171,620 @@ DASHBOARD_TRANSLATIONS = {
         "profile": "Profile",
         "admin_badge": "Admin",
         "keys": "API Keys",
+        # Workspace / breadcrumbs
+        "workspace": "Workspace",
+        # Sidebar nav groups (G round)
+        "nav.manage": "Manage",
+        "nav.access": "Access",
+        "nav.observability": "Observability",
+        "nav.account": "Account",
+        # Sidebar nav items
+        "nav.overview": "Overview",
+        "nav.sites": "Sites",
+        "nav.connect": "Connect",
+        "nav.api_keys": "API Keys",
+        "nav.oauth_clients": "OAuth Clients",
+        "nav.health": "Health",
+        "nav.audit": "Audit Logs",
+        "nav.settings": "Settings",
+        "nav.jump_to": "Jump to…",
+        "nav.logout": "Log out",
+        # Overview greeting (split from `welcome` so eyebrow + h1 don't duplicate)
+        "welcome_eyebrow": "Welcome back",
+        "welcome_greeting": "Hello",
+        # Overview stat cards
+        "card.active_sites_label": "Active sites",
+        "card.active_sites_caption": "Sites you manage",
+        "card.api_keys_label": "API keys",
+        "card.api_keys_caption": "Personal & client keys",
+        "card.tools_label": "Tools available",
+        "card.tools_caption": "Across enabled plugins",
+        "card.healthy_sites_label": "Healthy sites",
+        "card.healthy_sites_caption": "Sites passing connection tests",
+        "card.uptime_label": "Uptime (days)",
+        "card.uptime_caption": "Hub availability",
+        # Overview sites table
+        "your_sites": "Your sites",
+        "health_connection_status": "Health and connection status",
+        "manage": "Manage",
+        "add_site_short": "Add site",
+        "connect_client": "Connect client",
+        "register_first_site_body": (
+            "Register a Coolify project, WordPress site, "
+            "or other supported plugin to get started."
+        ),
+        "table.site": "Site",
+        "table.type": "Type",
+        "table.status": "Status",
+        "table.last_tested": "Last tested",
+        # Status badges
+        "status_healthy": "healthy",
+        "status_warning": "warning",
+        "status_error": "error",
+        "status_unknown": "unknown",
+        "status_untested": "untested",
+        # Topbar
+        "topbar.toggle_sidebar": "Toggle sidebar",
+        "topbar.cycle_theme": "Switch theme",
+        "topbar.change_language": "Change language",
+        "topbar.notifications": "Notifications",
+        # Theme labels (mode picker)
+        "theme.dark": "Dark",
+        "theme.light": "Light",
+        "theme.system": "System",
+        # Login (SPA)
+        "login.welcome": "Welcome back",
+        "login.subtitle": "Sign in to your MCP Hub",
+        "login.continue_github": "Continue with GitHub",
+        "login.continue_google": "Continue with Google",
+        "login.or_admin_key": "or admin key",
+        "login.master_key_label": "Master API key",
+        "login.sign_in": "Sign in",
+        "login.signing_in": "Signing in…",
+        "login.failed": "Sign in failed",
+        "login.invalid_key": "Invalid API key",
+        "login.footer": "© mcphub.dev · Self-hosted · Open source",
+        "login.testimonial": (
+            "“My six AI tools now share one key, one audit log, one revoke "
+            "button. I shouldn't be this happy about a dashboard.”"
+        ),
+        "login.testimonial_author": "Lena K.",
+        "login.testimonial_role": "Staff eng, self-hosted everything",
+        # Onboarding
+        "onboarding.have_account": "Already have an account?",
+        "onboarding.step_signin": "Sign in",
+        "onboarding.step_add_site": "Add a site",
+        "onboarding.step_get_key": "Get your key",
+        "onboarding.step_n_of": "Step {n} of {total}",
+        "onboarding.signin_title": "Sign in with your GitHub or Google account",
+        "onboarding.signin_body": (
+            "We use OAuth — no passwords, no email verification dance. " "Takes a few seconds."
+        ),
+        "onboarding.skip_signed_in": "Skip — already signed in",
+        "onboarding.add_site_title": "Add your first site",
+        "onboarding.add_site_body": (
+            "Pick a Coolify project, WordPress site, Gitea instance, or any "
+            "other supported plugin. You can add more later."
+        ),
+        "onboarding.add_site_cta": "Add a site",
+        "onboarding.skip": "Skip",
+        "onboarding.done_title": "You're set",
+        "onboarding.done_body": (
+            "Head over to API keys to create one, or jump to Connect to wire " "up an AI client."
+        ),
+        "onboarding.connect_client": "Connect a client",
+        "onboarding.go_dashboard": "Go to dashboard",
+        # Common verbs & section labels
+        "view.grid": "Grid",
+        "view.list": "List",
+        "table.tier": "Tier",
+        "table.description": "Description",
+        "table.prefix": "Prefix",
+        "table.created": "Created",
+        "table.last_used": "Last used",
+        "table.expiry": "Expires",
+        "table.project": "Project",
+        "table.latency": "Latency",
+        "table.uptime": "Uptime",
+        "table.tools": "Tools",
+        "table.last_check": "Last check",
+        "table.scope": "Scope",
+        "action.revoke": "Revoke",
+        "action.copy": "Copy",
+        "action.create": "Create",
+        "action.new_key": "New key",
+        "action.new_client": "New client",
+        "action.add_site_cta": "Add a site",
+        "action.save": "Save",
+        "action.reset": "Reset",
+        # Scope tier names (shared by ApiKeys, OAuthClients, Connect)
+        "tier.read": "Read",
+        "tier.read_sensitive": "Read sensitive",
+        "tier.deploy": "Deploy",
+        "tier.editor": "Editor",
+        "tier.settings": "Settings",
+        "tier.settings_scope": "Settings",
+        "tier.install": "Installer",
+        "tier.write": "Write",
+        "tier.admin": "Admin",
+        "tier.custom": "Custom",
+        # Sites page
+        "sites.intro": (
+            "Every site your AI agents can see. Capabilities are scoped per " "site and per key."
+        ),
+        "sites.add_tile_title": "Add a site",
+        "sites.add_tile_desc": ("Register a Coolify project, WordPress site, or other plugin"),
+        "sites.empty_body": (
+            "Register a Coolify project, WordPress site, or other supported "
+            "plugin so your AI clients can use it."
+        ),
+        "filter.healthy": "Healthy",
+        "filter.untested": "Untested",
+        # Health page
+        "health.intro": "Hub and per-site status. Auto-refreshing every 30 seconds.",
+        "health.all_operational": "All systems operational",
+        "health.degraded": "Degraded",
+        "health.down": "Down",
+        "health.projects_label": "Projects",
+        "health.alerts_label": "Alerts",
+        "health.total_requests": "Total requests",
+        "health.per_minute": "Per minute",
+        "health.error_rate": "Error rate",
+        "health.avg_response": "Avg response",
+        "health.recent_alerts": "Recent alerts",
+        "health.metrics_title": "Request metrics",
+        "health.metrics_subtitle": "Across the live process",
+        "health.no_alerts": "No active alerts.",
+        "health.no_projects": "No projects to monitor yet.",
+        "health.registered": "registered",
+        "health.up": "Up",
+        "health.last_check": "Last check",
+        "status.live": "live",
+        # OAuth clients page
+        "oauth.title": "OAuth 2.1 clients",
+        "oauth.intro": (
+            "Register third-party apps that authorize users against your "
+            "hub. Each client has its own credentials and scopes."
+        ),
+        "oauth.redirect_uris": "Redirect URIs",
+        "oauth.redirect_uris_one_per_line": "Redirect URIs (one per line)",
+        # Settings tabs
+        "settings.tab_profile": "Profile",
+        "settings.tab_appearance": "Appearance",
+        "settings.tab_limits": "Limits",
+        "settings.tab_plugins": "Public plugin visibility",
+        "settings.tab_danger": "Danger zone",
+        "settings.appearance_subtitle": (
+            "Theme, language, brand hue, density. Changes apply immediately " "and persist locally."
+        ),
+        "settings.brand_color": "Brand color",
+        "settings.density": "Density",
+        # Settings page (Round 2 i18n)
+        "settings.intro": "Your profile, hub preferences, and integrations.",
+        "settings.intro_admin_suffix": "Admin-only sections are flagged in the sidebar.",
+        "settings.profile_title": "Profile",
+        "settings.profile_subtitle": "Used across the hub and for audit attribution",
+        "settings.profile_footnote": (
+            "Profile details come from your OAuth provider and aren't editable here. "
+            "Sign out and reconnect to update them."
+        ),
+        "settings.field_full_name": "Full name",
+        "settings.field_email": "Email",
+        "settings.field_session_type": "Session type",
+        "settings.field_role": "Role",
+        "settings.limits_title": "User limits",
+        "settings.limits_subtitle": (
+            "Maximum sites and rate limits per registered user. "
+            "Persists in the SQLite settings table."
+        ),
+        "settings.no_managed_limits": "No managed limits found.",
+        "settings.plugins_title": "Public plugin visibility",
+        "settings.plugins_subtitle": (
+            "Toggle which plugin types non-admin users can see. Admins always see everything."
+        ),
+        "settings.plugins_unavailable": "ENABLED_PLUGINS setting not available.",
+        "settings.source_label": "Source",
+        "settings.default_label": "default",
+        "settings.reset_default": "Reset to default",
+        "settings.plugin.wordpress": "Posts, pages, media, comments.",
+        "settings.plugin.woocommerce": "Products, orders, customers, reports.",
+        "settings.plugin.wordpress_specialist": "Companion-backed: blocks, theme files, plugins, DB.",
+        "settings.plugin.supabase": "DB, auth, storage, functions.",
+        "settings.plugin.openpanel": "Product analytics and event exports.",
+        "settings.plugin.gitea": "Repos, issues, PRs, releases.",
+        "settings.plugin.n8n": "Workflows and executions.",
+        "settings.plugin.coolify": "Apps, deployments, servers, services.",
+        "settings.plugin.appwrite": "Hidden by default. Enable only for custom deployments.",
+        "settings.plugin.directus": "Hidden by default. Enable only for custom deployments.",
+        "settings.danger_title": "Danger zone",
+        "settings.danger_subtitle": (
+            "Actions in this section affect every user of the hub. Confirm twice before acting."
+        ),
+        "settings.reset_all_title": "Reset managed settings",
+        "settings.reset_all_body": (
+            "Delete database overrides for user limits and public plugin visibility. "
+            "Environment values still win over defaults."
+        ),
+        "settings.reset_all_action": "Reset all managed settings",
+        "settings.reset_all_confirm": (
+            "Reset all managed settings to environment/default values? This affects every user."
+        ),
+        "settings.reset_all_done": "Managed settings reset",
+        "settings.reset_all_failed": "Reset failed: {error}",
+        "badge.admin_lc": "admin",
+        "toggle.on": "on",
+        "toggle.off": "off",
+        "status.saving": "saving…",
+        # NotFound page
+        "notfound.title": "Not found",
+        "notfound.body": "The page you were looking for doesn't exist or has moved.",
+        "notfound.cta": "Back to dashboard",
+        # Connect clients
+        "connect.intro": "Wire up an AI client to your hub.",
+        "connect.custom_name": "Custom client",
+        "connect.custom_desc": "Any MCP client",
+        "connect.tool_access": "Tool Access",
+        "connect.tool_access_subtitle": "Pick the tier of MCP tools this site exposes.",
+        "connect.tool_access_pick_site": "Select a site above to manage tool access.",
+        "connect.service_select_label": "Service",
+        "connect.confirm_scope_change": 'Change tool access for "{site}" from "{from}" to "{to}"?',
+        "connect.client.claude-ai.desc": "Browser · URL only",
+        "connect.client.claude-desktop.desc": "Desktop app · JSON config",
+        "connect.client.github-codex.desc": "config.toml · Remote HTTP",
+        "connect.desktop.open_step": "Open Claude Desktop",
+        "connect.desktop.open_body": (
+            "Use this shortcut to switch into Claude Desktop, then return here if your "
+            "app still needs the local MCP server config."
+        ),
+        "connect.desktop.open_button": "Open Claude Desktop",
+        "connect.desktop.open_fallback": (
+            "If your browser does not open the desktop app, continue with the config steps below."
+        ),
+        "connect.desktop.step1": "Create or select an MCP Hub API key",
+        "connect.desktop.step1_body": (
+            "Claude Desktop uses a local config file. Store the mhu_ key in an "
+            "environment variable instead of pasting it directly into JSON."
+        ),
+        "connect.desktop.step2": "Add this server to claude_desktop_config.json",
+        "connect.desktop.config_paths": (
+            "macOS: ~/Library/Application Support/Claude/claude_desktop_config.json · "
+            "Windows: %APPDATA%\\Claude\\claude_desktop_config.json"
+        ),
+        "connect.desktop.step3": "Restart Claude Desktop and verify tools",
+        "connect.desktop.step3_body": (
+            "Quit Claude Desktop completely, reopen it, then ask Claude to list the "
+            "available MCP Hub tools for the selected service."
+        ),
+        "connect.desktop.oauth_note": (
+            "Claude.ai Connectors are browser-based and only need the URL. Claude Desktop "
+            "needs this local JSON config plus a bearer token."
+        ),
+        "connect.chatgpt.step1": "Use this ChatGPT connector URL",
+        "connect.chatgpt.step1_body": (
+            "Copy this service URL. ChatGPT only needs the MCP endpoint URL; MCP Hub "
+            "handles authentication when ChatGPT connects."
+        ),
+        "connect.chatgpt.connector_tip": (
+            "Tip: You only need the URL above. When connecting, authenticate with an "
+            "API Key or GitHub/Google."
+        ),
+        "connect.chatgpt.step2": "Enable Developer mode in ChatGPT",
+        "connect.chatgpt.step2_body": (
+            "In chatgpt.com settings, enable Developer mode first. Then open Apps and "
+            "choose Create app."
+        ),
+        "connect.chatgpt.step3": "Create the ChatGPT app",
+        "connect.chatgpt.step3_body": (
+            "Set Authorization to OAuth mode, which is the default, then paste the URL "
+            "above as the MCP server URL and finish the app setup."
+        ),
+        "connect.no_services_title": "Add a service before connecting clients",
+        "connect.no_services_body": (
+            "MCP clients need at least one WordPress, WooCommerce, Coolify, or other service "
+            "to route tools to. Add your first service from Sites, then return here for the "
+            "client URL and setup steps."
+        ),
+        "connect.json.create_key_title": "Create an API key first",
+        "connect.json.create_key_body": (
+            "Generate an API key from API Keys, copy it when it is shown once, then replace "
+            "mhu_••••••• in this config. You can delete and recreate keys from API Keys."
+        ),
+        "table.service": "Service",
+        "never": "Never",
+        "all_sites": "All sites",
+        "status.expired": "expired",
+        "api_keys.select_service": "Select a service",
+        "api_keys.service_hint": "The key is limited to the selected service. Tool tiers are managed on that service's Tool Access page.",
+        "api_keys.no_services_title": "Add a service before creating API keys",
+        "api_keys.no_services_body": (
+            "API keys authenticate clients to your services. Add your first service from Sites, "
+            "then create a key for that service or all services."
+        ),
+        "connect.codex.env_var_title": "Codex reads the token from an environment variable",
+        "connect.codex.env_var_body": "Set bearer_token_env_var to the variable name, not the mhu_ token value. Restart Codex after adding new environment variables.",
+        "connect.codex.step1": "Export the token for this service",
+        "connect.codex.step2": "Add this to ~/.codex/config.toml",
+        "connect.codex.step3": "Claude-style JSON is different",
+        "connect.codex.claude_difference": "Use the TOML block for Codex. The JSON block is shown only to clarify how Claude-style headers differ.",
+        "connect.codex.troubleshooting_title": "Troubleshooting online code environments",
+        "connect.codex.troubleshooting_body": "Run codex mcp list, verify bubblewrap/bwrap is available, and restart the Codex session after changing env vars. Missing sandbox dependencies can look like MCP auth failures.",
+        "landing.continue_dashboard": "Continue to dashboard",
+        "landing.hero_badge": "MCP 1.0 · Claude · ChatGPT · Cursor · Gemini",
+        "landing.hero_title_line1": "One hub for every",
+        "landing.hero_title_em": "AI connection",
+        "landing.hero_title_line2": "to your sites.",
+        "landing.hero_body": (
+            "MCP Hub is the control plane between your self-hosted services and the AI tools "
+            "that work on them. Issue keys, connect Claude.ai, Claude Desktop, ChatGPT, Cursor, "
+            "or Codex, and review every call from one clean surface."
+        ),
+        "landing.nav.features": "Features",
+        "landing.nav.integrations": "Integrations",
+        "landing.nav.docs": "Docs",
+        "landing.nav.blog": "Blog",
+        "landing.start_60": "Start in 60 seconds",
+        "landing.get_started": "Get started",
+        "landing.create_account": "Create account",
+        "landing.integrations.eyebrow": "Integrations",
+        "landing.integrations.title": "Service-specific tools, one MCP surface.",
+        "landing.integrations.tile": "Scoped tools, keys, health, and audit logs.",
+        "landing.features_eyebrow": "Features",
+        "landing.features_title": "Everything your AI agents need, nothing they don't.",
+        "landing.feature.sites.title": "Services as first-class objects",
+        "landing.feature.sites.desc": (
+            "Register WordPress, WooCommerce, WordPress Specialist, Supabase, OpenPanel, Gitea, "
+            "n8n, and Coolify. Each service becomes a discoverable MCP resource with its own "
+            "tools and access level."
+        ),
+        "landing.feature.sites.tag": "Core",
+        "landing.feature.keys.title": "Scoped API keys",
+        "landing.feature.keys.desc": (
+            "Create keys for one service or all sites. Tool tiers stay service-specific and can "
+            "be tightened later."
+        ),
+        "landing.feature.keys.tag": "Security",
+        "landing.feature.oauth.title": "OAuth 2.1 + PKCE",
+        "landing.feature.oauth.desc": (
+            "Connect browser-based clients like Claude.ai Connectors and ChatGPT, while desktop "
+            "clients can use direct URLs or bearer tokens."
+        ),
+        "landing.feature.oauth.tag": "Auth",
+        "landing.feature.health.title": "Service health",
+        "landing.feature.health.desc": (
+            "Track credential checks, latency, and service status so agents know what is "
+            "available before they act."
+        ),
+        "landing.feature.health.tag": "Observability",
+        "landing.feature.audit.title": "Full audit trail",
+        "landing.feature.audit.desc": (
+            "Every tool call, auth event, and settings change is searchable and tied back to "
+            "the user or key."
+        ),
+        "landing.feature.audit.tag": "Compliance",
+        "landing.feature.protocol.title": "MCP-native tools",
+        "landing.feature.protocol.desc": (
+            "Expose plugin tools through MCP without forcing users to learn every service API by hand."
+        ),
+        "landing.feature.protocol.tag": "Protocol",
+        "landing.cta_title": "Spin up your hub, in a minute.",
+        "landing.cta_body": "Deploy on any Coolify instance. Free for personal use. Self-hosted forever.",
+        "landing.footer_tagline": "The self-hosted MCP control plane for WordPress, Coolify, Gitea, and more.",
+        "support_mcphub": "Support MCP Hub",
+        "connect.claude_ai.step1": "Use this Claude.ai connector URL",
+        "connect.claude.connector_tip": (
+            "Tip: You only need the URL above. When connecting, you can authenticate with an API Key "
+            "or GitHub/Google."
+        ),
+        "tools.preset_subtitle": (
+            "Choose a service preset or Custom, then fine-tune individual tools below."
+        ),
+        "sites.empty_search_title": "No sites match this search",
+        "sites.empty_search_body": "Try a different alias or clear the search field.",
+        "sites.empty_healthy_title": "No healthy sites",
+        "sites.empty_healthy_body": "Run a connection test or clear the filter to see every site.",
+        "sites.empty_untested_title": "No untested sites",
+        "sites.empty_untested_body": "Every site has been tested. Clear the filter to see all sites.",
+        "sites.selected_service": "selected service",
+        "sites.show_advanced_for_service": "Show advanced {service} fields",
+        "sites.hide_advanced_for_service": "Hide advanced {service} fields",
+        # Site Tools page (G.5c)
+        "tools.eyebrow": "Tool access",
+        "tools.back_to_sites": "Back to sites",
+        "tools.intro": (
+            "Toggle individual MCP tools this site exposes. Scope-tier presets in Connect "
+            "are easier for the common case — use this page to fine-tune."
+        ),
+        "tools.search_placeholder": "Filter tools…",
+        "tools.scope_filter_all": "All scopes",
+        "tools.empty": "This plugin doesn't expose any tools yet.",
+        "tools.group_subtitle": "{n} tool(s) in this tier",
+        "tools.unavailable": "Unavailable",
+        "tools.needs_provider_key": "Needs an AI provider key — configure one above.",
+        "tools.configure_provider_key": "Configure key",
+        "tools.readiness_title": "Service readiness",
+        "tools.readiness_subtitle": (
+            "Credential and health checks determine which tools are exposed to MCP clients."
+        ),
+        "tools.capability_status": "Capability check",
+        "tools.capability_ok": "credential fits selected tier",
+        "tools.capability_warning": "credential below selected tier",
+        "tools.capability_unavailable": "probe unavailable",
+        "tools.capability_unknown_tier": "tier not probed",
+        "tools.capability_missing": "Missing",
+        "tools.capability_probe_reason": "Reason",
+        "tools.capability_ai_providers": "Configured AI providers",
+        "tools.credential_requirement_title": "Credential requirement for {scope}",
+        "tools.credential_guide.wordpress.read": (
+            "The Application Password saved in service credentials should belong to a WordPress "
+            "user with at least Editor role. Basic read tools do not require CRUD capabilities."
+        ),
+        "tools.credential_guide.wordpress.admin": (
+            "The Application Password saved in service credentials must belong to a WordPress "
+            "Administrator for full CRUD. SEO and companion-backed tools may also require their "
+            "corresponding plugins to be active."
+        ),
+        "tools.credential_guide.wordpress_specialist.read": (
+            "The Application Password must belong to a WordPress user with manage_options "
+            "(Administrator). Airano MCP Bridge v2.11.0+ must be installed and active for "
+            "companion-backed tools."
+        ),
+        "tools.credential_guide.wordpress_specialist.editor": (
+            "Same prerequisites as Read, plus Airano MCP Bridge v2.13.0+ for page editing "
+            "and v2.14.0+ for theme file CRUD. Tool calls still check edit_posts/edit_themes."
+        ),
+        "tools.credential_guide.wordpress_specialist.settings": (
+            "Same prerequisites as Editor. Settings, identity, permalink, and cron tools require "
+            "an Administrator Application Password with manage_options."
+        ),
+        "tools.credential_guide.wordpress_specialist.install": (
+            "Same prerequisites as Settings, plus Airano MCP Bridge v2.14.0+ for theme "
+            "install/activate/delete and v2.15.0+ for plugin install/activate/update."
+        ),
+        "tools.credential_guide.wordpress_specialist.admin": (
+            "Same prerequisites as Installer, plus destructive routes such as delete and URL/zip "
+            "installs. PHP file edits require DISALLOW_FILE_EDIT to be unset or false."
+        ),
+        "tools.credential_guide.woocommerce.read": (
+            "The WooCommerce REST API Consumer Key and Secret saved in service credentials must "
+            "have Read permission. The creating WordPress user should be at least Shop Manager "
+            "to see orders and customers."
+        ),
+        "tools.credential_guide.woocommerce.admin": (
+            "The WooCommerce REST API key must have Read/Write permission and belong to an "
+            "Administrator or Shop Manager. Media and AI image upload tools additionally need "
+            "WordPress username and Application Password credentials."
+        ),
+        "tools.tier_warning_title": "Warning",
+        "tools.tier_warning.install": (
+            "Installer grants the AI agent permission to install and activate plugins or themes "
+            "from curated repositories. Test on staging first and review installed extensions regularly."
+        ),
+        "tools.tier_warning.admin": (
+            "Admin grants the full destructive surface: arbitrary installs, deletes, user CRUD, "
+            "and other operations that may not have undo. Use only where mistakes are recoverable "
+            "from backups."
+        ),
+        "tools.reason.provider_key": "needs AI provider key",
+        "tools.reason.provider_key_detail": "Configure a provider key in AI Image Generation.",
+        "tools.reason.companion_route": "needs companion plugin",
+        "tools.reason.companion_route_detail": (
+            "Install or update Airano MCP Bridge and run a connection test."
+        ),
+        "tools.reason.feature": "needs SEO plugin",
+        "tools.reason.feature_detail": "Install Rank Math or Yoast support before enabling this tool.",
+        "tools.reason.wp_credentials": "needs WP App Password",
+        "tools.reason.wp_credentials_detail": (
+            "Add WordPress username and Application Password in service credentials for media uploads."
+        ),
+        "tools.reason.probe_unknown": "needs health probe",
+        "tools.reason.probe_unknown_detail": (
+            "Run a connection test so MCP Hub can verify service capabilities."
+        ),
+        "tools.toast_failed": "Failed to update tool: {error}",
+        "tools.sensitivity.destructive": "destructive",
+        "tools.sensitivity.sensitive": "sensitive",
+        "providers.title": "AI Image Generation",
+        "providers.subtitle": (
+            "Store provider API keys for this service. Image generation tools stay "
+            "unavailable until a provider key is set and the service connection is healthy."
+        ),
+        "providers.status_set": "Set",
+        "providers.status_unset": "Unset",
+        "providers.new_key_placeholder": "New API key",
+        "providers.remove": "Remove",
+        "providers.encrypted_note": "Keys are encrypted at rest and scoped to this service only.",
+        "providers.toast_saved": "Provider key saved",
+        "providers.toast_save_failed": "Save failed: {error}",
+        "providers.toast_removed": "Provider key removed",
+        "providers.toast_remove_failed": "Remove failed: {error}",
+        "providers.confirm_remove": "Remove this provider key?",
+        "providers.hint.openai": "Save a new key to replace the stored value.",
+        "providers.hint.stability": "Save a new key to replace the stored value.",
+        "providers.hint.replicate": "Save a new key to replace the stored value.",
+        "providers.hint.openrouter": (
+            "Supports image-capable OpenRouter models. Save the key here, "
+            "then choose a default model for this service."
+        ),
+        "providers.model.loading": "Loading image models…",
+        "providers.model.failed": (
+            "Could not load OpenRouter image models. The tool remains disabled if the "
+            "provider connection is not healthy."
+        ),
+        "providers.model.empty": "No image-capable OpenRouter models were found for this key.",
+        "providers.model.default_label": "Default image model",
+        "providers.model.select": "Select a model",
+        "providers.model.set_default": "Set default",
+        "providers.model.clear": "Clear",
+        "providers.model.current": "Current default: {model}",
+        "providers.model.toast_saved": "Default image model saved",
+        "providers.model.toast_cleared": "Default image model cleared",
+        "providers.model.toast_failed": "Model update failed: {error}",
+        "sites.ai_image.title": "AI Image Generation",
+        "sites.ai_image.create_body": (
+            "After creating this service, open Tool access to add an OpenAI, Stability AI, "
+            "Replicate, or OpenRouter key. The image generation tool stays unavailable until "
+            "a provider key is saved and the service connection is healthy."
+        ),
+        "sites.ai_image.edit_body": (
+            "Image generation is configured per service in Tool access. Add an OpenAI, "
+            "Stability AI, Replicate, or OpenRouter key there; OpenRouter can also use a "
+            "default image model."
+        ),
+        "sites.ai_image.open_tools": "Open AI Image Generation settings",
+        # Site Add/Edit dialog (G.12)
+        "sites.guidance.wordpress_title": "WordPress requirements",
+        "sites.guidance.wordpress_specialist_title": "WordPress Specialist requirements",
+        "sites.guidance.woocommerce_title": "WooCommerce requirements",
+        "sites.guidance.wp_username": (
+            "Username: WordPress admin username that owns the Application Password. Required."
+        ),
+        "sites.guidance.wp_app_password": (
+            "Application Password: WP Admin -> Users -> Profile -> Application Passwords. "
+            "User must have manage_options. Required."
+        ),
+        "sites.guidance.bridge_version": (
+            "Airano MCP Bridge v2.11.0+ is recommended for companion-backed tools."
+        ),
+        "sites.guidance.bridge_lag": (
+            "The WordPress.org plugin page can lag behind repository builds while "
+            "publishing/review completes; do not assume the newest repo feature is "
+            "already available there."
+        ),
+        "sites.guidance.companion_copy": (
+            "Airano MCP Bridge — companion plugin (optional but recommended). Installing "
+            "it unlocks larger uploads, unified site-health snapshot, cache purge, "
+            "transient flush, bulk meta writes, structured export, capability probe, "
+            "and audit-hook webhooks. Without it, basic tools still work but these "
+            "features remain unavailable."
+        ),
+        "sites.guidance.wc_consumer_key": (
+            "Consumer Key: WooCommerce -> Settings -> Advanced -> REST API -> Add Key. "
+            "Read/Write permission. Required."
+        ),
+        "sites.guidance.wc_consumer_secret": (
+            "Consumer Secret: shown once, starts with cs_, save immediately. Required."
+        ),
+        "sites.guidance.wc_no_extra_key": "No extra API key field exists for WooCommerce REST auth.",
+        "sites.guidance.wc_media_username": (
+            "WordPress Username for media tools: only required for AI/media tools like "
+            "upload_and_attach_to_product, attach_media_to_product, set_featured_image, "
+            "generate_and_upload_image with attach_to_post. Optional."
+        ),
+        "sites.guidance.wc_media_password": (
+            "WordPress Application Password for media tools: required only for WC media "
+            "uploads to /wp/v2/media; Consumer Key/Secret do not work for that. Optional."
+        ),
+        "api_keys.user_intro": "Use these to authenticate MCP clients to your hub.",
+        # Audit / generic
+        "event_type": "Event type",
+        "level": "Level",
+        "date": "Date",
+        "language": "Language",
+        "theme": "Theme",
+        "scope": "Scope",
+        "saved": "Saved",
+        "msg": "Message",
+        "site_not_found": "Site not found",
     },
     "fa": {
         # Navigation
@@ -256,6 +879,14 @@ DASHBOARD_TRANSLATIONS = {
         "select_site": "انتخاب سایت",
         "select_client": "انتخاب کلاینت",
         "max_sites_reached": "حداکثر سایت‌ها رسیده است",
+        "sites.limit_reached_body": (
+            "به سقف {limit} سرویس برای این حساب رسیده‌اید. یک سرویس موجود را حذف کنید "
+            "یا از مدیر بخواهید این محدودیت را افزایش دهد."
+        ),
+        "sites.limit_reached_body_unknown": (
+            "به سقف تعداد سرویس‌های این حساب رسیده‌اید. یک سرویس موجود را حذف کنید "
+            "یا از مدیر بخواهید این محدودیت را افزایش دهد."
+        ),
         # User dashboard
         "my_services": "سرویس‌های من",
         "active_connections": "اتصالات فعال",
@@ -268,6 +899,783 @@ DASHBOARD_TRANSLATIONS = {
         "profile": "پروفایل",
         "admin_badge": "مدیر",
         "keys": "کلیدهای API",
+        # Workspace / breadcrumbs
+        "workspace": "فضای کاری",
+        # Sidebar nav groups (G round)
+        "nav.manage": "مدیریت",
+        "nav.access": "دسترسی",
+        "nav.observability": "پایش",
+        "nav.account": "حساب",
+        # Sidebar nav items
+        "nav.overview": "نمای کلی",
+        "nav.sites": "سایت‌ها",
+        "nav.connect": "اتصال",
+        "nav.api_keys": "کلیدهای API",
+        "nav.oauth_clients": "کلاینت‌های OAuth",
+        "nav.health": "سلامت",
+        "nav.audit": "لاگ‌های ممیزی",
+        "nav.settings": "تنظیمات",
+        "nav.jump_to": "پرش به…",
+        "nav.logout": "خروج",
+        # Overview greeting (split from `welcome` so eyebrow + h1 don't duplicate)
+        "welcome_eyebrow": "خوش آمدید مجدد",
+        "welcome_greeting": "سلام",
+        # Overview stat cards
+        "card.active_sites_label": "سایت‌های فعال",
+        "card.active_sites_caption": "سایت‌هایی که مدیریت می‌کنید",
+        "card.api_keys_label": "کلیدهای API",
+        "card.api_keys_caption": "کلیدهای شخصی و کلاینت",
+        "card.tools_label": "ابزارهای در دسترس",
+        "card.tools_caption": "از پلاگین‌های فعال",
+        "card.healthy_sites_label": "سایت‌های سالم",
+        "card.healthy_sites_caption": "سایت‌های موفق در تست اتصال",
+        "card.uptime_label": "آپتایم (روز)",
+        "card.uptime_caption": "دسترس‌پذیری هاب",
+        # Overview sites table
+        "your_sites": "سایت‌های شما",
+        "health_connection_status": "وضعیت سلامت و اتصال",
+        "manage": "مدیریت",
+        "add_site_short": "افزودن سایت",
+        "connect_client": "اتصال کلاینت",
+        "register_first_site_body": (
+            "یک پروژهٔ Coolify، سایت WordPress یا "
+            "پلاگین پشتیبانی‌شدهٔ دیگر را ثبت کنید تا شروع کنید."
+        ),
+        "table.site": "سایت",
+        "table.type": "نوع",
+        "table.status": "وضعیت",
+        "table.last_tested": "آخرین تست",
+        # Status badges
+        "status_healthy": "سالم",
+        "status_warning": "هشدار",
+        "status_error": "خطا",
+        "status_unknown": "نامشخص",
+        "status_untested": "تست‌نشده",
+        # Topbar
+        "topbar.toggle_sidebar": "نمایش/مخفی منو",
+        "topbar.cycle_theme": "تغییر تم",
+        "topbar.change_language": "تغییر زبان",
+        "topbar.notifications": "اعلان‌ها",
+        # Theme labels (mode picker)
+        "theme.dark": "تاریک",
+        "theme.light": "روشن",
+        "theme.system": "سیستم",
+        # Login (SPA)
+        "login.welcome": "خوش آمدید مجدد",
+        "login.subtitle": "به هاب MCP خود وارد شوید",
+        "login.continue_github": "ادامه با GitHub",
+        "login.continue_google": "ادامه با Google",
+        "login.or_admin_key": "یا کلید مدیر",
+        "login.master_key_label": "کلید API مستر",
+        "login.sign_in": "ورود",
+        "login.signing_in": "در حال ورود…",
+        "login.failed": "ورود ناموفق",
+        "login.invalid_key": "کلید API نامعتبر",
+        "login.footer": "© mcphub.dev · خود-میزبان · متن‌باز",
+        "login.testimonial": (
+            "«شش ابزار AI من حالا یک کلید، یک لاگ ممیزی، یک دکمه‌ی ابطال "
+            "مشترک دارند. نباید این‌قدر برای یک داشبورد هیجان‌زده باشم.»"
+        ),
+        "login.testimonial_author": "لنا ک.",
+        "login.testimonial_role": "مهندس ارشد، همه چیز خود-میزبان",
+        # Onboarding
+        "onboarding.have_account": "حساب دارید؟",
+        "onboarding.step_signin": "ورود",
+        "onboarding.step_add_site": "افزودن سایت",
+        "onboarding.step_get_key": "دریافت کلید",
+        "onboarding.step_n_of": "مرحله {n} از {total}",
+        "onboarding.signin_title": "با حساب GitHub یا Google خود وارد شوید",
+        "onboarding.signin_body": (
+            "ما از OAuth استفاده می‌کنیم — بدون رمز عبور و بدون فرآیند تأیید "
+            "ایمیل. چند ثانیه طول می‌کشد."
+        ),
+        "onboarding.skip_signed_in": "رد کردن — قبلاً وارد شده‌ام",
+        "onboarding.add_site_title": "اولین سایت خود را اضافه کنید",
+        "onboarding.add_site_body": (
+            "یک پروژه Coolify، سایت WordPress، نمونه Gitea یا هر پلاگین "
+            "پشتیبانی‌شدهٔ دیگری را انتخاب کنید. بعداً می‌توانید بیشتر اضافه کنید."
+        ),
+        "onboarding.add_site_cta": "افزودن سایت",
+        "onboarding.skip": "رد کردن",
+        "onboarding.done_title": "آماده‌اید",
+        "onboarding.done_body": (
+            "به بخش «کلیدهای API» بروید تا یک کلید بسازید، یا مستقیم به "
+            "«اتصال» بروید و کلاینت AI خود را وصل کنید."
+        ),
+        "onboarding.connect_client": "اتصال کلاینت",
+        "onboarding.go_dashboard": "رفتن به داشبورد",
+        # Common verbs & section labels
+        "view.grid": "گرید",
+        "view.list": "لیست",
+        "table.tier": "سطح",
+        "table.description": "توضیح",
+        "table.prefix": "پیشوند",
+        "table.created": "ایجاد شده",
+        "table.last_used": "آخرین استفاده",
+        "table.expiry": "انقضا",
+        "table.project": "پروژه",
+        "table.latency": "تأخیر",
+        "table.uptime": "آپتایم",
+        "table.tools": "ابزارها",
+        "table.last_check": "آخرین بررسی",
+        "table.scope": "دسترسی",
+        "action.revoke": "ابطال",
+        "action.copy": "کپی",
+        "action.create": "ایجاد",
+        "action.new_key": "کلید جدید",
+        "action.new_client": "کلاینت جدید",
+        "action.add_site_cta": "افزودن سایت",
+        "action.save": "ذخیره",
+        "action.reset": "بازنشانی",
+        # Scope tier names
+        "tier.read": "خواندن",
+        "tier.read_sensitive": "خواندن حساس",
+        "tier.deploy": "استقرار",
+        "tier.editor": "ویرایش‌گر",
+        "tier.settings": "تنظیمات",
+        "tier.settings_scope": "تنظیمات",
+        "tier.install": "نصب‌کننده",
+        "tier.write": "نوشتن",
+        "tier.admin": "مدیر",
+        "tier.custom": "سفارشی",
+        # Sites page
+        "sites.intro": (
+            "همهٔ سایت‌هایی که عامل‌های AI شما می‌بینند. سطح دسترسی برای هر "
+            "سایت و هر کلید جداگانه تنظیم می‌شود."
+        ),
+        "sites.add_tile_title": "افزودن سایت",
+        "sites.add_tile_desc": ("پروژهٔ Coolify، سایت WordPress یا پلاگین دیگر را ثبت کنید"),
+        "sites.empty_body": (
+            "یک پروژهٔ Coolify، سایت WordPress یا پلاگین پشتیبانی‌شدهٔ دیگر "
+            "را ثبت کنید تا کلاینت‌های AI شما بتوانند از آن استفاده کنند."
+        ),
+        "filter.healthy": "سالم",
+        "filter.untested": "تست‌نشده",
+        # Health page
+        "health.intro": "وضعیت هاب و هر سایت. هر ۳۰ ثانیه به‌روزرسانی می‌شود.",
+        "health.all_operational": "همه سرویس‌ها عملیاتی هستند",
+        "health.degraded": "اختلال جزئی",
+        "health.down": "از کار افتاده",
+        "health.projects_label": "پروژه‌ها",
+        "health.alerts_label": "هشدارها",
+        "health.total_requests": "کل درخواست‌ها",
+        "health.per_minute": "در دقیقه",
+        "health.error_rate": "نرخ خطا",
+        "health.avg_response": "میانگین پاسخ",
+        "health.recent_alerts": "هشدارهای اخیر",
+        "health.metrics_title": "متریک‌های درخواست",
+        "health.metrics_subtitle": "در فرآیند زنده",
+        "health.no_alerts": "هیچ هشدار فعالی نیست.",
+        "health.no_projects": "هنوز پروژه‌ای برای پایش نیست.",
+        "health.registered": "ثبت‌شده",
+        "health.up": "آپتایم",
+        "health.last_check": "آخرین بررسی",
+        "status.live": "زنده",
+        # OAuth clients page
+        "oauth.title": "کلاینت‌های OAuth 2.1",
+        "oauth.intro": (
+            "اپلیکیشن‌های شخص ثالث را که کاربران را در برابر هاب شما "
+            "احراز هویت می‌کنند ثبت کنید. هر کلاینت credentials و دسترسی‌های خود را دارد."
+        ),
+        "oauth.redirect_uris": "آدرس‌های بازگشت (Redirect URIs)",
+        "oauth.redirect_uris_one_per_line": "آدرس‌های بازگشت (هر کدام در یک خط)",
+        # Settings tabs
+        "settings.tab_profile": "پروفایل",
+        "settings.tab_appearance": "ظاهر",
+        "settings.tab_limits": "محدودیت‌ها",
+        "settings.tab_plugins": "نمایش عمومی پلاگین‌ها",
+        "settings.tab_danger": "منطقه خطر",
+        "settings.appearance_subtitle": (
+            "تم، زبان، رنگ برند، چگالی. تغییرات فوری اعمال می‌شوند و "
+            "به‌صورت محلی ذخیره می‌گردند."
+        ),
+        "settings.brand_color": "رنگ برند",
+        "settings.density": "چگالی",
+        # Settings page (Round 2 i18n)
+        "settings.intro": "پروفایل شما، تنظیمات هاب و یکپارچه‌سازی‌ها.",
+        "settings.intro_admin_suffix": "بخش‌های مخصوص ادمین در نوار کناری مشخص شده‌اند.",
+        "settings.profile_title": "پروفایل",
+        "settings.profile_subtitle": "در سراسر هاب و برای ثبت رویدادهای ممیزی استفاده می‌شود",
+        "settings.profile_footnote": (
+            "اطلاعات پروفایل از طرف ارائه‌دهنده OAuth شما می‌آید و در این‌جا قابل ویرایش نیست. "
+            "برای به‌روزرسانی، خارج شوید و دوباره وصل شوید."
+        ),
+        "settings.field_full_name": "نام کامل",
+        "settings.field_email": "ایمیل",
+        "settings.field_session_type": "نوع نشست",
+        "settings.field_role": "نقش",
+        "settings.limits_title": "محدودیت‌های کاربر",
+        "settings.limits_subtitle": (
+            "بیشینه‌ی سایت‌ها و محدودیت نرخ برای هر کاربر ثبت‌شده. "
+            "در جدول تنظیمات SQLite ذخیره می‌شود."
+        ),
+        "settings.no_managed_limits": "محدودیت مدیریت‌شده‌ای یافت نشد.",
+        "settings.plugins_title": "نمایان‌بودن پلاگین‌های عمومی",
+        "settings.plugins_subtitle": (
+            "انتخاب کنید کاربران غیر ادمین کدام پلاگین‌ها را ببینند. "
+            "ادمین‌ها همیشه همه را می‌بینند."
+        ),
+        "settings.plugins_unavailable": "تنظیم ENABLED_PLUGINS در دسترس نیست.",
+        "settings.source_label": "منبع",
+        "settings.default_label": "پیش‌فرض",
+        "settings.reset_default": "بازنشانی به پیش‌فرض",
+        "settings.plugin.wordpress": "نوشته‌ها، برگه‌ها، رسانه و دیدگاه‌ها.",
+        "settings.plugin.woocommerce": "محصولات، سفارش‌ها، مشتریان و گزارش‌ها.",
+        "settings.plugin.wordpress_specialist": "متکی به پلاگین همراه: بلوک‌ها، فایل‌های قالب، پلاگین‌ها و دیتابیس.",
+        "settings.plugin.supabase": "دیتابیس، احراز هویت، فضای ذخیره‌سازی و توابع.",
+        "settings.plugin.openpanel": "آنالیتیکس محصول و خروجی رویدادها.",
+        "settings.plugin.gitea": "مخزن‌ها، issueها، pull requestها و releaseها.",
+        "settings.plugin.n8n": "گردش‌کارها و اجراها.",
+        "settings.plugin.coolify": "اپلیکیشن‌ها، استقرارها، سرورها و سرویس‌ها.",
+        "settings.plugin.appwrite": "به‌صورت پیش‌فرض پنهان است. فقط برای استقرارهای سفارشی فعال کنید.",
+        "settings.plugin.directus": "به‌صورت پیش‌فرض پنهان است. فقط برای استقرارهای سفارشی فعال کنید.",
+        "settings.danger_title": "منطقه خطر",
+        "settings.danger_subtitle": (
+            "اقدامات این بخش روی همه کاربران هاب اثر می‌گذارد. قبل از انجام، دو بار تأیید کنید."
+        ),
+        "settings.reset_all_title": "بازنشانی تنظیمات مدیریت‌شده",
+        "settings.reset_all_body": (
+            "overrideهای دیتابیس برای محدودیت‌های کاربر و نمایش عمومی پلاگین‌ها حذف می‌شود. "
+            "مقدارهای env همچنان نسبت به پیش‌فرض اولویت دارند."
+        ),
+        "settings.reset_all_action": "بازنشانی همه تنظیمات مدیریت‌شده",
+        "settings.reset_all_confirm": (
+            "همه تنظیمات مدیریت‌شده به مقدار env/پیش‌فرض برگردند؟ این کار روی همه کاربران اثر می‌گذارد."
+        ),
+        "settings.reset_all_done": "تنظیمات مدیریت‌شده بازنشانی شد",
+        "settings.reset_all_failed": "بازنشانی ناموفق بود: {error}",
+        "badge.admin_lc": "مدیر",
+        "toggle.on": "روشن",
+        "toggle.off": "خاموش",
+        "status.saving": "در حال ذخیره…",
+        # NotFound page
+        "notfound.title": "یافت نشد",
+        "notfound.body": "صفحه‌ای که به دنبال آن بودید وجود ندارد یا جابه‌جا شده است.",
+        "notfound.cta": "بازگشت به داشبورد",
+        # Connect clients
+        "connect.intro": "کلاینت AI خود را به هاب وصل کنید.",
+        "connect.custom_name": "کلاینت سفارشی",
+        "connect.custom_desc": "هر کلاینت MCP",
+        "connect.tool_access": "دسترسی به ابزارها",
+        "connect.tool_access_subtitle": "سطح ابزارهای MCP که این سایت در اختیار قرار می‌دهد را انتخاب کنید.",
+        "connect.tool_access_pick_site": "ابتدا یک سایت را از بالا انتخاب کنید.",
+        "connect.service_select_label": "سرویس",
+        "connect.confirm_scope_change": "دسترسی ابزارهای «{site}» از «{from}» به «{to}» تغییر کند؟",
+        "connect.client.claude-ai.desc": "مرورگر · فقط URL",
+        "connect.client.claude-desktop.desc": "برنامه دسکتاپ · پیکربندی JSON",
+        "connect.client.github-codex.desc": "config.toml · HTTP راه دور",
+        "connect.desktop.open_step": "باز کردن Claude Desktop",
+        "connect.desktop.open_body": (
+            "با این میانبر وارد Claude Desktop شوید، سپس اگر برنامه همچنان به پیکربندی "
+            "محلی سرور MCP نیاز داشت به این صفحه برگردید."
+        ),
+        "connect.desktop.open_button": "باز کردن Claude Desktop",
+        "connect.desktop.open_fallback": (
+            "اگر مرورگر برنامه دسکتاپ را باز نکرد، مراحل پیکربندی زیر را ادامه دهید."
+        ),
+        "connect.desktop.step1": "یک کلید API برای MCP Hub بسازید یا انتخاب کنید",
+        "connect.desktop.step1_body": (
+            "Claude Desktop از فایل پیکربندی محلی استفاده می‌کند. کلید mhu_ را به‌جای "
+            "قراردادن مستقیم در JSON، در متغیر محیطی نگه دارید."
+        ),
+        "connect.desktop.step2": "این سرور را به claude_desktop_config.json اضافه کنید",
+        "connect.desktop.config_paths": (
+            "macOS: ~/Library/Application Support/Claude/claude_desktop_config.json · "
+            "Windows: %APPDATA%\\Claude\\claude_desktop_config.json"
+        ),
+        "connect.desktop.step3": "Claude Desktop را دوباره اجرا کنید و ابزارها را بررسی کنید",
+        "connect.desktop.step3_body": (
+            "Claude Desktop را کامل ببندید، دوباره باز کنید، سپس از Claude بخواهید ابزارهای "
+            "MCP Hub برای سرویس انتخاب‌شده را فهرست کند."
+        ),
+        "connect.desktop.oauth_note": (
+            "Claude.ai Connectors مرورگری است و فقط URL لازم دارد. Claude Desktop به این "
+            "پیکربندی JSON محلی و bearer token نیاز دارد."
+        ),
+        "table.service": "سرویس",
+        "never": "هرگز",
+        "all_sites": "همه سایت‌ها",
+        "status.expired": "منقضی",
+        "api_keys.select_service": "یک سرویس انتخاب کنید",
+        "api_keys.service_hint": "این کلید به سرویس انتخاب‌شده محدود می‌شود. سطح ابزارها در صفحه دسترسی ابزار همان سرویس مدیریت می‌شود.",
+        "connect.codex.env_var_title": "Codex توکن را از متغیر محیطی می‌خواند",
+        "connect.codex.env_var_body": "bearer_token_env_var باید نام متغیر محیطی باشد، نه مقدار توکن mhu_. بعد از افزودن متغیرهای محیطی، Codex را دوباره اجرا کنید.",
+        "connect.codex.step1": "توکن این سرویس را export کنید",
+        "connect.codex.step2": "این بخش را به ~/.codex/config.toml اضافه کنید",
+        "connect.codex.step3": "پیکربندی JSON کلود متفاوت است",
+        "connect.codex.claude_difference": "برای Codex از بلوک TOML استفاده کنید. بلوک JSON فقط برای نمایش تفاوت headerهای سبک Claude آمده است.",
+        "connect.codex.troubleshooting_title": "عیب‌یابی محیط‌های کدنویسی آنلاین",
+        "connect.codex.troubleshooting_body": "codex mcp list را اجرا کنید، وجود bubblewrap/bwrap را بررسی کنید، و بعد از تغییر env varها نشست Codex را دوباره شروع کنید. کمبود وابستگی‌های sandbox ممکن است شبیه خطای احراز هویت MCP دیده شود.",
+        "landing.continue_dashboard": "ادامه در داشبورد",
+        "landing.hero_badge": "MCP 1.0 · Claude · ChatGPT · Cursor · Gemini",
+        "landing.hero_title_line1": "یک هاب برای همه",
+        "landing.hero_title_em": "اتصال‌های AI",
+        "landing.hero_title_line2": "به سرویس‌های شما.",
+        "landing.hero_body": (
+            "MCP Hub لایه کنترل بین سرویس‌های self-hosted شما و ابزارهای AI است که با آن‌ها کار می‌کنند. "
+            "کلید بسازید، Claude.ai، Claude Desktop، ChatGPT، Cursor یا Codex را وصل کنید و همه فراخوانی‌ها "
+            "را از یک سطح تمیز بررسی کنید."
+        ),
+        "landing.nav.features": "ویژگی‌ها",
+        "landing.nav.integrations": "یکپارچه‌سازی‌ها",
+        "landing.nav.docs": "مستندات",
+        "landing.nav.blog": "بلاگ",
+        "landing.start_60": "شروع در ۶۰ ثانیه",
+        "landing.get_started": "شروع کنید",
+        "landing.create_account": "ایجاد حساب",
+        "landing.integrations.eyebrow": "یکپارچه‌سازی‌ها",
+        "landing.integrations.title": "ابزارهای مخصوص هر سرویس، در یک سطح MCP.",
+        "landing.integrations.tile": "ابزارها، کلیدها، سلامت و ممیزی با دسترسی محدود.",
+        "landing.features_eyebrow": "ویژگی‌ها",
+        "landing.features_title": "هرچه عامل‌های AI شما نیاز دارند، بدون شلوغی اضافه.",
+        "landing.feature.sites.title": "سرویس‌ها به‌عنوان موجودیت اصلی",
+        "landing.feature.sites.desc": (
+            "WordPress، WooCommerce، WordPress Specialist، Supabase، OpenPanel، Gitea، n8n و Coolify "
+            "را ثبت کنید. هر سرویس به یک منبع MCP قابل کشف با ابزارها و سطح دسترسی خودش تبدیل می‌شود."
+        ),
+        "landing.feature.sites.tag": "هسته",
+        "landing.feature.keys.title": "کلیدهای API محدودشده",
+        "landing.feature.keys.desc": (
+            "برای یک سرویس یا همه سایت‌ها کلید بسازید. سطح ابزارها همچنان مخصوص همان سرویس می‌ماند "
+            "و بعداً قابل محدودتر شدن است."
+        ),
+        "landing.feature.keys.tag": "امنیت",
+        "landing.feature.oauth.title": "OAuth 2.1 + PKCE",
+        "landing.feature.oauth.desc": (
+            "کلاینت‌های مرورگری مثل Claude.ai Connectors و ChatGPT را وصل کنید؛ کلاینت‌های دسکتاپ "
+            "هم می‌توانند از URL مستقیم یا bearer token استفاده کنند."
+        ),
+        "landing.feature.oauth.tag": "احراز هویت",
+        "landing.feature.health.title": "سلامت سرویس",
+        "landing.feature.health.desc": (
+            "وضعیت اعتبارنامه‌ها، latency و سلامت سرویس را ببینید تا عامل‌ها قبل از اقدام بدانند چه چیزی در دسترس است."
+        ),
+        "landing.feature.health.tag": "پایش",
+        "landing.feature.audit.title": "ردپای کامل ممیزی",
+        "landing.feature.audit.desc": (
+            "هر فراخوانی ابزار، رویداد احراز هویت و تغییر تنظیمات قابل جست‌وجو است و به کاربر یا کلید مربوط وصل می‌شود."
+        ),
+        "landing.feature.audit.tag": "انطباق",
+        "landing.feature.protocol.title": "ابزارهای بومی MCP",
+        "landing.feature.protocol.desc": (
+            "ابزارهای پلاگین‌ها را از طریق MCP ارائه کنید، بدون اینکه کاربر مجبور باشد API هر سرویس را دستی یاد بگیرد."
+        ),
+        "landing.feature.protocol.tag": "پروتکل",
+        "landing.cta_title": "هاب خود را در یک دقیقه راه‌اندازی کنید.",
+        "landing.cta_body": "روی هر نمونه Coolify مستقر کنید. برای استفاده شخصی رایگان. همیشه self-hosted.",
+        "landing.footer_tagline": "لایه کنترل MCP self-hosted برای WordPress، Coolify، Gitea و سرویس‌های بیشتر.",
+        "support_mcphub": "حمایت از MCP Hub",
+        "connect.claude_ai.step1": "از URL کانکتور Claude.ai استفاده کنید",
+        "sites.empty_search_title": "هیچ سایتی با این جست‌وجو پیدا نشد",
+        "sites.empty_search_body": "نام مستعار دیگری امتحان کنید یا جست‌وجو را پاک کنید.",
+        "sites.empty_healthy_title": "سایت سالمی وجود ندارد",
+        "sites.empty_healthy_body": "تست اتصال را اجرا کنید یا فیلتر را پاک کنید تا همه سایت‌ها دیده شوند.",
+        "sites.empty_untested_title": "سایت تست‌نشده‌ای وجود ندارد",
+        "sites.empty_untested_body": "همه سایت‌ها تست شده‌اند. فیلتر را پاک کنید تا همه سایت‌ها دیده شوند.",
+        "sites.selected_service": "سرویس انتخاب‌شده",
+        "sites.show_advanced_for_service": "نمایش فیلدهای پیشرفته {service}",
+        "sites.hide_advanced_for_service": "پنهان‌کردن فیلدهای پیشرفته {service}",
+        "api_keys.user_intro": "از این کلیدها برای احراز هویت کلاینت‌های MCP استفاده کنید.",
+        # Audit / generic
+        "event_type": "نوع رویداد",
+        "level": "سطح",
+        "date": "تاریخ",
+        "language": "زبان",
+        "theme": "تم",
+        "scope": "دسترسی",
+        "saved": "ذخیره شد",
+        "msg": "پیام",
+        "site_not_found": "سایت یافت نشد",
+        # Audit logs page (SPA)
+        "audit.intro": (
+            "هر احراز هویت، فراخوانی ابزار و تغییر تنظیمات. سازگار با GDPR. "
+            "فیلترها در سمت سرور اعمال می‌شوند."
+        ),
+        "audit.search_placeholder": "جست‌وجوی کاربر / رویداد / هدف / پیام…",
+        "audit.event_type_placeholder": "نوع رویداد (مثلاً tool_call)",
+        "audit.date_filter_title": "فیلتر بر اساس یک روز (YYYY-MM-DD)",
+        "audit.level.info": "اطلاع",
+        "audit.level.warn": "هشدار",
+        "audit.page_size": "اندازه‌ی صفحه",
+        "audit.per_page": "{n} در صفحه",
+        "audit.col.time": "زمان",
+        "audit.col.actor": "کاربر",
+        "audit.col.event": "رویداد",
+        "audit.col.target": "هدف",
+        "audit.col.message": "پیام",
+        "audit.col.result": "نتیجه",
+        "audit.col.level": "سطح",
+        "audit.col.duration": "مدت",
+        "audit.no_entries": "موردی یافت نشد.",
+        "audit.clear_filters": "پاک کردن فیلترها",
+        "audit.range_of": "{from}–{to} از {total}",
+        "audit.zero_entries": "بدون مورد",
+        "audit.page_label": "صفحه",
+        "previous": "قبلی",
+        "next": "بعدی",
+        # API Keys page (SPA)
+        "api_keys.admin_intro": (
+            "کلیدهای شخصی و ماشینی برای کلاینت‌های MCP. " "هر کلید دسترسی مجزا و لاگ مستقل دارد."
+        ),
+        "api_keys.admin_empty_cta": "یکی بسازید تا کلاینت‌های MCP احراز هویت شوند.",
+        "api_keys.user_empty_cta": "یکی بسازید تا یک کلاینت متصل شود.",
+        "api_keys.no_services_title": "قبل از ساخت کلید API یک سرویس اضافه کنید",
+        "api_keys.no_services_body": (
+            "کلیدهای API کلاینت‌ها را به سرویس‌های شما متصل و احراز هویت می‌کنند. "
+            "ابتدا از بخش سایت‌ها یک سرویس اضافه کنید، سپس برای همان سرویس یا همه سرویس‌ها کلید بسازید."
+        ),
+        "api_keys.description": "توضیح",
+        "api_keys.description_placeholder": "این کلید برای چیست؟",
+        "api_keys.expiry_label": "انقضا (روز، اختیاری)",
+        "api_keys.expiry_placeholder": "خالی بگذارید برای بدون انقضا",
+        "api_keys.admin_warning": (
+            "دسترسی Admin کنترل کامل سامانه شامل عملیات مخرب (حذف، نوشتن env، "
+            "ابزارهای سیستمی) را می‌دهد. هر کس این کلید را داشته باشد می‌تواند به جای شما "
+            "روی همه‌ی سایت‌ها عمل کند. مگر اینکه کلاینت واقعاً نیاز داشته باشد، سطح محدودتری را انتخاب کنید."
+        ),
+        "api_keys.sensitive_warning": (
+            "فایل‌های بک‌آپ و متغیرهای محیطی را می‌خواند که اغلب حاوی اطلاعات حساس هستند. "
+            "این کلید را مانند یک اعتبارنامه تلقی کنید و در کانال‌های رمزنگاری‌نشده به اشتراک نگذارید."
+        ),
+        "api_keys.confirm_revoke": "لغو «{name}»؟\nاین کلید فوراً از کار خواهد افتاد.",
+        "api_keys.confirm_delete": "حذف دائمی «{name}»؟\nاین عمل بازگشت‌پذیر نیست.",
+        "api_keys.confirm_delete_user": "حذف «{name}»؟\nاین کلید فوراً از کار خواهد افتاد.",
+        "api_keys.toast_revoked": "کلید لغو شد",
+        "api_keys.toast_deleted": "کلید حذف شد",
+        "status.revoked": "لغوشده",
+        "badge.admin": "ادمین",
+        "badge.sensitive": "حساس",
+        "badge.elevated": "ارتقایافته",
+        # Connect page — client tile descriptions
+        "connect.client.claude-code.desc": "CLI · توسعه‌دهنده",
+        "connect.client.cursor.desc": "پیکربندی JSON",
+        "connect.client.chatgpt.desc": "OAuth · Apps SDK",
+        "connect.client.gemini.desc": "CLI · توکن",
+        "connect.client.vscode.desc": "افزونه · پیش‌نمایش",
+        "connect.client.custom.desc": "هر کلاینت MCP",
+        "connect.client.custom.name": "کلاینت سفارشی",
+        "connect.no_services_title": "قبل از اتصال کلاینت‌ها یک سرویس اضافه کنید",
+        "connect.no_services_body": (
+            "کلاینت‌های MCP برای مسیردهی ابزارها حداقل به یک سرویس مثل WordPress، WooCommerce، "
+            "Coolify یا سرویس دیگر نیاز دارند. ابتدا از سایت‌ها اولین سرویس را اضافه کنید، "
+            "سپس برای URL کلاینت و مراحل راه‌اندازی به اینجا برگردید."
+        ),
+        "connect.connect_x": "اتصال {name}",
+        # Connect — Claude flow
+        "connect.claude.step1": "از این URL کانکتور استفاده کنید",
+        "connect.claude.step1_body": (
+            "این URL سرویس را در Claude.ai Connectors داخل مرورگر وارد کنید، وقتی نقطه پایانی MCP را می‌خواهد."
+        ),
+        "connect.claude.connector_tip": (
+            "نکته: فقط به URL بالا نیاز دارید. هنگام اتصال می‌توانید با API Key یا GitHub/Google "
+            "احراز هویت کنید."
+        ),
+        "connect.claude.open_desktop": "باز کردن Claude Desktop",
+        "connect.claude.link_lifetime": "لینک ۱۰ دقیقه اعتبار دارد · فقط یک‌بار",
+        "connect.claude.step2": "در Claude.ai تأیید کنید",
+        "connect.claude.step2_body_prefix": "Claude نمایش می‌دهد:",
+        "connect.claude.prompt_text": "MCP Hub می‌خواهد به N ابزار دسترسی داشته باشد",
+        "connect.claude.step2_body_suffix": "برای ادامه تأیید کنید.",
+        "connect.claude.step3": "متصل شدید",
+        "connect.claude.step3_body": (
+            "کلاینت جدید را در نمای کلی خود خواهید دید. از Claude بخواهید سایت‌های شما را فهرست کند."
+        ),
+        "connect.chatgpt.step1": "از URL کانکتور ChatGPT استفاده کنید",
+        "connect.chatgpt.step1_body": (
+            "این URL سرویس را کپی کنید. ChatGPT فقط به URL نقطه پایانی MCP نیاز دارد؛ MCP Hub "
+            "هنگام اتصال ChatGPT احراز هویت را انجام می‌دهد."
+        ),
+        "connect.chatgpt.connector_tip": (
+            "نکته: فقط به URL بالا نیاز دارید. هنگام اتصال با API Key یا GitHub/Google احراز هویت کنید."
+        ),
+        "connect.chatgpt.step2": "Developer mode را در ChatGPT فعال کنید",
+        "connect.chatgpt.step2_body": (
+            "در تنظیمات chatgpt.com ابتدا Developer mode را فعال کنید. سپس بخش Apps را باز کنید "
+            "و گزینه Create app را انتخاب کنید."
+        ),
+        "connect.chatgpt.step3": "اپلیکیشن ChatGPT را بسازید",
+        "connect.chatgpt.step3_body": (
+            "Authorization را روی حالت OAuth بگذارید، که پیش‌فرض است، سپس URL بالا را به‌عنوان "
+            "MCP server URL وارد کنید و تنظیمات اپلیکیشن را کامل کنید."
+        ),
+        # Connect — CLI flow
+        "connect.cli.step1": "این را در ترمینال اجرا کنید",
+        "connect.cli.step2": "تأیید کنید",
+        # Connect — JSON flow
+        "connect.json.paste_into": "این را در پیکربندی MCP {name} الصاق کنید",
+        "connect.json.location_hint": "Settings → MCP Servers · مسیر فایل در هر کلاینت متفاوت است",
+        "connect.json.token_once": "توکن فقط یک‌بار نمایش داده می‌شود",
+        "connect.json.token_once_body": (
+            "آن را جای امنی ذخیره کنید. هر زمان بخواهید می‌توانید از کلیدهای API بچرخانیدش."
+        ),
+        "connect.json.create_key_title": "ابتدا یک کلید API بسازید",
+        "connect.json.create_key_body": (
+            "از بخش کلیدهای API یک کلید بسازید، همان لحظه که فقط یک‌بار نمایش داده می‌شود کپی کنید، "
+            "و سپس مقدار mhu_••••••• را در این پیکربندی جایگزین کنید. کلیدها را می‌توانید از "
+            "کلیدهای API حذف و دوباره بسازید."
+        ),
+        "connect.json.compatible": "سازگار:",
+        "connect.json.custom_mcp": "MCP سفارشی",
+        # Connect — OAuth flow
+        "connect.oauth.step1": "اپلیکیشن OAuth را ثبت کنید (یک‌بار)",
+        "connect.oauth.step1_body": (
+            "هاب یک کلاینت OAuth ایجاد می‌کند و یک Redirect URL در اختیار شما می‌گذارد "
+            "تا در مانیفست ابزار AI الصاق کنید."
+        ),
+        "connect.oauth.register_btn": "ثبت کلاینت OAuth",
+        "connect.oauth.step2": "از طریق کلاینت AI وارد شوید",
+        "connect.oauth.step2_body": (
+            "کاربران دکمه‌ی «Sign in with MCP Hub» را می‌بینند. یک‌بار دسترسی‌ها را تأیید می‌کنید؛ "
+            "توکن خودش تجدید می‌شود."
+        ),
+        # Connect — tier warnings
+        "connect.tier.admin_warning": (
+            "Admin عملیات مخرب (حذف پست، تنظیم گزینه‌ها، نصب پلاگین، نوشتن env) را در دسترس قرار می‌دهد. "
+            "هر کس توکن این سایت را داشته باشد می‌تواند با دسترسی کامل عمل کند. "
+            "مگر اینکه ایجنت به همه‌ی ابزارها نیاز داشته باشد، سطح محدودتری را انتخاب کنید."
+        ),
+        "connect.tier.install_warning": (
+            "Installer یک سطح ارتقایافته است — نصب‌ها کد را از مخزن WordPress / تم روی سایت شما اجرا می‌کنند. "
+            "فقط زمانی استفاده کنید که کلاینت به این دسترسی نیاز دارد."
+        ),
+        "connect.tier.sensitive_warning": (
+            "Sensitive reads یک سطح ارتقایافته است — خواندن‌های حساس شامل بک‌آپ‌ها و متغیرهای محیطی است. "
+            "فقط زمانی استفاده کنید که کلاینت به این دسترسی نیاز دارد."
+        ),
+        "connect.toast.scope_updated": "دسترسی به ابزارها به {scope} به‌روز شد",
+        "connect.toast.scope_failed": "به‌روزرسانی ناموفق: {error}",
+        # Tier hints (shared between ApiKeys + Connect + OAuth dialogs)
+        "tier.read.hint": "فهرست‌کردن و بازرسی فقط‌خواندنی روی منابع.",
+        "tier.read_sensitive.hint": "شامل بک‌آپ‌ها، متغیرهای محیطی و سایر خواندن‌های حساس.",
+        "tier.deploy.hint": "اجرای دیپلوی و چرخه‌ی حیات، بدون ویرایش.",
+        "tier.editor.hint": "صفحات، پست‌ها، ویرایش محتوا (wordpress_specialist F.19.5).",
+        "tier.settings.hint": "گزینه‌ها، پایگاه‌ها، هویت، کرون (wordpress_specialist F.19.6).",
+        "tier.install.hint": "نصب پلاگین / تم از مخزن. به‌عنوان دسترسی بالا تلقی شود.",
+        "tier.write.hint": "ایجاد / به‌روزرسانی / حذف منابع و پیکربندی.",
+        "tier.admin.hint": "کنترل کامل سامانه شامل عملیات مخرب.",
+        "tier.custom.hint": "بعد از انتخاب این، ابزارها را به‌صورت دستی فعال/غیرفعال کنید.",
+        # OAuth Clients page
+        "oauth.empty": "هنوز کلاینت OAuth ندارید.",
+        "oauth.register_first": "ثبت اولین کلاینت",
+        "oauth.none": "— هیچ‌کدام —",
+        "oauth.invalid_uris": "{n} URI آدرس http(s) معتبر نیست:",
+        "oauth.valid_uris": "{n} URI معتبر.",
+        "oauth.allowed_scope": "دسترسی مجاز",
+        "oauth.admin_warning": (
+            "دسترسی Admin روی کلاینت OAuth شخص ثالث به آن اپ اجازه می‌دهد به جای کاربر "
+            "روی همه‌ی سایت‌ها عمل کند. فقط برای اپلیکیشن‌های مورد اعتماد که تحت کنترل خودتان هستند استفاده کنید."
+        ),
+        "oauth.sensitive_warning": (
+            "Sensitive reads بک‌آپ‌ها و متغیرهای محیطی را در اختیار کلاینت OAuth قرار می‌دهد."
+        ),
+        "oauth.confirm_delete": (
+            "حذف کلاینت OAuth «{name}»؟\nکاربرانی که از طریق این کلاینت وارد شده‌اند قطع می‌شوند."
+        ),
+        "oauth.toast_deleted": "کلاینت حذف شد",
+        "oauth.toast_created": "کلاینت ایجاد شد",
+        "oauth.toast_delete_failed": "حذف ناموفق: {error}",
+        "oauth.toast_create_failed": "ایجاد ناموفق: {error}",
+        # Site Tools page (G.5c)
+        "tools.eyebrow": "دسترسی به ابزارها",
+        "tools.back_to_sites": "بازگشت به سایت‌ها",
+        "tools.intro": (
+            "هر یک از ابزارهای MCP که این سایت در اختیار می‌گذارد را فعال یا غیرفعال کنید. "
+            "برای حالت متداول، تنظیم سطح در صفحه‌ی Connect ساده‌تر است — این صفحه برای ریزتنظیم است."
+        ),
+        "tools.preset_subtitle": (
+            "یک پیش‌فرض سرویس یا گزینه سفارشی را انتخاب کنید، سپس ابزارهای جداگانه را پایین‌تر تنظیم کنید."
+        ),
+        "tools.search_placeholder": "فیلتر ابزارها…",
+        "tools.scope_filter_all": "همه‌ی سطوح",
+        "tools.empty": "این پلاگین هنوز ابزاری در دسترس نمی‌گذارد.",
+        "tools.group_subtitle": "{n} ابزار در این سطح",
+        "tools.unavailable": "در دسترس نیست",
+        "tools.needs_provider_key": "نیاز به کلید ارائه‌دهنده‌ی AI دارد — بالای همین صفحه پیکربندی کنید.",
+        "tools.configure_provider_key": "پیکربندی کلید",
+        "tools.readiness_title": "آمادگی سرویس",
+        "tools.readiness_subtitle": (
+            "بررسی اعتبارنامه و سلامت تعیین می‌کند کدام ابزارها به کلاینت‌های MCP نمایش داده شوند."
+        ),
+        "tools.capability_status": "بررسی قابلیت‌ها",
+        "tools.capability_ok": "اعتبارنامه برای سطح انتخاب‌شده کافی است",
+        "tools.capability_warning": "اعتبارنامه پایین‌تر از سطح انتخاب‌شده است",
+        "tools.capability_unavailable": "probe در دسترس نیست",
+        "tools.capability_unknown_tier": "این سطح probe نشده است",
+        "tools.capability_missing": "ناموجود",
+        "tools.capability_probe_reason": "دلیل",
+        "tools.capability_ai_providers": "ارائه‌دهنده‌های AI تنظیم‌شده",
+        "tools.credential_requirement_title": "نیازمندی اعتبارنامه برای {scope}",
+        "tools.credential_guide.wordpress.read": (
+            "Application Password ذخیره‌شده در اعتبارنامه‌های سرویس بهتر است متعلق به کاربر WordPress "
+            "با حداقل نقش Editor باشد. ابزارهای خواندنی پایه به قابلیت‌های CRUD نیاز ندارند."
+        ),
+        "tools.credential_guide.wordpress.admin": (
+            "Application Password ذخیره‌شده در اعتبارنامه‌های سرویس برای CRUD کامل باید متعلق به "
+            "Administrator وردپرس باشد. ابزارهای SEO و ابزارهای متکی به companion ممکن است به فعال بودن "
+            "پلاگین متناظر هم نیاز داشته باشند."
+        ),
+        "tools.credential_guide.wordpress_specialist.read": (
+            "Application Password باید متعلق به کاربر WordPress با manage_options (Administrator) باشد. "
+            "برای ابزارهای companion-backed افزونه Airano MCP Bridge v2.11.0+ باید نصب و فعال باشد."
+        ),
+        "tools.credential_guide.wordpress_specialist.editor": (
+            "همان پیش‌نیازهای Read، به‌علاوه Airano MCP Bridge v2.13.0+ برای ویرایش صفحه و "
+            "v2.14.0+ برای CRUD فایل قالب. فراخوانی ابزارها همچنان edit_posts/edit_themes را بررسی می‌کنند."
+        ),
+        "tools.credential_guide.wordpress_specialist.settings": (
+            "همان پیش‌نیازهای Editor. ابزارهای تنظیمات، هویت، پیوند یکتا و cron به Application Password "
+            "مدیر با manage_options نیاز دارند."
+        ),
+        "tools.credential_guide.wordpress_specialist.install": (
+            "همان پیش‌نیازهای Settings، به‌علاوه Airano MCP Bridge v2.14.0+ برای نصب/فعال‌سازی/حذف قالب "
+            "و v2.15.0+ برای نصب/فعال‌سازی/به‌روزرسانی پلاگین."
+        ),
+        "tools.credential_guide.wordpress_specialist.admin": (
+            "همان پیش‌نیازهای Installer، به‌علاوه مسیرهای مخرب مثل حذف و نصب از URL/zip. ویرایش فایل PHP "
+            "نیاز دارد DISALLOW_FILE_EDIT تنظیم نشده یا false باشد."
+        ),
+        "tools.credential_guide.woocommerce.read": (
+            "Consumer Key و Consumer Secret ذخیره‌شده برای WooCommerce REST API باید مجوز Read داشته باشند. "
+            "کاربر سازنده در وردپرس بهتر است حداقل Shop Manager باشد تا سفارش‌ها و مشتری‌ها دیده شوند."
+        ),
+        "tools.credential_guide.woocommerce.admin": (
+            "کلید WooCommerce REST API باید مجوز Read/Write داشته و متعلق به Administrator یا Shop Manager باشد. "
+            "ابزارهای رسانه و تولید تصویر AI علاوه بر آن به WordPress username و Application Password نیاز دارند."
+        ),
+        "tools.tier_warning_title": "هشدار",
+        "tools.tier_warning.install": (
+            "Installer به عامل AI اجازه نصب و فعال‌سازی پلاگین یا قالب از مخزن‌های curated را می‌دهد. "
+            "ابتدا روی staging تست کنید و افزونه‌های نصب‌شده را منظم مرور کنید."
+        ),
+        "tools.tier_warning.admin": (
+            "Admin سطح کامل عملیات مخرب را می‌دهد: نصب دلخواه، حذف، CRUD کاربر و عملیات دیگری که ممکن است undo نداشته باشند. "
+            "فقط جایی استفاده کنید که خطاها از بک‌آپ قابل بازیابی هستند."
+        ),
+        "tools.reason.provider_key": "نیاز به کلید ارائه‌دهنده AI",
+        "tools.reason.provider_key_detail": "یک کلید ارائه‌دهنده را در بخش تولید تصویر با هوش مصنوعی پیکربندی کنید.",
+        "tools.reason.companion_route": "نیاز به پلاگین همراه",
+        "tools.reason.companion_route_detail": (
+            "Airano MCP Bridge را نصب یا به‌روزرسانی کنید و تست اتصال را اجرا کنید."
+        ),
+        "tools.reason.feature": "نیاز به پلاگین SEO",
+        "tools.reason.feature_detail": "قبل از فعال‌سازی این ابزار، پشتیبانی Rank Math یا Yoast را نصب کنید.",
+        "tools.reason.wp_credentials": "نیاز به WP App Password",
+        "tools.reason.wp_credentials_detail": (
+            "برای آپلودهای رسانه، WordPress username و Application Password را در اعتبارنامه‌های سرویس اضافه کنید."
+        ),
+        "tools.reason.probe_unknown": "نیاز به بررسی سلامت",
+        "tools.reason.probe_unknown_detail": (
+            "تست اتصال را اجرا کنید تا MCP Hub قابلیت‌های سرویس را تأیید کند."
+        ),
+        "tools.toast_failed": "به‌روزرسانی ابزار ناموفق بود: {error}",
+        "tools.sensitivity.destructive": "مخرب",
+        "tools.sensitivity.sensitive": "حساس",
+        "providers.title": "تولید تصویر با هوش مصنوعی",
+        "providers.subtitle": (
+            "کلید API ارائه‌دهنده‌ها را برای همین سرویس ذخیره کنید. ابزارهای تولید تصویر "
+            "تا زمانی که کلید ارائه‌دهنده تنظیم نشده و اتصال سرویس سالم نباشد در دسترس نیستند."
+        ),
+        "providers.status_set": "تنظیم‌شده",
+        "providers.status_unset": "تنظیم‌نشده",
+        "providers.new_key_placeholder": "کلید API جدید",
+        "providers.remove": "حذف",
+        "providers.encrypted_note": "کلیدها رمزگذاری می‌شوند و فقط به همین سرویس محدود هستند.",
+        "providers.toast_saved": "کلید ارائه‌دهنده ذخیره شد",
+        "providers.toast_save_failed": "ذخیره ناموفق بود: {error}",
+        "providers.toast_removed": "کلید ارائه‌دهنده حذف شد",
+        "providers.toast_remove_failed": "حذف ناموفق بود: {error}",
+        "providers.confirm_remove": "این کلید ارائه‌دهنده حذف شود؟",
+        "providers.hint.openai": "برای جایگزینی مقدار ذخیره‌شده، کلید جدید ذخیره کنید.",
+        "providers.hint.stability": "برای جایگزینی مقدار ذخیره‌شده، کلید جدید ذخیره کنید.",
+        "providers.hint.replicate": "برای جایگزینی مقدار ذخیره‌شده، کلید جدید ذخیره کنید.",
+        "providers.hint.openrouter": (
+            "از مدل‌های تصویری OpenRouter پشتیبانی می‌کند. کلید را اینجا ذخیره کنید، "
+            "سپس مدل پیش‌فرض این سرویس را انتخاب کنید."
+        ),
+        "providers.model.loading": "در حال دریافت مدل‌های تصویری…",
+        "providers.model.failed": (
+            "دریافت مدل‌های تصویری OpenRouter ناموفق بود. اگر اتصال ارائه‌دهنده سالم نباشد، ابزار غیرفعال می‌ماند."
+        ),
+        "providers.model.empty": "هیچ مدل تصویری OpenRouter برای این کلید پیدا نشد.",
+        "providers.model.default_label": "مدل تصویری پیش‌فرض",
+        "providers.model.select": "انتخاب مدل",
+        "providers.model.set_default": "تنظیم پیش‌فرض",
+        "providers.model.clear": "پاک کردن",
+        "providers.model.current": "پیش‌فرض فعلی: {model}",
+        "providers.model.toast_saved": "مدل تصویری پیش‌فرض ذخیره شد",
+        "providers.model.toast_cleared": "مدل تصویری پیش‌فرض پاک شد",
+        "providers.model.toast_failed": "به‌روزرسانی مدل ناموفق بود: {error}",
+        "sites.ai_image.title": "تولید تصویر با هوش مصنوعی",
+        "sites.ai_image.create_body": (
+            "پس از ایجاد این سرویس، در Tool access کلید OpenAI، Stability AI، Replicate یا OpenRouter "
+            "را اضافه کنید. ابزار تولید تصویر تا زمان ذخیره کلید ارائه‌دهنده و سالم بودن اتصال سرویس "
+            "در دسترس نیست."
+        ),
+        "sites.ai_image.edit_body": (
+            "تولید تصویر برای هر سرویس در Tool access پیکربندی می‌شود. کلید OpenAI، Stability AI، "
+            "Replicate یا OpenRouter را آنجا اضافه کنید؛ برای OpenRouter می‌توان مدل تصویری پیش‌فرض "
+            "هم انتخاب کرد."
+        ),
+        "sites.ai_image.open_tools": "باز کردن تنظیمات تولید تصویر",
+        "sites.manage_tools": "مدیریت ابزارها",
+        # Site Add/Edit dialog (G.12)
+        "sites.dialog_add_title": "افزودن سایت",
+        "sites.dialog_edit_title": "ویرایش سایت",
+        "sites.dialog_add_submit": "افزودن سایت",
+        "sites.dialog_edit_submit": "ذخیره‌ی تغییرات",
+        "sites.field_plugin_type": "پلاگین",
+        "sites.field_alias": "شناسه (alias)",
+        "sites.field_url": "آدرس",
+        "sites.alias_placeholder": "شناسه‌ی-کوتاه-سایت",
+        "sites.alias_hint": (
+            "شناسه‌ی کوتاهی که AI آن را به‌صورت `site=…` می‌بیند. فقط حروف کوچک، رقم و خط تیره."
+        ),
+        "sites.credentials": "اعتبارها",
+        "sites.cred_unchanged": "خالی بگذارید تا مقدار فعلی حفظ شود",
+        "sites.guidance.wordpress_title": "نیازمندی‌های WordPress",
+        "sites.guidance.wordpress_specialist_title": "نیازمندی‌های WordPress Specialist",
+        "sites.guidance.woocommerce_title": "نیازمندی‌های WooCommerce",
+        "sites.guidance.wp_username": (
+            "Username: نام کاربری مدیر وردپرس که مالک Application Password است. الزامی."
+        ),
+        "sites.guidance.wp_app_password": (
+            "Application Password: از WP Admin -> Users -> Profile -> Application Passwords بسازید. "
+            "کاربر باید manage_options داشته باشد. الزامی."
+        ),
+        "sites.guidance.bridge_version": (
+            "Airano MCP Bridge v2.11.0+ برای ابزارهای companion-backed توصیه می‌شود."
+        ),
+        "sites.guidance.bridge_lag": (
+            "صفحه افزونه در WordPress.org ممکن است به‌دلیل فرایند انتشار/بازبینی از نسخه‌های "
+            "مخزن عقب‌تر باشد؛ فرض نکنید تازه‌ترین قابلیت مخزن همان‌جا هم منتشر شده است."
+        ),
+        "sites.guidance.companion_copy": (
+            "Airano MCP Bridge — companion plugin (اختیاری اما توصیه‌شده). نصب آن آپلودهای بزرگ‌تر، "
+            "site-health یکپارچه، cache purge، transient flush، bulk meta writes، structured export، "
+            "capability probe و audit-hook webhooks را فعال می‌کند. بدون آن، ابزارهای پایه همچنان "
+            "کار می‌کنند اما این قابلیت‌ها در دسترس نیستند."
+        ),
+        "sites.guidance.wc_consumer_key": (
+            "Consumer Key: در WooCommerce -> Settings -> Advanced -> REST API -> Add Key بسازید. "
+            "مجوز Read/Write. الزامی."
+        ),
+        "sites.guidance.wc_consumer_secret": (
+            "Consumer Secret: فقط یک‌بار نمایش داده می‌شود، با cs_ شروع می‌شود و باید همان لحظه ذخیره شود. الزامی."
+        ),
+        "sites.guidance.wc_no_extra_key": "برای احراز هویت WooCommerce REST فیلد API key جداگانه‌ای وجود ندارد.",
+        "sites.guidance.wc_media_username": (
+            "WordPress Username برای ابزارهای رسانه فقط برای ابزارهای AI/media مثل "
+            "upload_and_attach_to_product، attach_media_to_product، set_featured_image و "
+            "generate_and_upload_image با attach_to_post لازم است. اختیاری."
+        ),
+        "sites.guidance.wc_media_password": (
+            "WordPress Application Password برای ابزارهای رسانه فقط هنگام آپلود WC به /wp/v2/media لازم است؛ "
+            "Consumer Key/Secret برای این مسیر کار نمی‌کنند. اختیاری."
+        ),
+        "sites.show_advanced": "نمایش فیلدهای پیشرفته",
+        "sites.hide_advanced": "پنهان‌کردن فیلدهای پیشرفته",
+        "sites.toast_created": "سایت ایجاد شد",
+        "sites.toast_updated": "سایت به‌روز شد",
     },
 }
 
@@ -291,6 +1699,44 @@ def get_client_ip(request: Request) -> str:
     if forwarded:
         return forwarded.split(",")[0].strip()
     return request.client.host if request.client else "unknown"
+
+
+def resolve_public_base_url(request: Request) -> str:
+    """Return the canonical public base URL for this MCPHub instance.
+
+    Order of precedence:
+      1. ``PUBLIC_URL`` env var when set AND non-empty.
+      2. The incoming request, honouring ``X-Forwarded-Proto`` and
+         ``X-Forwarded-Host`` (set by Cloudflare / Coolify Traefik /
+         most reverse proxies). This makes ``/u/{user}/{alias}/mcp``
+         render with the public hostname even on test deployments
+         where the operator forgot to set ``PUBLIC_URL``.
+      3. Hard fallback to ``http://localhost:8000`` for the bare
+         ``python server.py`` development workflow.
+
+    The previous ``os.environ.get("PUBLIC_URL", "http://localhost:8000")``
+    pattern silently broke when ``PUBLIC_URL=''`` was set in env vars
+    (the empty string is still a value, so the default never fires) —
+    that's the bug behind the missing host on dashboard MCP-endpoint
+    URLs reported on mcp-test 2026-05-01.
+    """
+    env_url = os.environ.get("PUBLIC_URL", "").strip().rstrip("/")
+    if env_url:
+        return env_url
+
+    proto = (request.headers.get("x-forwarded-proto") or request.url.scheme).split(",")[0].strip()
+    host = (
+        (
+            request.headers.get("x-forwarded-host")
+            or request.headers.get("host")
+            or request.url.netloc
+        )
+        .split(",")[0]
+        .strip()
+    )
+    if proto and host:
+        return f"{proto}://{host}".rstrip("/")
+    return "http://localhost:8000"
 
 
 async def get_dashboard_stats() -> dict:
@@ -334,19 +1780,19 @@ async def get_dashboard_stats() -> dict:
     except Exception as e:
         logger.warning(f"Error getting dashboard stats: {e}")
 
-    # Platform stats (user system)
+    # Platform stats (registered users + their sites)
     try:
         from core.database import get_database
 
         db = get_database()
-        row = await db.fetchone("SELECT COUNT(*) AS c FROM users")
-        stats["users_count"] = row["c"] if row else 0
-        row = await db.fetchone("SELECT COUNT(*) AS c FROM sites")
-        stats["user_sites_count"] = row["c"] if row else 0
+        stats["users_count"] = await db.count_all_users()
+        stats["user_sites_count"] = await db.count_all_sites()
+        stats["recent_users_count"] = await db.count_recent_users(days=7)
     except Exception as e:
         logger.debug(f"Error getting platform stats: {e}")
         stats.setdefault("users_count", 0)
         stats.setdefault("user_sites_count", 0)
+        stats.setdefault("recent_users_count", 0)
 
     return stats
 
@@ -495,7 +1941,7 @@ async def dashboard_login_page(request: Request) -> Response:
     # Check if already logged in
     session = auth.get_session_from_request(request) or auth.get_user_session_from_request(request)
     if session:
-        return RedirectResponse(url="/dashboard", status_code=303)
+        return RedirectResponse(url="/dashboard/overview", status_code=303)
 
     # Get language
     accept_language = request.headers.get("accept-language")
@@ -576,7 +2022,7 @@ async def dashboard_login_submit(request: Request) -> Response:
     if not auth.check_rate_limit(client_ip):
         logger.warning(f"Dashboard login rate limit exceeded for {client_ip}")
         return RedirectResponse(
-            url=f"/dashboard/login?error=rate_limit&lang={lang}",
+            url=f"/dashboard-legacy/login?error=rate_limit&lang={lang}",
             status_code=303,
         )
 
@@ -586,7 +2032,7 @@ async def dashboard_login_submit(request: Request) -> Response:
     # Get form data
     form = await request.form()
     api_key = form.get("api_key", "")
-    next_url = form.get("next", "/dashboard")
+    next_url = form.get("next", "/dashboard/overview")
 
     # Validate API key
     is_valid, user_type, key_id = auth.validate_api_key(api_key)
@@ -609,7 +2055,7 @@ async def dashboard_login_submit(request: Request) -> Response:
             logger.warning(f"Failed to log auth event: {e}")
 
         return RedirectResponse(
-            url=f"/dashboard/login?error=invalid&next={next_url}&lang={lang}",
+            url=f"/dashboard-legacy/login?error=invalid&next={next_url}&lang={lang}",
             status_code=303,
         )
 
@@ -644,12 +2090,97 @@ async def dashboard_login_submit(request: Request) -> Response:
     return response
 
 
+async def dashboard_api_login(request: Request) -> Response:
+    """POST /api/dashboard/login — JSON variant of the master-key login form.
+
+    Accepts JSON or form-encoded ``api_key``. Returns JSON instead of a 303
+    redirect so the SPA can call it via fetch without a full reload. The
+    session cookie is set on success exactly the same way as the legacy form
+    handler; the SPA then navigates client-side to ``next``.
+
+    Response shapes::
+
+        200 {"ok": true, "next": "/dashboard/overview"}
+        401 {"ok": false, "error": "invalid"}
+        429 {"ok": false, "error": "rate_limit"}
+    """
+    from starlette.responses import JSONResponse
+
+    auth = get_dashboard_auth()
+    client_ip = get_client_ip(request)
+
+    # Rate limit before doing any work.
+    if not auth.check_rate_limit(client_ip):
+        logger.warning(f"Dashboard login rate limit exceeded for {client_ip}")
+        return JSONResponse({"ok": False, "error": "rate_limit"}, status_code=429)
+
+    auth.record_login_attempt(client_ip)
+
+    # Accept JSON or form-encoded — both common from a fetch() call.
+    api_key = ""
+    next_url = "/dashboard/overview"
+    content_type = (request.headers.get("content-type") or "").lower()
+    if "application/json" in content_type:
+        try:
+            body = await request.json()
+            api_key = str(body.get("api_key") or "")
+            next_url = str(body.get("next") or "/dashboard/overview")
+        except Exception:
+            return JSONResponse({"ok": False, "error": "invalid_body"}, status_code=400)
+    else:
+        form = await request.form()
+        api_key = str(form.get("api_key") or "")
+        next_url = str(form.get("next") or "/dashboard/overview")
+
+    is_valid, user_type, key_id = auth.validate_api_key(api_key)
+    if not is_valid:
+        logger.warning(f"Dashboard login failed for {client_ip}")
+        try:
+            from core.audit_log import get_audit_logger
+
+            audit_logger = get_audit_logger()
+            if audit_logger:
+                audit_logger.log_authentication(
+                    success=False,
+                    reason="Invalid API key or insufficient permissions",
+                    ip_address=client_ip,
+                )
+        except Exception as e:
+            logger.warning(f"Failed to log auth event: {e}")
+        return JSONResponse({"ok": False, "error": "invalid"}, status_code=401)
+
+    # Mirror the legacy handler: create admin session, then upgrade to user
+    # session for master-key logins so My Sites / Connect work.
+    token = auth.create_session(user_type, key_id)
+    if user_type == "master":
+        try:
+            user_token = await _ensure_master_key_user(auth)
+            if user_token:
+                token = user_token
+        except Exception as e:
+            logger.warning("Failed to create master key user record: %s", e)
+
+    response = JSONResponse({"ok": True, "next": next_url})
+    auth.set_session_cookie(response, token)
+
+    try:
+        from core.audit_log import get_audit_logger
+
+        audit_logger = get_audit_logger()
+        if audit_logger:
+            audit_logger.log_authentication(success=True, ip_address=client_ip)
+    except Exception as e:
+        logger.warning(f"Failed to log auth event: {e}")
+        logger.info(f"Dashboard login successful (api): type={user_type}, ip={client_ip}")
+    return response
+
+
 async def auth_logout(request: Request) -> Response:
     """Clear OAuth user session cookie."""
     from core.dashboard.auth import get_dashboard_auth
 
     auth = get_dashboard_auth()
-    response = RedirectResponse(url="/auth/login", status_code=303)
+    response = RedirectResponse(url="/dashboard/login", status_code=303)
     auth.clear_session_cookie(response)
     client_ip = request.client.host if request.client else "unknown"
     # Log logout event
@@ -1378,6 +2909,39 @@ async def dashboard_api_keys_list(request: Request) -> Response:
     )
 
 
+async def dashboard_api_keys_list_json(request: Request) -> Response:
+    """GET /api/dashboard/api-keys — JSON list of admin API keys.
+
+    Track G companion to the legacy ``/dashboard/api-keys`` HTML page. The SPA
+    consumes ``keys`` as an array; pagination metadata is returned alongside it
+    for callers that need it.
+    """
+    session, redirect = _require_admin_session(request)
+    if redirect:
+        return JSONResponse({"error": "Admin access required"}, status_code=403)
+
+    project_filter = request.query_params.get("project", "")
+    status_filter = request.query_params.get("status", "active")
+    search = request.query_params.get("search", "")
+    page = int(request.query_params.get("page", 1))
+
+    keys_data = await get_all_api_keys(
+        project_id=project_filter if project_filter else None,
+        status=status_filter,
+        search=search if search else None,
+        page=page,
+    )
+    return JSONResponse(
+        {
+            "keys": keys_data["api_keys"],
+            "total_count": keys_data["total_count"],
+            "total_pages": keys_data["total_pages"],
+            "current_page": keys_data["current_page"],
+            "per_page": keys_data["per_page"],
+        }
+    )
+
+
 async def dashboard_api_keys_create(request: Request) -> Response:
     """API endpoint to create a new API key (admin only)."""
     session, redirect = _require_admin_session(request)
@@ -1551,7 +3115,7 @@ async def dashboard_oauth_clients_list(request: Request) -> Response:
             user_id = user_session.get("user_id")
 
     if not session:
-        return RedirectResponse(url="/auth/login", status_code=303)
+        return RedirectResponse(url="/dashboard/login", status_code=303)
 
     # Get language
     accept_language = request.headers.get("accept-language")
@@ -1582,6 +3146,42 @@ async def dashboard_oauth_clients_list(request: Request) -> Response:
     )
 
 
+async def dashboard_oauth_clients_list_json(request: Request) -> Response:
+    """GET /api/dashboard/oauth-clients — JSON list of OAuth clients.
+
+    Track G companion to the legacy ``/dashboard/oauth-clients`` HTML page.
+    Admin sees every client; OAuth users see only the clients they own.
+    """
+    auth = get_dashboard_auth()
+    is_admin = False
+    user_id: str | None = None
+
+    admin_session = auth.get_session_from_request(request)
+    if admin_session and is_admin_session(admin_session):
+        is_admin = True
+    else:
+        user_session = auth.get_user_session_from_request(request)
+        if user_session:
+            is_admin = is_admin_session(user_session)
+            user_id = user_session.get("user_id") if isinstance(user_session, dict) else None
+        else:
+            return JSONResponse({"error": "Authentication required"}, status_code=401)
+
+    clients_data = await get_oauth_clients_data()
+    if not is_admin and user_id:
+        clients_data["clients"] = [
+            c for c in clients_data["clients"] if c.get("owner_user_id") == user_id
+        ]
+        clients_data["total_count"] = len(clients_data["clients"])
+
+    return JSONResponse(
+        {
+            "clients": clients_data["clients"],
+            "total_count": clients_data["total_count"],
+        }
+    )
+
+
 async def dashboard_oauth_clients_create(request: Request) -> Response:
     """API endpoint to create OAuth client (admin and user)."""
     # Accept both admin and user sessions
@@ -1600,12 +3200,24 @@ async def dashboard_oauth_clients_create(request: Request) -> Response:
 
     try:
         data = await request.json()
-        client_name = data.get("client_name")
+        client_name = data.get("client_name") or data.get("name")
         # Support both single redirect_uri and multiple redirect_uris
         redirect_uris = data.get("redirect_uris") or []
         if not redirect_uris and data.get("redirect_uri"):
             redirect_uris = [data.get("redirect_uri")]
-        scopes = data.get("scopes", ["read", "write", "admin"])
+        # OAuth clients are app registrations, not the tool-access boundary.
+        # Issue them broad/system capability; per-service Tool Access and
+        # per-tool toggles narrow the actual MCP surface at request time.
+        scopes = [
+            "read",
+            "read:sensitive",
+            "deploy",
+            "editor",
+            "settings",
+            "install",
+            "write",
+            "admin",
+        ]
 
         if not client_name or not redirect_uris:
             return JSONResponse({"error": "Missing required fields"}, status_code=400)
@@ -1638,6 +3250,15 @@ async def dashboard_oauth_clients_create(request: Request) -> Response:
                 "success": True,
                 "client_id": client_id,
                 "client_secret": client_secret,
+                "client": {
+                    "client_id": client_id,
+                    "client_name": client_name,
+                    "redirect_uris": redirect_uris,
+                    "grant_types": ["authorization_code", "refresh_token"],
+                    "allowed_scopes": scopes,
+                    "created_at": "",
+                    "owner_user_id": owner_user_id,
+                },
             }
         )
 
@@ -1881,6 +3502,79 @@ async def dashboard_audit_logs_list(request: Request) -> Response:
     )
 
 
+# Map the SPA's lowercase level filter values ("info"/"warn"/"error") to the
+# uppercase LogLevel enum values stored on disk. The legacy Jinja form sends
+# raw enum values, so passthrough is preserved for any unknown value.
+_SPA_LEVEL_TO_BACKEND: dict[str, str] = {
+    "info": "INFO",
+    "warn": "WARNING",
+    "warning": "WARNING",
+    "error": "ERROR",
+    "critical": "CRITICAL",
+}
+
+
+def _transform_audit_entry_for_spa(entry: dict) -> dict:
+    """Map a raw audit log row to the AuditEntry shape the SPA expects.
+
+    The on-disk schema differs per event_type (tool_call has tool_name + site,
+    auth has ip_address + reason, etc.) so the SPA can't render columns like
+    Target/Message/Result/Actor without this normalisation pass.
+    """
+    event_type = entry.get("event_type") or "unknown"
+    level_raw = (entry.get("level") or "").upper()
+    if level_raw in ("ERROR", "CRITICAL"):
+        level: str = "error"
+    elif level_raw in ("WARN", "WARNING"):
+        level = "warn"
+    else:
+        level = "info"
+
+    actor: str | None = None
+    target: str | None = None
+    message: str | None = None
+    result: str | None = None
+    success = entry.get("success")
+
+    if event_type == "tool_call":
+        actor = entry.get("user_id") or "system"
+        site = entry.get("site")
+        tool = entry.get("tool_name")
+        target = f"{tool} @ {site}" if tool and site else (tool or site)
+        message = entry.get("error") or entry.get("result_summary")
+        result = "ok" if success else "error"
+    elif event_type == "authentication":
+        actor = entry.get("project_id") or "anonymous"
+        target = entry.get("project_id")
+        message = entry.get("reason") or ("ok" if success else "denied")
+        result = "ok" if success else "denied"
+    elif event_type == "error":
+        actor = "system"
+        target = entry.get("error_type")
+        message = entry.get("error_message")
+        result = "error"
+    elif event_type == "system":
+        actor = "system"
+        target = entry.get("event")
+        details = entry.get("details")
+        if isinstance(details, dict):
+            message = details.get("message") or details.get("event")
+        result = "ok"
+
+    return {
+        "id": entry.get("id"),
+        "timestamp": entry.get("timestamp"),
+        "event_type": event_type,
+        "level": level,
+        "actor": actor,
+        "target": target,
+        "message": message,
+        "ip": entry.get("ip_address"),
+        "duration_ms": entry.get("duration_ms"),
+        "result": result,
+    }
+
+
 async def dashboard_api_audit_logs(request: Request) -> Response:
     """API endpoint for audit logs list."""
     auth = get_dashboard_auth()
@@ -1898,6 +3592,9 @@ async def dashboard_api_audit_logs(request: Request) -> Response:
         search = request.query_params.get("search")
         page = int(request.query_params.get("page", 1))
 
+        if level:
+            level = _SPA_LEVEL_TO_BACKEND.get(level.lower(), level)
+
         logs_data = await get_audit_logs_data(
             event_type=event_type,
             level=level,
@@ -1905,6 +3602,8 @@ async def dashboard_api_audit_logs(request: Request) -> Response:
             search=search,
             page=page,
         )
+
+        logs_data["logs"] = [_transform_audit_entry_for_spa(e) for e in logs_data.get("logs", [])]
 
         return JSONResponse(logs_data)
 
@@ -2290,13 +3989,14 @@ def get_system_config() -> dict:
 _PLUGIN_DESCRIPTIONS = {
     "wordpress": "WordPress REST API management (posts, pages, media, users)",
     "woocommerce": "WooCommerce store management (products, orders, customers)",
-    "wordpress_advanced": "WordPress Advanced operations (WP-CLI, database, bulk ops)",
+    "wordpress_specialist": "WordPress specialist management — plugins, themes, users, options, cron, maintenance, page editing, site config + layout, db inspection, bulk fan-out. Companion-backed (Airano MCP Bridge v2.18.0+); no Docker socket required.",
     "gitea": "Gitea self-hosted Git management (repos, issues, PRs)",
     "n8n": "n8n workflow automation management",
     "supabase": "Supabase self-hosted backend (database, auth, storage)",
     "openpanel": "OpenPanel analytics and event tracking",
     "appwrite": "Appwrite backend services (databases, users, functions)",
     "directus": "Directus headless CMS management",
+    "coolify": "Coolify deployment platform — apps, deployments, servers, databases.",
 }
 
 
@@ -2415,6 +4115,24 @@ async def dashboard_settings_page(request: Request) -> Response:
     )
 
 
+async def api_get_settings(request: Request) -> Response:
+    """GET /api/dashboard/settings — Return all managed settings.
+
+    Track G companion to the legacy ``/dashboard/settings`` HTML page.
+    Admin-only (same as the POST handler) so non-admins never see hub-wide
+    config such as ENABLED_PLUGINS.
+    """
+    session, redirect = _require_admin_session(request)
+    if redirect:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    del session
+
+    from core.settings import get_all_managed_settings
+
+    settings = await get_all_managed_settings()
+    return JSONResponse({"settings": settings})
+
+
 async def api_save_setting(request: Request) -> Response:
     """POST /api/dashboard/settings — Save a managed setting."""
     session, redirect = _require_admin_session(request)
@@ -2441,9 +4159,33 @@ async def api_save_setting(request: Request) -> Response:
 
     if not value.strip():
         return JSONResponse({"error": "Value cannot be empty"}, status_code=400)
+    if key in {"MAX_SITES_PER_USER", "USER_RATE_LIMIT_PER_MIN", "USER_RATE_LIMIT_PER_HR"}:
+        try:
+            parsed_value = int(str(value).strip())
+        except ValueError:
+            return JSONResponse({"error": f"{key} must be a positive integer"}, status_code=400)
+        if parsed_value <= 0:
+            return JSONResponse({"error": f"{key} must be a positive integer"}, status_code=400)
 
     await save_setting(key, value.strip())
     return JSONResponse({"message": f"Setting '{key}' saved"})
+
+
+async def api_reset_settings(request: Request) -> Response:
+    """POST /api/dashboard/settings/reset — Reset all managed DB overrides."""
+    session, redirect = _require_admin_session(request)
+    if redirect:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    del session
+
+    from core.settings import SETTING_DEFAULTS, delete_setting_value
+
+    deleted = 0
+    for key in SETTING_DEFAULTS:
+        if await delete_setting_value(key):
+            deleted += 1
+
+    return JSONResponse({"ok": True, "deleted": deleted})
 
 
 # =============================================================================
@@ -2458,7 +4200,7 @@ async def auth_login_page(request: Request) -> Response:
     # Check if already logged in (admin or user session)
     session = auth.get_session_from_request(request) or auth.get_user_session_from_request(request)
     if session:
-        return RedirectResponse(url="/dashboard", status_code=303)
+        return RedirectResponse(url="/dashboard/overview", status_code=303)
 
     # Get language — default to English for auth page, only override via ?lang=
     query_lang = request.query_params.get("lang")
@@ -2532,7 +4274,7 @@ async def auth_provider_redirect(request: Request) -> Response:
     except (RuntimeError, ValueError) as e:
         logger.error("OAuth redirect failed for %s: %s", provider, e)
         return RedirectResponse(
-            url="/auth/login?error=provider_unavailable",
+            url="/dashboard/login?error=provider_unavailable",
             status_code=303,
         )
 
@@ -2546,11 +4288,11 @@ async def auth_callback(request: Request) -> Response:
 
     if error:
         logger.warning("OAuth callback error from %s: %s", provider, error)
-        return RedirectResponse(url="/auth/login?error=oauth_denied", status_code=303)
+        return RedirectResponse(url="/dashboard/login?error=oauth_denied", status_code=303)
 
     if not code or not state:
         return RedirectResponse(
-            url="/auth/login?error=missing_params",
+            url="/dashboard/login?error=missing_params",
             status_code=303,
         )
 
@@ -2563,7 +4305,7 @@ async def auth_callback(request: Request) -> Response:
         if not user_auth.validate_state(state):
             logger.warning("OAuth callback: invalid state for %s", provider)
             return RedirectResponse(
-                url="/auth/login?error=invalid_state",
+                url="/dashboard/login?error=invalid_state",
                 status_code=303,
             )
 
@@ -2572,7 +4314,7 @@ async def auth_callback(request: Request) -> Response:
 
         if not user_info.get("email"):
             return RedirectResponse(
-                url="/auth/login?error=no_email",
+                url="/dashboard/login?error=no_email",
                 status_code=303,
             )
 
@@ -2613,7 +4355,7 @@ async def auth_callback(request: Request) -> Response:
                         client_ip,
                     )
                     return RedirectResponse(
-                        url="/auth/login?error=rate_limit",
+                        url="/dashboard/login?error=rate_limit",
                         status_code=303,
                     )
 
@@ -2673,7 +4415,7 @@ async def auth_callback(request: Request) -> Response:
     except ValueError as e:
         logger.error("OAuth callback failed for %s: %s", provider, e)
         return RedirectResponse(
-            url="/auth/login?error=exchange_failed",
+            url="/dashboard/login?error=exchange_failed",
             status_code=303,
         )
     except Exception as e:
@@ -2683,7 +4425,7 @@ async def auth_callback(request: Request) -> Response:
             e,
         )
         return RedirectResponse(
-            url="/auth/login?error=server_error",
+            url="/dashboard/login?error=server_error",
             status_code=303,
         )
 
@@ -2691,7 +4433,7 @@ async def auth_callback(request: Request) -> Response:
 async def auth_logout(request: Request) -> Response:
     """Log out the current user (both admin and OAuth sessions)."""
     auth = get_dashboard_auth()
-    response = RedirectResponse(url="/auth/login", status_code=303)
+    response = RedirectResponse(url="/dashboard/login", status_code=303)
     auth.clear_session_cookie(response)
     return response
 
@@ -2706,8 +4448,8 @@ async def dashboard_profile_page(request: Request) -> Response:
     if not user_session:
         admin_session = auth.get_session_from_request(request)
         if not admin_session:
-            return RedirectResponse(url="/auth/login", status_code=303)
-        return RedirectResponse(url="/dashboard", status_code=303)
+            return RedirectResponse(url="/dashboard/login", status_code=303)
+        return RedirectResponse(url="/dashboard/overview", status_code=303)
 
     # Get language
     accept_language = request.headers.get("accept-language")
@@ -2748,7 +4490,7 @@ def _require_user_session(request: Request):
     auth = get_dashboard_auth()
     user_session = auth.get_user_session_from_request(request)
     if not user_session:
-        return None, RedirectResponse(url="/auth/login", status_code=303)
+        return None, RedirectResponse(url="/dashboard/login", status_code=303)
     return user_session, None
 
 
@@ -2764,7 +4506,7 @@ def _require_admin_session(request: Request):
     if user_session and is_admin_session(user_session):
         return user_session, None
     # Not admin — redirect to dashboard home
-    return None, RedirectResponse(url="/dashboard", status_code=303)
+    return None, RedirectResponse(url="/dashboard/overview", status_code=303)
 
 
 async def dashboard_sites_list(request: Request) -> Response:
@@ -2774,10 +4516,10 @@ async def dashboard_sites_list(request: Request) -> Response:
     admin_session = auth.get_session_from_request(request)
     user_session = auth.get_user_session_from_request(request)
     if not user_session and not admin_session:
-        return RedirectResponse(url="/auth/login", status_code=303)
+        return RedirectResponse(url="/dashboard/login", status_code=303)
     # For admin, we don't have user sites — redirect to projects
     if admin_session and not user_session:
-        return RedirectResponse(url="/dashboard/projects", status_code=303)
+        return RedirectResponse(url="/dashboard/overview", status_code=303)
 
     accept_language = request.headers.get("accept-language")
     query_lang = request.query_params.get("lang")
@@ -2903,7 +4645,7 @@ async def dashboard_connect_page(request: Request) -> Response:
             "clients": get_supported_clients(),
             "current_page": "connect",
             "new_key": new_key,
-            "public_url": os.environ.get("PUBLIC_URL", "http://localhost:8000"),
+            "public_url": resolve_public_base_url(request),
         },
     )
 
@@ -2940,18 +4682,26 @@ async def dashboard_sites_view(request: Request) -> Response:
 
     site = await get_user_site(site_id, user_session["user_id"])
     if site is None:
-        return RedirectResponse("/dashboard/sites?error=site_not_found", status_code=302)
+        # Bounce SPA visitors back into the SPA shell; legacy visitors stay on
+        # the legacy list page.
+        if request.query_params.get("from") in {"dashboard", "dashboard-v2"}:
+            return RedirectResponse("/dashboard/sites?error=site_not_found", status_code=302)
+        return RedirectResponse("/dashboard-legacy/sites?error=site_not_found", status_code=302)
 
     accept_language = request.headers.get("accept-language")
     query_lang = request.query_params.get("lang")
     lang = detect_language(accept_language, query_lang)
     t = get_translations(lang)
 
-    public_url = os.environ.get("PUBLIC_URL", "http://localhost:8000").rstrip("/")
+    public_url = resolve_public_base_url(request)
     mcp_url = f"{public_url}/u/{user_session['user_id']}/{site['alias']}/mcp"
 
-    plugin_fields = get_user_credential_fields()
-    plugin_names = get_user_plugin_names()
+    # F.19.1 (2026-05-01) — admin OAuth users need to see credential
+    # fields for admin-only plugins (wordpress_specialist) otherwise
+    # the manage page renders an empty form on revisit.
+    is_admin_user = is_admin_session(user_session)
+    plugin_fields = get_user_credential_fields(is_admin=is_admin_user)
+    plugin_names = get_user_plugin_names(is_admin=is_admin_user)
     scope_presets = get_scope_presets_for_plugin(site["plugin_type"])
 
     # F.5a.9.x: per-site AI provider keys — only surface the section on
@@ -3157,7 +4907,7 @@ async def dashboard_keys_unified(request: Request) -> Response:
             },
         )
 
-    return RedirectResponse(url="/auth/login", status_code=303)
+    return RedirectResponse(url="/dashboard/login", status_code=303)
 
 
 # ======================================================================
@@ -3230,10 +4980,16 @@ async def api_list_sites(request: Request) -> Response:
     if redirect:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
-    from core.site_api import get_user_sites
+    from core.site_api import MAX_SITES_PER_USER, get_user_sites
 
     sites = await get_user_sites(user_session["user_id"])
-    return JSONResponse({"sites": sites})
+    return JSONResponse(
+        {
+            "sites": sites,
+            "limit": MAX_SITES_PER_USER,
+            "remaining": max(0, MAX_SITES_PER_USER - len(sites)),
+        }
+    )
 
 
 async def api_delete_site(request: Request) -> Response:
@@ -3278,13 +5034,25 @@ async def api_test_site(request: Request) -> Response:
 
 
 async def dashboard_sites_edit(request: Request) -> Response:
-    """GET /dashboard/sites/{id}/edit — Redirect to unified site page (F.7c)."""
+    """GET /dashboard/sites/{id}/edit — Redirect to unified site page (F.7c).
+
+    Preserves `lang` and `from` query params so the SPA-origin breadcrumb
+    can return the user to /dashboard/sites instead of the legacy list.
+    """
     site_id = request.path_params.get("id", "")
     query_lang = request.query_params.get("lang")
-    url = f"/dashboard/sites/{site_id}"
+    came_from = request.query_params.get("from")
+    url = f"/dashboard-legacy/sites/{site_id}"
+    extras: list[str] = []
     if query_lang:
-        url += f"?lang={query_lang}"
-    return RedirectResponse(url, status_code=301)
+        extras.append(f"lang={query_lang}")
+    if came_from:
+        extras.append(f"from={came_from}")
+    if extras:
+        url += "?" + "&".join(extras)
+    # 302, not 301: browsers aggressively cache 301s by exact URL including
+    # query — and we want changes to /edit handling to take effect on reload.
+    return RedirectResponse(url, status_code=302)
 
 
 async def api_update_site(request: Request) -> Response:
@@ -3349,16 +5117,33 @@ async def api_create_key(request: Request) -> Response:
             if site is None:
                 return JSONResponse({"error": "Site not found"}, status_code=404)
 
-        # F.7c: All user keys get full access — tool visibility is controlled
-        # per-site via tool_scope and per-tool toggles.
+        # F.7c + F.19.2.2: All user keys get full access — tool visibility
+        # is controlled per-site via ``tool_scope`` and per-tool toggles.
+        # Enumerate every tier explicitly (read / editor / settings /
+        # install / write / admin) so the key string mirrors the dashboard
+        # Tool Access dropdown 1:1 and stays robust if the universal tier
+        # closure changes in a future phase. The narrowing is the
+        # intersection with site_scope at request time.
         result = await key_mgr.create_key(
             user_id=user_session["user_id"],
             name=body.get("name", "Default"),
-            scopes="read write admin",
+            scopes="read editor settings install write admin",
             expires_in_days=body.get("expires_in_days"),
             site_id=site_id,
         )
-        return JSONResponse({"key": result})
+        return JSONResponse(
+            {
+                "id": result["key_id"],
+                "key": result["key"],
+                "name": result["name"],
+                "prefix": result["key"][4:12],
+                "scope": result["scopes"],
+                "scopes": result["scopes"],
+                "created_at": result["created_at"],
+                "expires_at": result["expires_at"],
+                "site_id": result.get("site_id"),
+            }
+        )
     except RuntimeError as e:
         return JSONResponse({"error": str(e)}, status_code=503)
     except Exception as e:
@@ -3406,7 +5191,17 @@ async def api_delete_key(request: Request) -> Response:
 # ----------------------------------------------------------------------
 
 
-_VALID_TOOL_SCOPES = {"read", "read:sensitive", "deploy", "write", "admin", "custom"}
+_VALID_TOOL_SCOPES = {
+    "read",
+    "read:sensitive",
+    "deploy",
+    "editor",  # F.19.5 — page editing tier on wordpress_specialist
+    "settings",  # F.19.6 — options / cron / identity / permalinks
+    "install",  # F.19.2 — plugin / theme install from wp.org slug
+    "write",
+    "admin",
+    "custom",
+}
 
 
 async def _require_owned_site(request: Request) -> tuple[dict | None, Response | None]:
@@ -3443,10 +5238,11 @@ async def api_list_site_tools(request: Request) -> Response:
     assert site is not None
 
     from core.site_api import list_site_providers_set
-    from core.tool_access import get_tool_access_manager
+    from core.tool_access import get_scope_presets_for_plugin, get_tool_access_manager
 
     access = get_tool_access_manager()
     tools = await access.list_tools_for_site(site["id"], site["plugin_type"])
+    scope_presets = get_scope_presets_for_plugin(site["plugin_type"])
     # F.X.fix #8: expose the site's configured AI-provider set so the
     # Tool Access template can render "Configure key for X" CTAs
     # without issuing a second /api/sites/{id}/provider-keys call.
@@ -3459,6 +5255,7 @@ async def api_list_site_tools(request: Request) -> Response:
             "site_id": site["id"],
             "plugin_type": site["plugin_type"],
             "tool_scope": site.get("tool_scope", "admin"),
+            "scope_presets": scope_presets,
             "configured_providers": configured_providers,
             "tools": tools,
         }
@@ -3594,11 +5391,9 @@ async def api_get_config(request: Request) -> Response:
     alias = request.path_params.get("alias", "")
     client_type = request.query_params.get("client", "claude_desktop")
 
-    import os
-
     from core.config_snippets import generate_config
 
-    base_url = os.getenv("PUBLIC_URL", "http://localhost:8000")
+    base_url = resolve_public_base_url(request)
 
     try:
         snippet = generate_config(
@@ -3615,7 +5410,7 @@ async def api_get_config(request: Request) -> Response:
 
 async def dashboard_user_oauth_clients_list(request: Request) -> Response:
     """GET /dashboard/connect/oauth-clients — Redirect to unified OAuth clients page."""
-    return RedirectResponse(url="/dashboard/oauth-clients", status_code=303)
+    return RedirectResponse(url="/dashboard-legacy/oauth-clients", status_code=303)
 
 
 async def dashboard_user_oauth_clients_create(request: Request) -> Response:
@@ -3671,8 +5466,17 @@ async def get_service_page_data(plugin_type: str) -> dict | None:
         except Exception:
             pass
 
-    # Sort tools by scope then name
-    scope_order = {"read": 0, "write": 1, "admin": 2}
+    # Sort tools by scope then name. Order mirrors UNIVERSAL_SCOPE_TIERS
+    # so wordpress_specialist tools display read → editor → settings →
+    # install → write → admin in the connect-page tools table.
+    scope_order = {
+        "read": 0,
+        "editor": 1,
+        "settings": 2,
+        "install": 3,
+        "write": 4,
+        "admin": 5,
+    }
     tools.sort(key=lambda t: (scope_order.get(t["scope"], 9), t["name"]))
 
     # Get credential fields
@@ -3891,8 +5695,8 @@ async def dashboard_service_page(request: Request) -> Response:
 async def api_site_provider_keys_list(request: Request) -> Response:
     """GET /api/sites/{id}/provider-keys — list providers with a key stored.
 
-    Returns ``{"providers": ["openai", ...]}``. Does not leak ciphertext
-    or plaintext.
+    Returns ``{"providers": ["openai", ...], "default_models": {...}}``.
+    Does not leak ciphertext or plaintext.
     """
     user_session, redirect = _require_user_session(request)
     if redirect or user_session is None:
@@ -3908,7 +5712,16 @@ async def api_site_provider_keys_list(request: Request) -> Response:
         return JSONResponse({"ok": False, "error": "plugin_unsupported"}, status_code=400)
 
     providers = sorted(await list_site_providers_set(site_id))
-    return JSONResponse({"ok": True, "providers": providers})
+    default_models: dict[str, str | None] = {}
+    try:
+        from core.database import get_database
+
+        db = get_database()
+        for row in await db.list_site_provider_keys(site_id):
+            default_models[str(row.get("provider"))] = row.get("default_model")
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("site provider default-model list skipped site=%s: %s", site_id, exc)
+    return JSONResponse({"ok": True, "providers": providers, "default_models": default_models})
 
 
 async def api_site_provider_keys_set(request: Request) -> Response:
@@ -4081,41 +5894,42 @@ def register_dashboard_routes(mcp):
     mcp.custom_route("/auth/logout", methods=["GET", "POST"])(auth_logout)
     mcp.custom_route("/auth/{provider}", methods=["GET"])(auth_provider_redirect)
 
-    # Profile page
-    mcp.custom_route("/dashboard/profile", methods=["GET"])(dashboard_profile_page)
-
-    # Login routes
-    mcp.custom_route("/dashboard/login", methods=["GET"])(dashboard_login_page)
-    mcp.custom_route("/dashboard/login", methods=["POST"])(dashboard_login_submit)
+    # Legacy Jinja UI routes. The SPA owns /dashboard/* after G.12; the
+    # remaining server-rendered pages now live under /dashboard-legacy/*.
+    mcp.custom_route("/dashboard-legacy/profile", methods=["GET"])(dashboard_profile_page)
+    mcp.custom_route("/dashboard-legacy/login", methods=["GET"])(dashboard_login_page)
+    mcp.custom_route("/dashboard-legacy/login", methods=["POST"])(dashboard_login_submit)
+    mcp.custom_route("/api/dashboard/login", methods=["POST"])(dashboard_api_login)
     mcp.custom_route("/dashboard/logout", methods=["GET", "POST"])(dashboard_logout)
-
-    # Dashboard pages
-    mcp.custom_route("/dashboard", methods=["GET"])(dashboard_home)
-    mcp.custom_route("/dashboard/", methods=["GET"])(dashboard_home)
+    mcp.custom_route("/dashboard-legacy/logout", methods=["GET", "POST"])(dashboard_logout)
+    mcp.custom_route("/dashboard-legacy", methods=["GET"])(dashboard_home)
+    mcp.custom_route("/dashboard-legacy/", methods=["GET"])(dashboard_home)
 
     # Projects routes
-    mcp.custom_route("/dashboard/projects", methods=["GET"])(dashboard_projects_list)
-    mcp.custom_route("/dashboard/projects/{project_id:path}", methods=["GET"])(
+    mcp.custom_route("/dashboard-legacy/projects", methods=["GET"])(dashboard_projects_list)
+    mcp.custom_route("/dashboard-legacy/projects/{project_id:path}", methods=["GET"])(
         dashboard_project_detail
     )
 
     # API Keys routes (unified — /dashboard/keys replaces /dashboard/api-keys and /dashboard/connect)
-    mcp.custom_route("/dashboard/keys", methods=["GET"])(dashboard_keys_unified)
-    mcp.custom_route("/dashboard/api-keys", methods=["GET"])(
-        lambda r: RedirectResponse("/dashboard/keys", status_code=301)
+    mcp.custom_route("/dashboard-legacy/keys", methods=["GET"])(dashboard_keys_unified)
+    mcp.custom_route("/dashboard-legacy/api-keys", methods=["GET"])(
+        lambda r: RedirectResponse("/dashboard-legacy/keys", status_code=301)
     )
 
     # OAuth Clients routes
-    mcp.custom_route("/dashboard/oauth-clients", methods=["GET"])(dashboard_oauth_clients_list)
+    mcp.custom_route("/dashboard-legacy/oauth-clients", methods=["GET"])(
+        dashboard_oauth_clients_list
+    )
 
     # Audit Logs routes
-    mcp.custom_route("/dashboard/audit-logs", methods=["GET"])(dashboard_audit_logs_list)
+    mcp.custom_route("/dashboard-legacy/audit-logs", methods=["GET"])(dashboard_audit_logs_list)
 
     # Health Monitoring routes
-    mcp.custom_route("/dashboard/health", methods=["GET"])(dashboard_health_page)
+    mcp.custom_route("/dashboard-legacy/health", methods=["GET"])(dashboard_health_page)
 
     # Settings routes
-    mcp.custom_route("/dashboard/settings", methods=["GET"])(dashboard_settings_page)
+    mcp.custom_route("/dashboard-legacy/settings", methods=["GET"])(dashboard_settings_page)
 
     # API endpoints
     mcp.custom_route("/api/dashboard/stats", methods=["GET"])(dashboard_api_stats)
@@ -4127,12 +5941,16 @@ def register_dashboard_routes(mcp):
     mcp.custom_route("/api/dashboard/projects/{project_id:path}", methods=["GET"])(
         dashboard_api_project_detail
     )
+    mcp.custom_route("/api/dashboard/api-keys", methods=["GET"])(dashboard_api_keys_list_json)
     mcp.custom_route("/api/dashboard/api-keys/create", methods=["POST"])(dashboard_api_keys_create)
     mcp.custom_route("/api/dashboard/api-keys/{key_id}/revoke", methods=["POST"])(
         dashboard_api_keys_revoke
     )
     mcp.custom_route("/api/dashboard/api-keys/{key_id}", methods=["DELETE"])(
         dashboard_api_keys_delete
+    )
+    mcp.custom_route("/api/dashboard/oauth-clients", methods=["GET"])(
+        dashboard_oauth_clients_list_json
     )
     mcp.custom_route("/api/dashboard/oauth-clients/create", methods=["POST"])(
         dashboard_oauth_clients_create
@@ -4145,20 +5963,24 @@ def register_dashboard_routes(mcp):
     mcp.custom_route("/api/dashboard/health/projects", methods=["GET"])(
         dashboard_health_projects_partial
     )
+    mcp.custom_route("/api/dashboard/settings", methods=["GET"])(api_get_settings)
+    mcp.custom_route("/api/dashboard/settings", methods=["POST"])(api_save_setting)
+    mcp.custom_route("/api/dashboard/settings/reset", methods=["POST"])(api_reset_settings)
 
     # Site Management routes (E.3)
-    mcp.custom_route("/dashboard/sites", methods=["GET"])(dashboard_sites_list)
-    mcp.custom_route("/dashboard/sites/add", methods=["GET"])(dashboard_sites_add)
-    mcp.custom_route("/dashboard/sites/{id}/edit", methods=["GET"])(dashboard_sites_edit)
-    mcp.custom_route("/dashboard/sites/{id}", methods=["GET"])(dashboard_sites_view)
-    # /dashboard/connect → /dashboard/sites (F.7c: sites page has connect info now)
-    mcp.custom_route("/dashboard/connect", methods=["GET"])(
-        lambda r: RedirectResponse("/dashboard/sites", status_code=301)
+    mcp.custom_route("/dashboard-legacy/sites", methods=["GET"])(dashboard_sites_list)
+    mcp.custom_route("/dashboard-legacy/sites/add", methods=["GET"])(dashboard_sites_add)
+    mcp.custom_route("/dashboard-legacy/sites/{id}/edit", methods=["GET"])(dashboard_sites_edit)
+    mcp.custom_route("/dashboard-legacy/sites/{id}", methods=["GET"])(dashboard_sites_view)
+    mcp.custom_route("/dashboard-legacy/connect", methods=["GET"])(
+        lambda r: RedirectResponse("/dashboard-legacy/keys", status_code=301)
     )
 
     # Service pages (F.3)
-    mcp.custom_route("/dashboard/services", methods=["GET"])(dashboard_services_list)
-    mcp.custom_route("/dashboard/services/{plugin_type}", methods=["GET"])(dashboard_service_page)
+    mcp.custom_route("/dashboard-legacy/services", methods=["GET"])(dashboard_services_list)
+    mcp.custom_route("/dashboard-legacy/services/{plugin_type}", methods=["GET"])(
+        dashboard_service_page
+    )
 
     # Site Management API (E.3)
     mcp.custom_route("/api/sites", methods=["GET"])(api_list_sites)
@@ -4175,6 +5997,12 @@ def register_dashboard_routes(mcp):
     mcp.custom_route("/api/sites/{id}/provider-keys/{provider}", methods=["DELETE"])(
         api_site_provider_keys_delete
     )
+    mcp.custom_route("/api/sites/{id}/provider-keys/{provider}/default-model", methods=["PATCH"])(
+        api_site_provider_default_model
+    )
+    from plugins.ai_image.providers.openrouter import api_openrouter_models
+
+    mcp.custom_route("/api/providers/openrouter/models", methods=["GET"])(api_openrouter_models)
 
     # User API Key routes (E.3)
     mcp.custom_route("/api/keys", methods=["GET"])(api_list_keys)
@@ -4185,7 +6013,7 @@ def register_dashboard_routes(mcp):
     mcp.custom_route("/api/config/{alias}", methods=["GET"])(api_get_config)
 
     # User OAuth Client routes (Bug C fix)
-    mcp.custom_route("/dashboard/connect/oauth-clients", methods=["GET"])(
+    mcp.custom_route("/dashboard-legacy/connect/oauth-clients", methods=["GET"])(
         dashboard_user_oauth_clients_list
     )
     mcp.custom_route("/api/dashboard/user-oauth-clients/create", methods=["POST"])(
@@ -4201,5 +6029,10 @@ def register_dashboard_routes(mcp):
     #   GET    /api/sites/{id}/provider-keys
     #   POST   /api/sites/{id}/provider-keys/{provider}
     #   DELETE /api/sites/{id}/provider-keys/{provider}
+
+    # Track G — SPA / dashboard-v2 support (additive, leaves /dashboard/* untouched)
+    from .spa_routes import register_spa_routes
+
+    register_spa_routes(mcp)
 
     logger.info("Dashboard routes registered successfully")

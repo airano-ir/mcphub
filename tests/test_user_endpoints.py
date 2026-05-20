@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from starlette.requests import Request
 
+from core.settings import get_cached_rate_per_min
 from core.user_endpoints import (
-    USER_RATE_LIMIT_PER_MIN,
     _rate_limits,
     user_mcp_handler,
 )
@@ -165,6 +165,12 @@ def mock_tool_registry():
 
     registry = MagicMock()
     registry.get_by_plugin_type = MagicMock(return_value=[tool_def])
+    # F.19.7.1: tools/call also looks up the tool by name — the universal
+    # scope check then reads ``required_scope`` off the returned tool_def.
+    # Without this wire-up ``get_by_name`` returns a fresh MagicMock and
+    # ``required_scope`` becomes a MagicMock, which is never a member of
+    # the allowed-scope set — the call is rejected with "Insufficient scope".
+    registry.get_by_name = MagicMock(return_value=tool_def)
 
     with patch("core.tool_registry.get_tool_registry", return_value=registry):
         yield registry
@@ -408,6 +414,216 @@ class TestMCPMethods:
         assert "not supported" in body["error"]["message"]
 
 
+# ── F.19.7.1 — Universal scope tier regression coverage ─────
+#
+# Pre-fix bug: when an mhu_ key was issued with scope ``editor`` (the
+# tier introduced by F.19.5 + F.19.7), every tool call failed with
+# ``Insufficient scope`` because:
+#
+#   1. The local ``scope_hierarchy`` map didn't know about ``editor``,
+#      so the editor key collapsed to level 0 and was rejected for every
+#      required_scope ≥ 1 (i.e. read/editor/write/admin).
+#   2. The Coolify category whitelist was applied to every plugin. For
+#      wordpress_specialist tools whose default category is ``"read"``
+#      (one of Coolify's KNOWN_CATEGORIES), the whitelist rejected
+#      anything an editor-scope key requested unless that key happened
+#      to also include the ``read`` scope.
+#
+# These tests pin the post-fix behaviour: editor scope on a non-Coolify
+# plugin admits both ``read`` and ``editor`` tools; Coolify still
+# enforces its fine-grained category check.
+
+
+class TestUniversalScopeTierRegression:
+    """F.19.7.1 — editor scope tier must work on non-Coolify plugins."""
+
+    @pytest.mark.unit
+    async def test_editor_scope_admits_read_tool_on_wordpress_specialist(
+        self,
+        mock_key_mgr,
+        mock_db,
+        mock_encryption,
+        mock_plugin_registry,
+    ):
+        """editor scope key should be allowed to call a read-scope wp_specialist tool."""
+        # Key has only the editor scope.
+        mock_key_mgr.validate_key.return_value = {
+            "key_id": "key-uuid-001",
+            "user_id": "user-uuid-001",
+            "scopes": "editor",
+        }
+        # Site is wordpress_specialist with admin tier (so site-level
+        # check is permissive).
+        mock_db.get_site_by_alias = AsyncMock(
+            return_value={
+                "id": "site-uuid-001",
+                "user_id": "user-uuid-001",
+                "plugin_type": "wordpress_specialist",
+                "alias": "myblog",
+                "url": "https://myblog.example.com",
+                "credentials": b"encrypted-blob",
+                "status": "active",
+                "tool_scope": "admin",
+            }
+        )
+
+        # F.19.7 read tool: required_scope=read, plugin_type=wordpress_specialist.
+        tool_def = MagicMock()
+        tool_def.name = "wordpress_specialist_wp_theme_file_list"
+        tool_def.plugin_type = "wordpress_specialist"
+        tool_def.required_scope = "read"
+        tool_def.category = "read"
+        tool_def.input_schema = {"type": "object", "properties": {}}
+
+        registry = MagicMock()
+        registry.get_by_name = MagicMock(return_value=tool_def)
+        registry.get_by_plugin_type = MagicMock(return_value=[tool_def])
+
+        # Make the mocked plugin instance expose the method so the call
+        # path doesn't error before the scope check completes.
+        plugin_instance = MagicMock()
+        plugin_instance.wp_theme_file_list = AsyncMock(return_value={"files": []})
+        mock_plugin_registry.create_instance = MagicMock(return_value=plugin_instance)
+
+        with (
+            patch("core.tool_registry.get_tool_registry", return_value=registry),
+            patch("core.plugin_visibility.is_plugin_public", return_value=True),
+        ):
+            request = _make_request(
+                method_name="tools/call",
+                params={
+                    "name": "wordpress_specialist_wp_theme_file_list",
+                    "arguments": {"theme_slug": "palebluedot"},
+                },
+            )
+            response = await user_mcp_handler(request)
+            body = json.loads(response.body)
+
+        # Pre-fix: body["error"]["message"] starts with "Insufficient scope".
+        assert "error" not in body or "Insufficient scope" not in body["error"].get(
+            "message", ""
+        ), f"editor scope was rejected for read-scope tool: {body}"
+
+    @pytest.mark.unit
+    async def test_editor_scope_admits_editor_tool_on_wordpress_specialist(
+        self,
+        mock_key_mgr,
+        mock_db,
+        mock_encryption,
+        mock_plugin_registry,
+    ):
+        """editor scope key should be allowed to call an editor-scope wp_specialist tool."""
+        mock_key_mgr.validate_key.return_value = {
+            "key_id": "key-uuid-001",
+            "user_id": "user-uuid-001",
+            "scopes": "editor",
+        }
+        mock_db.get_site_by_alias = AsyncMock(
+            return_value={
+                "id": "site-uuid-001",
+                "user_id": "user-uuid-001",
+                "plugin_type": "wordpress_specialist",
+                "alias": "myblog",
+                "url": "https://myblog.example.com",
+                "credentials": b"encrypted-blob",
+                "status": "active",
+                "tool_scope": "editor",
+            }
+        )
+
+        tool_def = MagicMock()
+        tool_def.name = "wordpress_specialist_wp_theme_activate"
+        tool_def.plugin_type = "wordpress_specialist"
+        tool_def.required_scope = "editor"
+        tool_def.category = "read"  # default — same trap that triggered the bug
+        tool_def.input_schema = {"type": "object", "properties": {}}
+
+        registry = MagicMock()
+        registry.get_by_name = MagicMock(return_value=tool_def)
+        registry.get_by_plugin_type = MagicMock(return_value=[tool_def])
+
+        plugin_instance = MagicMock()
+        plugin_instance.wp_theme_activate = AsyncMock(return_value={"activated": True})
+        mock_plugin_registry.create_instance = MagicMock(return_value=plugin_instance)
+
+        with (
+            patch("core.tool_registry.get_tool_registry", return_value=registry),
+            patch("core.plugin_visibility.is_plugin_public", return_value=True),
+        ):
+            request = _make_request(
+                method_name="tools/call",
+                params={
+                    "name": "wordpress_specialist_wp_theme_activate",
+                    "arguments": {"slug": "palebluedot"},
+                },
+            )
+            response = await user_mcp_handler(request)
+            body = json.loads(response.body)
+
+        assert "error" not in body or "Insufficient scope" not in body["error"].get(
+            "message", ""
+        ), f"editor scope was rejected for editor-scope tool: {body}"
+
+    @pytest.mark.unit
+    async def test_read_scope_still_rejects_editor_tool(
+        self,
+        mock_key_mgr,
+        mock_db,
+        mock_encryption,
+        mock_plugin_registry,
+    ):
+        """A pure read-scope key must NOT be able to call editor-scope tools."""
+        mock_key_mgr.validate_key.return_value = {
+            "key_id": "key-uuid-001",
+            "user_id": "user-uuid-001",
+            "scopes": "read",
+        }
+        mock_db.get_site_by_alias = AsyncMock(
+            return_value={
+                "id": "site-uuid-001",
+                "user_id": "user-uuid-001",
+                "plugin_type": "wordpress_specialist",
+                "alias": "myblog",
+                "url": "https://myblog.example.com",
+                "credentials": b"encrypted-blob",
+                "status": "active",
+                "tool_scope": "admin",
+            }
+        )
+
+        tool_def = MagicMock()
+        tool_def.name = "wordpress_specialist_wp_theme_file_write"
+        tool_def.plugin_type = "wordpress_specialist"
+        tool_def.required_scope = "editor"
+        tool_def.category = "read"
+        tool_def.input_schema = {"type": "object", "properties": {}}
+
+        registry = MagicMock()
+        registry.get_by_name = MagicMock(return_value=tool_def)
+        registry.get_by_plugin_type = MagicMock(return_value=[tool_def])
+
+        with (
+            patch("core.tool_registry.get_tool_registry", return_value=registry),
+            patch("core.plugin_visibility.is_plugin_public", return_value=True),
+        ):
+            request = _make_request(
+                method_name="tools/call",
+                params={
+                    "name": "wordpress_specialist_wp_theme_file_write",
+                    "arguments": {
+                        "theme_slug": "palebluedot",
+                        "path": "style.css",
+                        "content_base64": "Lyo=",
+                    },
+                },
+            )
+            response = await user_mcp_handler(request)
+            body = json.loads(response.body)
+
+        assert "error" in body, "read scope must not be allowed to call an editor tool"
+        assert "Insufficient scope" in body["error"]["message"]
+
+
 # ── Rate Limiting ────────────────────────────────────────────
 
 
@@ -419,7 +635,7 @@ class TestRateLimiting:
         """Exceeding per-minute rate limit should return 429."""
         # Fill the rate limit bucket
         now = time.time()
-        _rate_limits["user-uuid-001"] = [now - i for i in range(USER_RATE_LIMIT_PER_MIN)]
+        _rate_limits["user-uuid-001"] = [now - i for i in range(get_cached_rate_per_min())]
 
         request = _make_request(method_name="initialize")
         response = await user_mcp_handler(request)

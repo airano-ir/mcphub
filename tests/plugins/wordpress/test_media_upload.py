@@ -360,3 +360,80 @@ class TestMetadataHelpers:
 def test_allowed_mimes_includes_common_types():
     for m in ("image/jpeg", "image/png", "image/webp", "application/pdf"):
         assert m in ALLOWED_MIMES
+
+
+# --- set_featured fallback (issue #90 gap 5) -------------------------------
+
+
+class TestSetFeaturedFallback:
+    @pytest.mark.asyncio
+    async def test_falls_back_to_pages_when_post_id_invalid(self):
+        from plugins.wordpress.handlers.media import _set_featured_with_fallback
+
+        client = _client()
+
+        async def fake_set_featured(_c, _post_id, _media_id):
+            raise RuntimeError("Invalid post ID")
+
+        with (
+            patch(
+                "plugins.wordpress.handlers.media.wp_set_featured_media",
+                new=AsyncMock(side_effect=fake_set_featured),
+            ),
+            patch.object(client, "post", new=AsyncMock(return_value={"id": 87})) as mock_post,
+        ):
+            ctx = await _set_featured_with_fallback(client, 87, 94)
+        assert ctx == "page"
+        mock_post.assert_awaited_once_with("pages/87", json_data={"featured_media": 94})
+
+    @pytest.mark.asyncio
+    async def test_falls_back_to_thumbnail_supporting_cpt(self):
+        from plugins.wordpress.handlers.media import _set_featured_with_fallback
+
+        client = _client()
+
+        async def fail_post(path, **_):
+            if path.startswith(("posts/", "pages/")):
+                raise RuntimeError("Invalid post ID")
+            return {"id": 200}
+
+        async def fake_get(path, **_):
+            assert path == "types"
+            return {
+                "post": {"rest_base": "posts", "supports": {"thumbnail": True}},
+                "page": {"rest_base": "pages", "supports": {"thumbnail": True}},
+                "portfolio": {"rest_base": "portfolio", "supports": {"thumbnail": True}},
+                "no_thumb_cpt": {"rest_base": "no_thumb_cpt", "supports": {}},
+            }
+
+        with (
+            patch(
+                "plugins.wordpress.handlers.media.wp_set_featured_media",
+                new=AsyncMock(side_effect=RuntimeError("Invalid post ID")),
+            ),
+            patch.object(client, "post", new=AsyncMock(side_effect=fail_post)) as mock_post,
+            patch.object(client, "get", new=AsyncMock(side_effect=fake_get)),
+        ):
+            ctx = await _set_featured_with_fallback(client, 200, 9)
+        assert ctx == "portfolio"
+        # Should have tried pages/200 then portfolio/200 (no_thumb_cpt skipped).
+        called_paths = [c.args[0] for c in mock_post.await_args_list]
+        assert "pages/200" in called_paths
+        assert "portfolio/200" in called_paths
+        assert "no_thumb_cpt/200" not in called_paths
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_nothing_accepts(self):
+        from plugins.wordpress.handlers.media import _set_featured_with_fallback
+
+        client = _client()
+        with (
+            patch(
+                "plugins.wordpress.handlers.media.wp_set_featured_media",
+                new=AsyncMock(side_effect=RuntimeError("Invalid post ID")),
+            ),
+            patch.object(client, "post", new=AsyncMock(side_effect=RuntimeError("nope"))),
+            patch.object(client, "get", new=AsyncMock(return_value={})),
+        ):
+            ctx = await _set_featured_with_fallback(client, 9999, 1)
+        assert ctx is None

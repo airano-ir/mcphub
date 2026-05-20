@@ -5,6 +5,16 @@
 # Production-ready with security best practices
 # ===================================
 
+# Stage 0: Frontend build (Track G — Vite + React SPA → core/templates/static/dist)
+FROM node:20-alpine AS frontend
+WORKDIR /web
+COPY web/package.json web/package-lock.json* ./
+RUN npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+COPY web/ ./
+COPY core/templates/static/logo.svg ./public/logo.svg
+RUN npm run build
+
+
 # Stage 1: Build stage
 FROM python:3.12-alpine AS builder
 
@@ -45,6 +55,11 @@ COPY --from=builder /root/.local /home/appuser/.local
 
 # Copy application code
 COPY --chown=appuser:appgroup . .
+
+# Overlay the SPA build output (from stage 0) into the templates static dir.
+# Vite already targets core/templates/static/dist when run locally; in Docker
+# we build inside the frontend stage and copy the result here.
+COPY --from=frontend --chown=appuser:appgroup /core/templates/static/dist /app/core/templates/static/dist
 
 # Create data directories for API keys and logs with correct ownership
 # This must be done before switching to non-root user

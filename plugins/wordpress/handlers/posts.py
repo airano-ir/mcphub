@@ -292,7 +292,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         {
             "name": "update_page",
             "method_name": "update_page",
-            "description": "Update an existing WordPress page. Can update title, content, status, slug, and parent page.",
+            "description": "Update an existing WordPress page. Can update title, content, status, slug, parent page, featured image, and post meta (e.g. Yoast fields).",
             "schema": {
                 "type": "object",
                 "properties": {
@@ -321,6 +321,14 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                     "parent": {
                         "anyOf": [{"type": "integer"}, {"type": "null"}],
                         "description": "Parent page ID",
+                    },
+                    "featured_media": {
+                        "anyOf": [{"type": "integer"}, {"type": "null"}],
+                        "description": "Featured image attachment ID. Pass 0 to clear.",
+                    },
+                    "meta": {
+                        "anyOf": [{"type": "object"}, {"type": "null"}],
+                        "description": "Post meta key/value map forwarded as REST `meta` (e.g. Yoast fields like `_yoast_wpseo_metadesc`). Only registered/whitelisted keys are persisted by WordPress.",
                     },
                 },
                 "required": ["page_id"],
@@ -892,6 +900,8 @@ class PostsHandler:
         status: str | None = None,
         slug: str | None = None,
         parent: int | None = None,
+        featured_media: int | None = None,
+        meta: dict | None = None,
     ) -> str:
         """
         Update an existing WordPress page.
@@ -903,6 +913,8 @@ class PostsHandler:
             status: Publication status
             slug: Page URL slug
             parent: Parent page ID
+            featured_media: Featured image attachment ID (0 clears it)
+            meta: Post meta key/value map (e.g. Yoast fields)
 
         Returns:
             JSON string with updated page data
@@ -920,6 +932,10 @@ class PostsHandler:
                 data["slug"] = slug
             if parent is not None:
                 data["parent"] = parent
+            if featured_media is not None:
+                data["featured_media"] = featured_media
+            if meta is not None:
+                data["meta"] = meta
 
             page = await self.client.post(f"pages/{page_id}", json_data=data)
 

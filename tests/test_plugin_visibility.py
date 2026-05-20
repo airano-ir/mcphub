@@ -84,11 +84,30 @@ class TestIsPluginPublic:
             os.environ.pop("ENABLED_PLUGINS", None)
             assert is_plugin_public("gitea") is True
 
-    def test_default_wordpress_advanced_not_public(self):
-        """WordPress Advanced is not public by default."""
+    def test_default_wordpress_specialist_public(self):
+        """WordPress Specialist is public by default."""
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("ENABLED_PLUGINS", None)
-            assert is_plugin_public("wordpress_advanced") is False
+            assert is_plugin_public("wordpress_specialist") is True
+
+    def test_default_n8n_public(self):
+        """n8n is public by default."""
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("ENABLED_PLUGINS", None)
+            assert is_plugin_public("n8n") is True
+
+    def test_default_coolify_public(self):
+        """Coolify is public by default."""
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("ENABLED_PLUGINS", None)
+            assert is_plugin_public("coolify") is True
+
+    def test_default_directus_and_appwrite_not_public(self):
+        """Directus and Appwrite stay disabled by default."""
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("ENABLED_PLUGINS", None)
+            assert is_plugin_public("directus") is False
+            assert is_plugin_public("appwrite") is False
 
     def test_case_insensitive_check(self):
         """Plugin type check is case insensitive."""
@@ -120,8 +139,11 @@ class TestSiteApiIntegration:
         assert "supabase" in fields
         assert "gitea" in fields
         assert "openpanel" in fields
-        assert "wordpress_advanced" not in fields
-        assert "n8n" not in fields
+        assert "wordpress_specialist" in fields
+        assert "n8n" in fields
+        assert "coolify" in fields
+        assert "directus" not in fields
+        assert "appwrite" not in fields
 
     def test_get_user_plugin_names_filtered(self):
         """get_user_plugin_names only returns enabled plugins."""
@@ -136,7 +158,11 @@ class TestSiteApiIntegration:
         assert "supabase" in names
         assert "gitea" in names
         assert "openpanel" in names
-        assert "wordpress_advanced" not in names
+        assert "wordpress_specialist" in names
+        assert "n8n" in names
+        assert "coolify" in names
+        assert "directus" not in names
+        assert "appwrite" not in names
 
     def test_custom_env_changes_fields(self):
         """Custom ENABLED_PLUGINS changes which credential fields are returned."""

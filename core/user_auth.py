@@ -35,6 +35,16 @@ _GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
 _GITHUB_USER_URL = "https://api.github.com/user"
 _GITHUB_EMAILS_URL = "https://api.github.com/user/emails"
 
+# api.github.com rejects requests without a User-Agent header and treats
+# requests that omit Accept/X-GitHub-Api-Version as forward-compatibility
+# violations on some endpoints (observed as 403 on /user and /user/emails
+# after httpx upgraded its default UA). Keep these explicit.
+_GITHUB_API_HEADERS = {
+    "Accept": "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    "User-Agent": "mcphub-oauth-client",
+}
+
 _GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 _GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 _GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
@@ -258,19 +268,25 @@ class UserAuth:
             if not access_token:
                 raise ValueError(f"Failed to exchange GitHub code: {token_data}")
 
+            auth_headers = {
+                "Authorization": f"Bearer {access_token}",
+                **_GITHUB_API_HEADERS,
+            }
+
             # Fetch user info
-            user_resp = await client.get(
-                _GITHUB_USER_URL,
-                headers={"Authorization": f"Bearer {access_token}"},
-            )
+            user_resp = await client.get(_GITHUB_USER_URL, headers=auth_headers)
+            if user_resp.status_code != 200:
+                raise ValueError(f"GitHub /user returned {user_resp.status_code}: {user_resp.text}")
             user_data = user_resp.json()
+            if "id" not in user_data:
+                raise ValueError(f"GitHub /user response missing 'id' field: {user_data}")
 
             email = user_data.get("email")
             if not email:
                 # Fetch from /user/emails endpoint (private email fallback)
                 emails_resp = await client.get(
                     _GITHUB_EMAILS_URL,
-                    headers={"Authorization": f"Bearer {access_token}"},
+                    headers=auth_headers,
                 )
                 if emails_resp.status_code == 200:
                     emails = emails_resp.json()

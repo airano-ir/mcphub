@@ -1,6 +1,6 @@
 [project]
 name = "mcphub-server"
-version = "3.12.0"
+version = "3.13.0"
 description = "AI-native management hub for WordPress, WooCommerce, and self-hosted services via Model Context Protocol (MCP)"
 authors = [
     {name = "MCP Hub", email = "contact@mcphub.dev"}
@@ -78,8 +78,14 @@ include = ["core*", "plugins*"]
 exclude = ["tests*", "data*", "logs*", "temp*", "scripts*", "docs*"]
 
 [tool.setuptools.package-data]
-"core" = ["templates/**/*.html"]
-"*" = ["*.html", "*.css", "*.js", "*.json"]
+"core" = [
+    "templates/**/*.html",
+    "templates/static/*.svg",
+    "templates/static/*.css",
+    "templates/static/dist/*",
+    "templates/static/dist/**/*",
+]
+"*" = ["*.html", "*.css", "*.js", "*.json", "*.svg", "*.map", "*.woff", "*.woff2"]
 
 # ====================================
 # pytest Configuration
@@ -104,6 +110,7 @@ markers = [
     "integration: marks tests as integration tests",
     "unit: marks tests as unit tests",
     "security: marks tests as security tests",
+    "frontend: marks tests covering the SPA / Track G backend support routes",
 ]
 asyncio_mode = "auto"  # Automatically detect async tests
 

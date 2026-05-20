@@ -1,0 +1,70 @@
+/* Design tokens — ported from claude.ai/design prototype.
+   Dark-first; brand cyan-teal with warm amber accent.
+   The hue is dynamic via --brand-hue so the (admin-only) Tweaks panel can change it. */
+
+:root {
+  --brand-hue: 205;
+
+  --brand-500: oklch(0.74 0.14 var(--brand-hue));
+  --brand-400: oklch(0.80 0.13 var(--brand-hue));
+  --brand-300: oklch(0.86 0.11 var(--brand-hue));
+  --brand-600: oklch(0.66 0.15 var(--brand-hue));
+  --brand-700: oklch(0.42 0.13 calc(var(--brand-hue) + 5));
+  --brand-glow: oklch(0.74 0.14 var(--brand-hue) / 0.35);
+
+  --accent-500: oklch(0.78 0.15 75);
+  --accent-600: oklch(0.70 0.16 65);
+
+  --success: oklch(0.74 0.15 155);
+  --warning: oklch(0.80 0.15 85);
+  --danger:  oklch(0.66 0.19 25);
+  --info:    oklch(0.72 0.13 235);
+
+  --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "JetBrains Mono", monospace;
+  --font-serif: "Instrument Serif", "Times New Roman", serif;
+  --font-fa: "Vazirmatn", var(--font-sans);
+
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 20px;
+  --r-2xl: 28px;
+
+  --density: 1;
+}
+
+html[data-theme="dark"] {
+  --bg:           oklch(0.14 0.012 250);
+  --bg-elevated: oklch(0.17 0.014 250);
+  --bg-sunken:   oklch(0.11 0.012 250);
+  --surface:     oklch(0.20 0.014 250);
+  --surface-2:   oklch(0.24 0.015 250);
+  --border:      oklch(0.28 0.015 250);
+  --border-strong: oklch(0.36 0.020 250);
+  --text:        oklch(0.97 0.005 250);
+  --text-muted:  oklch(0.72 0.012 250);
+  --text-subtle: oklch(0.55 0.012 250);
+  --shadow-1: 0 1px 0 oklch(1 0 0 / 0.04) inset, 0 1px 2px oklch(0 0 0 / 0.4);
+  --shadow-2: 0 1px 0 oklch(1 0 0 / 0.05) inset, 0 8px 24px oklch(0 0 0 / 0.45);
+  --shadow-pop: 0 1px 0 oklch(1 0 0 / 0.08) inset, 0 24px 60px oklch(0 0 0 / 0.55);
+  --dot: oklch(0.22 0.014 250);
+}
+
+html[data-theme="light"] {
+  --bg:           oklch(0.985 0.003 250);
+  --bg-elevated: oklch(1 0 0);
+  --bg-sunken:   oklch(0.965 0.004 250);
+  --surface:     oklch(1 0 0);
+  --surface-2:   oklch(0.97 0.004 250);
+  --border:      oklch(0.90 0.005 250);
+  --border-strong: oklch(0.82 0.008 250);
+  --text:        oklch(0.18 0.012 250);
+  --text-muted:  oklch(0.42 0.012 250);
+  --text-subtle: oklch(0.60 0.010 250);
+  --shadow-1: 0 1px 0 oklch(1 0 0) inset, 0 1px 2px oklch(0.5 0 0 / 0.08);
+  --shadow-2: 0 1px 0 oklch(1 0 0) inset, 0 8px 24px oklch(0.4 0 0 / 0.08);
+  --shadow-pop: 0 1px 0 oklch(1 0 0) inset, 0 24px 60px oklch(0.3 0 0 / 0.15);
+  --dot: oklch(0.93 0.005 250);
+}

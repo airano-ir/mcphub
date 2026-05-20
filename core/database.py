@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 _DEFAULT_DATA_DIR = "/app/data" if Path("/app").exists() else "./data"
 
 # Schema version — increment when adding migrations
-SCHEMA_VERSION = 13
+SCHEMA_VERSION = 14
 
 # Initial schema DDL
 _SCHEMA_SQL = """\
@@ -280,6 +280,23 @@ _MIGRATIONS: dict[int, str] = {
         # flash-image) as the implicit default for that site, so MCP
         # callers don't have to pass `model=...` every time.
         "ALTER TABLE site_provider_keys ADD COLUMN default_model TEXT;\n"
+    ),
+    14: (
+        # F.19.2.2: every user API key gets full-tier scope by design.
+        # Tool visibility is gated per-site via ``sites.tool_scope`` and
+        # per-tool toggles, not per-key. Older keys were issued before
+        # the F.19.2.0 tier system added ``editor`` / ``settings`` /
+        # ``install`` between ``read`` and ``write``, so their stored
+        # scope string ("read write admin" or narrower) doesn't list the
+        # new tiers explicitly. The universal-tier closure already maps
+        # ``admin`` to every tier, so functionally these keys see every
+        # tool — but enumerating the scope names explicitly keeps the
+        # DB consistent with the dashboard preset dropdown and removes
+        # any risk if a future change checks scope names directly
+        # without going through UNIVERSAL_SCOPE_TIERS.
+        "UPDATE user_api_keys "
+        "SET scopes = 'read editor settings install write admin' "
+        "WHERE scopes IN ('read write admin', 'read write', 'admin');\n"
     ),
 }
 
@@ -756,6 +773,27 @@ class Database:
         row = await self.fetchone(
             "SELECT COUNT(*) AS cnt FROM sites WHERE user_id = ?",
             (user_id,),
+        )
+        return row["cnt"] if row else 0
+
+    async def count_all_users(self) -> int:
+        """Return total number of registered users."""
+        row = await self.fetchone("SELECT COUNT(*) AS cnt FROM users")
+        return row["cnt"] if row else 0
+
+    async def count_all_sites(self) -> int:
+        """Return total number of user-owned sites across all users."""
+        row = await self.fetchone("SELECT COUNT(*) AS cnt FROM sites")
+        return row["cnt"] if row else 0
+
+    async def count_recent_users(self, days: int = 7) -> int:
+        """Return number of users registered in the last N days."""
+        import time
+
+        cutoff = time.time() - days * 86400
+        row = await self.fetchone(
+            "SELECT COUNT(*) AS cnt FROM users WHERE created_at > ?",
+            (cutoff,),
         )
         return row["cnt"] if row else 0
 

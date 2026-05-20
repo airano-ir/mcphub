@@ -19,8 +19,8 @@ import aiohttp
 
 logger = logging.getLogger(__name__)
 
-# Maximum sites per user (configurable via env var)
-MAX_SITES_PER_USER = int(os.getenv("MAX_SITES_PER_USER", "10"))
+# Fallback used when the settings DB is unavailable at import time
+_MAX_SITES_FALLBACK = int(os.getenv("MAX_SITES_PER_USER", "10"))
 
 # Plugin credential field definitions — drives the dynamic "Add Site" form
 # and server-side validation. Each field has:
@@ -104,13 +104,18 @@ PLUGIN_CREDENTIAL_FIELDS: dict[str, list[dict[str, Any]]] = {
             ),
         },
     ],
-    "wordpress_advanced": [
+    # F.19.1 WordPress Specialist — companion-backed, no Docker socket.
+    # Same auth shape as the basic wordpress plugin (Application Password)
+    # but the WP user behind the password must have ``manage_options``,
+    # AND Airano MCP Bridge v2.11.0+ must be active on the WP site for
+    # the admin namespace to exist.
+    "wordpress_specialist": [
         {
             "name": "username",
             "label": "Username",
             "type": "text",
             "required": True,
-            "hint": "Your WordPress admin username (HTTP Basic username for every API call).",
+            "hint": "WordPress admin username (the user that owns the Application Password).",
         },
         {
             "name": "app_password",
@@ -119,15 +124,10 @@ PLUGIN_CREDENTIAL_FIELDS: dict[str, list[dict[str, Any]]] = {
             "required": True,
             "hint": (
                 "WordPress Admin → Users → Profile → Application Passwords. "
-                "IS the API credential — no separate API key needed."
+                "The user MUST have manage_options. Requires Airano MCP "
+                "Bridge v2.11.0+ on the WP side — install from "
+                "wordpress-plugin/airano-mcp-bridge.zip in the repo."
             ),
-        },
-        {
-            "name": "container",
-            "label": "Docker Container Name",
-            "type": "text",
-            "required": False,
-            "hint": "Docker container running WordPress (for WP-CLI access). Leave empty if unused.",
         },
     ],
     "gitea": [
@@ -268,7 +268,7 @@ PLUGIN_CREDENTIAL_FIELDS: dict[str, list[dict[str, Any]]] = {
 PLUGIN_DISPLAY_NAMES: dict[str, str] = {
     "wordpress": "WordPress",
     "woocommerce": "WooCommerce",
-    "wordpress_advanced": "WordPress Advanced",
+    "wordpress_specialist": "WordPress Specialist",
     "gitea": "Gitea",
     "n8n": "n8n",
     "supabase": "Supabase",
@@ -282,7 +282,12 @@ PLUGIN_DISPLAY_NAMES: dict[str, str] = {
 _HEALTH_ENDPOINTS: dict[str, dict[str, Any]] = {
     "wordpress": {"path": "/wp-json/wp/v2/users/me", "method": "GET"},
     "woocommerce": {"path": "/wp-json/wc/v3/system_status", "method": "GET"},
-    "wordpress_advanced": {"path": "/wp-json/wp/v2/users/me", "method": "GET"},
+    # F.19.1: hits the companion's lightest admin route. Returns 404 if
+    # Airano MCP Bridge v2.11.0+ is missing, 403 if the user lacks
+    # ``manage_options``, 200 with a small JSON body otherwise. This
+    # makes "Test Connection" surface the actual end-to-end requirement
+    # instead of just "auth works" (which /users/me would).
+    "wordpress_specialist": {"path": "/wp-json/airano-mcp/v1/admin/maintenance", "method": "GET"},
     "gitea": {"path": "/api/v1/user", "method": "GET"},
     "n8n": {"path": "/healthz", "method": "GET"},
     "supabase": {"path": "/rest/v1/", "method": "GET"},
@@ -314,28 +319,53 @@ def get_credential_fields(plugin_type: str) -> list[dict[str, Any]]:
     return fields
 
 
-def get_user_credential_fields() -> dict[str, list[dict[str, Any]]]:
-    """Get credential fields for public (non-admin) users.
+def get_user_credential_fields(is_admin: bool = False) -> dict[str, list[dict[str, Any]]]:
+    """Get credential fields for the dashboard's Add/Edit Site forms.
 
-    Only includes plugins enabled via ENABLED_PLUGINS env var.
+    Admin users see every registered plugin so they can use admin-only
+    plugins (wordpress_specialist) without having to add them to
+    ``ENABLED_PLUGINS`` for everyone. Public users get only the plugins
+    enabled via ``ENABLED_PLUGINS`` env var (Track F.1).
+
+    F.19.1 (2026-05-01) — surfaced when an admin OAuth user added a
+    wordpress_specialist site and the manage page rendered an empty
+    credential form on revisit because the unfiltered map was being
+    filtered for public visibility. The site row exists but the
+    template can't render its fields.
+
+    Args:
+        is_admin: When True, return every plugin's credential fields.
+            Defaults to False for backward compatibility.
 
     Returns:
-        Filtered dict of plugin_type -> field definitions.
+        Dict of plugin_type -> field definitions.
     """
+    if is_admin:
+        return dict(PLUGIN_CREDENTIAL_FIELDS)
+
     from core.plugin_visibility import get_public_plugin_types
 
     public = get_public_plugin_types()
     return {k: v for k, v in PLUGIN_CREDENTIAL_FIELDS.items() if k in public}
 
 
-def get_user_plugin_names() -> dict[str, str]:
-    """Get plugin display names for public (non-admin) users.
+def get_user_plugin_names(is_admin: bool = False) -> dict[str, str]:
+    """Get plugin display names for the dashboard's plugin pickers.
 
-    Only includes plugins enabled via ENABLED_PLUGINS env var.
+    Admin users see every registered plugin (so the Add Site dropdown
+    surfaces ``wordpress_specialist`` etc.); public users get only the
+    plugins enabled via ``ENABLED_PLUGINS`` env var.
+
+    Args:
+        is_admin: When True, return every plugin's display name.
+            Defaults to False for backward compatibility.
 
     Returns:
-        Filtered dict of plugin_type -> display name.
+        Dict of plugin_type -> display name.
     """
+    if is_admin:
+        return dict(PLUGIN_DISPLAY_NAMES)
+
     from core.plugin_visibility import get_public_plugin_types
 
     public = get_public_plugin_types()
@@ -387,7 +417,7 @@ async def validate_site_connection(
 
     # Build auth headers per plugin type
     headers: dict[str, str] = {}
-    if plugin_type in ("wordpress", "wordpress_advanced"):
+    if plugin_type in ("wordpress", "wordpress_specialist"):
         import base64
 
         username = credentials.get("username", "")
@@ -502,10 +532,13 @@ async def create_user_site(
 
     db = get_database()
 
-    # Check site limit
+    # Check site limit (reads DB > ENV > default so dashboard/settings changes take effect)
+    from core.settings import get_cached_max_sites
+
+    max_sites = get_cached_max_sites()
     count = await db.count_sites_by_user(user_id)
-    if count >= MAX_SITES_PER_USER:
-        raise ValueError(f"Site limit reached ({MAX_SITES_PER_USER} sites per user)")
+    if count >= max_sites:
+        raise ValueError(f"Site limit reached ({max_sites} sites per user)")
 
     # Check alias uniqueness (DB constraint will also catch this)
     existing = await db.get_site_by_alias(user_id, alias)

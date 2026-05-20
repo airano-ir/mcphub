@@ -56,7 +56,7 @@ class UserKeyManager:
         self,
         user_id: str,
         name: str,
-        scopes: str = "read write admin",
+        scopes: str = "read editor settings install write admin",
         expires_in_days: int | None = None,
         site_id: str | None = None,
     ) -> dict[str, Any]:
@@ -65,7 +65,14 @@ class UserKeyManager:
         Args:
             user_id: Owner's UUID.
             name: Human label (e.g. "Claude Desktop").
-            scopes: Access scopes (default: "read write admin" for full access).
+            scopes: Access scopes. Default enumerates every tier explicitly
+                (read / editor / settings / install / write / admin) so the
+                key matches the per-site Tool Access dropdown 1:1, even if
+                ``UNIVERSAL_SCOPE_TIERS`` is reorganised in a later phase.
+                The binding access filter for any tool call is the
+                **intersection** of these scopes with the per-site
+                ``tool_scope`` preset — narrowing happens per-site, not
+                per-key, so a single key works for every site the user owns.
             expires_in_days: Optional expiry in days from now. None = never.
             site_id: Optional site UUID to scope key to a single site.
 

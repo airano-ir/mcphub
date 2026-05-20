@@ -4,11 +4,13 @@ Tests covering dashboard authentication, session management, rate limiting,
 language detection, translations, and utility functions.
 """
 
+import inspect
 import time
 from datetime import UTC, datetime, timedelta
 
 import jwt
 import pytest
+from starlette.requests import Request
 
 from core.dashboard.auth import DashboardAuth, DashboardSession
 from core.dashboard.routes import (
@@ -18,6 +20,29 @@ from core.dashboard.routes import (
     get_plugin_display_name,
     get_translations,
 )
+
+
+def _make_request(path: str, *, query_string: str = "", path_params: dict[str, str] | None = None):
+    """Construct a minimal GET Request for direct route-handler tests."""
+
+    async def receive():
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    scope = {
+        "type": "http",
+        "http_version": "1.1",
+        "scheme": "http",
+        "method": "GET",
+        "path": path,
+        "raw_path": path.encode(),
+        "query_string": query_string.encode(),
+        "headers": [],
+        "path_params": path_params or {},
+        "client": ("127.0.0.1", 12345),
+        "server": ("testserver", 80),
+    }
+    return Request(scope, receive)
+
 
 # --- Plugin Display Names ---
 
@@ -36,26 +61,27 @@ class TestPluginDisplayNames:
         assert get_plugin_display_name("appwrite") == "Appwrite"
         assert get_plugin_display_name("directus") == "Directus"
 
-    def test_wordpress_advanced(self):
+    def test_wordpress_specialist(self):
         """Should handle underscore-separated names."""
-        assert get_plugin_display_name("wordpress_advanced") == "WordPress Advanced"
+        assert get_plugin_display_name("wordpress_specialist") == "WordPress Specialist"
 
     def test_unknown_plugin_titlecased(self):
         """Should title-case unknown plugin types."""
         assert get_plugin_display_name("my_custom_plugin") == "My Custom Plugin"
 
-    def test_all_nine_plugins_mapped(self):
-        """All 9 plugin types should be in the display names map."""
+    def test_all_plugins_mapped(self):
+        """Every registered plugin type must be in the display names map."""
         expected = {
             "wordpress",
             "woocommerce",
-            "wordpress_advanced",
+            "wordpress_specialist",
             "gitea",
             "n8n",
             "supabase",
             "openpanel",
             "appwrite",
             "directus",
+            "coolify",
         }
         assert expected == set(PLUGIN_DISPLAY_NAMES.keys())
 
@@ -373,16 +399,46 @@ class TestDashboardCookieManagement:
         assert "mcp_dashboard_session=" in cookie_header
 
 
-def test_dashboard_connect_page(monkeypatch):
-    """Test that /dashboard/connect redirects to /dashboard/keys (F.7b session 2)."""
-    from server import create_multi_endpoint_app
-    from starlette.testclient import TestClient
+@pytest.mark.asyncio
+async def test_dashboard_connect_page(monkeypatch):
+    """Legacy /dashboard-legacy/connect should redirect to legacy keys."""
+    from core.dashboard.routes import register_dashboard_routes
 
-    app = create_multi_endpoint_app()
-    client = TestClient(app, follow_redirects=False)
+    class FakeMCP:
+        def __init__(self):
+            self.routes = {}
 
-    resp = client.get("/dashboard/connect")
+        def custom_route(self, path, methods=None):
+            def decorator(func):
+                self.routes[(path, tuple(methods or []))] = func
+                return func
 
-    # /dashboard/connect now redirects 301 to /dashboard/keys
-    assert resp.status_code == 301
-    assert "/dashboard/keys" in resp.headers["location"]
+            return decorator
+
+    mcp = FakeMCP()
+    register_dashboard_routes(mcp)
+    handler = mcp.routes[("/dashboard-legacy/connect", ("GET",))]
+
+    response = handler(_make_request("/dashboard-legacy/connect"))
+    if inspect.isawaitable(response):
+        response = await response
+
+    assert response.status_code == 301
+    assert response.headers["location"] == "/dashboard-legacy/keys"
+
+
+@pytest.mark.asyncio
+async def test_dashboard_v2_redirects_to_dashboard(monkeypatch):
+    """Old SPA URLs should 308 redirect to the cutover /dashboard prefix."""
+    from core.dashboard.spa_routes import redirect_dashboard_v2
+
+    response = await redirect_dashboard_v2(
+        _make_request(
+            "/dashboard-v2/overview",
+            query_string="lang=fa",
+            path_params={"path": "overview"},
+        )
+    )
+
+    assert response.status_code == 308
+    assert response.headers["location"] == "/dashboard/overview?lang=fa"

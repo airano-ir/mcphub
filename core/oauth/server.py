@@ -114,8 +114,13 @@ class OAuthServer:
                 error_description="Only S256 code_challenge_method is supported (OAuth 2.1)",
             )
 
-        # Validate scope
-        requested_scopes = scope.split() if scope else ["read", "write", "admin"]
+        # Validate scope. F.19.2.2: default to every tier explicitly so
+        # an OAuth client without a scope hint gets the same surface as a
+        # dashboard-issued user key. The binding narrowing is per-site
+        # (intersection with the site's tool_scope preset).
+        requested_scopes = (
+            scope.split() if scope else ["read", "editor", "settings", "install", "write", "admin"]
+        )
         for s in requested_scopes:
             if s not in client.allowed_scopes:
                 raise OAuthError(

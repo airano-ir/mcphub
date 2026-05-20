@@ -6,8 +6,10 @@
 {% block content %}
 <div class="max-w-3xl mx-auto space-y-6">
     <!-- Header -->
+    {% set _qs = request.query_params if request else None %}
+    {% set _from_v2 = _qs and _qs.get('from') == 'dashboard-v2' %}
     <div class="flex items-center gap-4 mb-6">
-        <a href="/dashboard/sites{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}"
+        <a href="{% if _from_v2 %}/dashboard-v2/sites{% else %}/dashboard/sites{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}{% endif %}"
             class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
@@ -625,14 +627,22 @@
                 fa: 'Application Password ثبت‌شده در Connection Settings باید متعلق به کاربر <strong>Administrator</strong> باشد تا CRUD کامل کار کند. ابزارهای SEO و مدیریت افزونه/قالب علاوه بر آن نیازمند نصب افزونه <code class="font-mono">Airano MCP SEO Bridge</code> روی سایت هستند.'
             }
         },
-        wordpress_advanced: {
+        wordpress_specialist: {
             read: {
-                en: 'The Application Password in Connection Settings must belong to an <strong>Editor</strong>-or-lower user. Read-only WP-CLI operations are enforced by role caps.',
-                fa: 'Application Password ثبت‌شده در Connection Settings باید برای کاربری با نقش <strong>Editor</strong> یا پایین‌تر باشد.'
+                en: 'The Application Password in Connection Settings must belong to a WordPress user with <strong>manage_options</strong> (Administrator). Companion plugin <code class="font-mono">Airano MCP Bridge v2.11.0+</code> must be installed and active on the site.',
+                fa: 'Application Password ثبت‌شده باید متعلق به کاربری با مجوز <strong>manage_options</strong> (Administrator) باشد. افزونه همراه <code class="font-mono">Airano MCP Bridge v2.11.0+</code> باید روی سایت نصب و فعال باشد.'
+            },
+            editor: {
+                en: 'Same prerequisites as Read, plus companion <code class="font-mono">Airano MCP Bridge v2.13.0+</code> for page editing (Gutenberg blocks, Elementor, Classic) and <code class="font-mono">v2.14.0+</code> for theme file CRUD. Per-tool capability checks: <code>edit_post</code>, <code>edit_themes</code>.',
+                fa: 'پیش‌نیاز Read به‌علاوهٔ نسخهٔ <code class="font-mono">Airano MCP Bridge v2.13.0+</code> برای ویرایش صفحه (Gutenberg، Elementor، Classic) و <code class="font-mono">v2.14.0+</code> برای ویرایش فایل قالب. Capability موردنیاز: <code>edit_post</code> و <code>edit_themes</code>.'
+            },
+            install: {
+                en: 'Same prerequisites as Editor, plus companion <code class="font-mono">Airano MCP Bridge v2.14.0+</code> for theme install/activate/delete and <code class="font-mono">v2.15.0+</code> for plugin install/activate/deactivate/update. Per-tool capability checks: <code>install_plugins</code>, <code>activate_plugins</code>, <code>install_themes</code>, <code>switch_themes</code>, <code>update_plugins</code>.',
+                fa: 'پیش‌نیاز Editor به‌علاوهٔ <code class="font-mono">Airano MCP Bridge v2.14.0+</code> برای نصب/فعال‌سازی/حذف قالب و <code class="font-mono">v2.15.0+</code> برای نصب/فعال‌سازی/غیرفعال‌سازی/به‌روزرسانی پلاگین. Capability موردنیاز: <code>install_plugins</code>, <code>activate_plugins</code>, <code>install_themes</code>, <code>switch_themes</code>, <code>update_plugins</code>.'
             },
             admin: {
-                en: 'The Application Password in Connection Settings must belong to an <strong>Administrator</strong> and the Docker container name must be correct for shell-level plugin/theme operations. Install <code class="font-mono">Airano MCP SEO Bridge</code> on the site to unlock SEO + plugin/theme tools.',
-                fa: 'Application Password ثبت‌شده باید متعلق به کاربر <strong>Administrator</strong> باشد و نام Docker Container درست وارد شده باشد. برای ابزارهای SEO افزونه <code class="font-mono">Airano MCP SEO Bridge</code> روی سایت نصب باشد.'
+                en: 'Same prerequisites as Installer, plus URL/zip install routes and plugin/theme delete. Per-tool capability checks: <code>delete_plugins</code>, <code>delete_themes</code>. PHP file edits additionally require <code class="font-mono">DISALLOW_FILE_EDIT</code> to be unset (or false) in <code class="font-mono">wp-config.php</code>.',
+                fa: 'پیش‌نیاز Installer به‌علاوهٔ مسیرهای نصب از URL/zip و حذف پلاگین/قالب. Capability موردنیاز: <code>delete_plugins</code>, <code>delete_themes</code>. ویرایش فایل PHP علاوه بر آن نیازمند تنظیم نشدن (یا false بودن) ثابت <code class="font-mono">DISALLOW_FILE_EDIT</code> در <code class="font-mono">wp-config.php</code> است.'
             }
         },
         woocommerce: {
@@ -697,11 +707,36 @@
         }
     };
 
+    // F.19.2.2 — destructive-tier warnings. Rendered above the credential
+    // requirement notice when the user picks ``install`` or ``admin``,
+    // so they understand the blast radius before the click sticks. Only
+    // these two tiers warrant a strong warning — everything below is
+    // recoverable (reads, content edits, theme file writes which
+    // optimistic-concurrency on sha256, settings which can be reset).
+    // ``install`` is amber: installs reshape the site but the source
+    // (wp.org) is curated. ``admin`` is red: arbitrary zip + delete +
+    // user CRUD have no undo.
+    const TIER_WARNINGS = {
+        install: {
+            severity: 'amber',
+            en: 'Selecting <strong>Installer</strong> grants the AI agent permission to install + activate plugins and themes from wp.org slugs. Source is curated by wp.org, but installations affect the live site immediately. Recommended: test on a staging site first; review installed plugins regularly via <code>wp_plugin_list</code>.',
+            fa: 'انتخاب <strong>Installer</strong> به agent اجازه می‌دهد پلاگین و قالب را با slug از wp.org نصب و فعال کند. منبع wp.org curated است اما نصب‌ها بلافاصله روی سایت زنده اعمال می‌شوند. توصیه: ابتدا روی سایت staging تست کنید و افزونه‌های نصب‌شده را با <code>wp_plugin_list</code> به‌طور منظم مرور کنید.'
+        },
+        admin: {
+            severity: 'red',
+            en: 'Selecting <strong>Admin</strong> grants the AI agent the full destructive surface: install plugins/themes from arbitrary URLs or base64 zips, delete plugins (drops their data with no undo), delete themes, and user CRUD. Use only on sites you fully control where an AI mistake is recoverable from backups. <strong>Not recommended for production sites with real users.</strong>',
+            fa: 'انتخاب <strong>Admin</strong> به agent سطح کامل تخریبی می‌دهد: نصب پلاگین/قالب از URL یا zip دلخواه، حذف پلاگین (داده‌اش بدون undo پاک می‌شود)، حذف قالب، و CRUD کاربر. فقط روی سایت‌هایی که کامل کنترل دارید و خطای agent از بکاپ قابل بازیابی است استفاده کنید. <strong>برای سایت‌های production با کاربر واقعی توصیه نمی‌شود.</strong>'
+        }
+    };
+
     function renderScopeNotice() {
         const el = document.getElementById('scope-notice');
         if (!el) return;
         const isFa = {% if lang == 'fa' %}true{% else %}false{% endif %};
-        const scopeLabels = { read: 'Read', 'read:sensitive': 'Read+Secrets', deploy: 'Deploy', write: 'Write', admin: 'Full Access' };
+        const scopeLabels = {
+            read: 'Read', editor: 'Editor', settings: 'Settings', install: 'Installer',
+            'read:sensitive': 'Read+Secrets', deploy: 'Deploy', write: 'Write', admin: 'Admin'
+        };
 
         if (currentScope === 'custom') {
             el.classList.add('hidden');
@@ -710,22 +745,46 @@
         }
 
         const guide = (CREDENTIAL_GUIDES[pluginType] || {})[currentScope];
-        if (!guide) {
+        const warning = TIER_WARNINGS[currentScope];
+
+        if (!guide && !warning) {
             el.classList.add('hidden');
             el.innerHTML = '';
             return;
         }
 
-        const title = isFa
-            ? 'پیش‌نیاز Credential برای سطح <strong>' + (scopeLabels[currentScope] || currentScope) + '</strong>:'
-            : 'Credential requirement for <strong>' + (scopeLabels[currentScope] || currentScope) + '</strong>:';
-        const body = isFa ? guide.fa : guide.en;
+        const blocks = [];
 
-        el.innerHTML =
-            '<div class="bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/30 rounded-lg p-3 text-indigo-700 dark:text-indigo-300">' +
-            '<p class="mb-1">' + title + '</p>' +
-            '<p>' + body + '</p>' +
-            '</div>';
+        // Destructive-tier warning first (so eyes hit it before requirements).
+        if (warning) {
+            const palette = warning.severity === 'red'
+                ? 'bg-red-50 dark:bg-red-500/10 border-red-300 dark:border-red-500/40 text-red-800 dark:text-red-200'
+                : 'bg-amber-50 dark:bg-amber-500/10 border-amber-300 dark:border-amber-500/40 text-amber-800 dark:text-amber-200';
+            const icon = warning.severity === 'red' ? '⚠️' : '⚡';
+            const heading = isFa ? 'هشدار:' : 'Warning:';
+            blocks.push(
+                '<div class="' + palette + ' border rounded-lg p-3 mb-2">' +
+                '<p class="font-semibold mb-1">' + icon + ' ' + heading + '</p>' +
+                '<p>' + (isFa ? warning.fa : warning.en) + '</p>' +
+                '</div>'
+            );
+        }
+
+        // Credential requirement block.
+        if (guide) {
+            const title = isFa
+                ? 'پیش‌نیاز Credential برای سطح <strong>' + (scopeLabels[currentScope] || currentScope) + '</strong>:'
+                : 'Credential requirement for <strong>' + (scopeLabels[currentScope] || currentScope) + '</strong>:';
+            const body = isFa ? guide.fa : guide.en;
+            blocks.push(
+                '<div class="bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/30 rounded-lg p-3 text-indigo-700 dark:text-indigo-300">' +
+                '<p class="mb-1">' + title + '</p>' +
+                '<p>' + body + '</p>' +
+                '</div>'
+            );
+        }
+
+        el.innerHTML = blocks.join('');
         el.classList.remove('hidden');
     }
 
@@ -734,8 +793,11 @@
         const search = (document.getElementById('tool-search').value || '').toLowerCase();
         container.innerHTML = '';
 
-        // Group by required_scope
-        const groups = { read: [], write: [], admin: [] };
+        // Group by required_scope. F.19.2.0 — six tiers now in play
+        // (read / editor / settings / install / write / admin).
+        const groups = {
+            read: [], editor: [], settings: [], install: [], write: [], admin: []
+        };
         for (const tool of allTools) {
             const s = tool.required_scope || 'read';
             if (!groups[s]) groups[s] = [];
@@ -744,12 +806,15 @@
 
         const scopeLabels = {
             read: '{% if lang == "fa" %}خواندن{% else %}Read{% endif %}',
+            editor: '{% if lang == "fa" %}ویرایشگر{% else %}Editor{% endif %}',
+            settings: '{% if lang == "fa" %}تنظیمات{% else %}Settings{% endif %}',
+            install: '{% if lang == "fa" %}نصب‌کننده{% else %}Installer{% endif %}',
             write: '{% if lang == "fa" %}نوشتن{% else %}Write{% endif %}',
             admin: 'Admin',
         };
 
         let visibleCount = 0;
-        for (const scope of ['read', 'write', 'admin']) {
+        for (const scope of ['read', 'editor', 'settings', 'install', 'write', 'admin']) {
             const tools = (groups[scope] || []).filter(t => !search || t.name.toLowerCase().includes(search) || (t.description || '').toLowerCase().includes(search));
             if (!tools.length) continue;
 
@@ -768,11 +833,15 @@
         }
     }
 
-    // Universal scope tiers: maps scope → set of allowed required_scope values
+    // Universal scope tiers: maps scope → set of allowed required_scope values.
+    // F.19.2.0 — kept in lockstep with core.tool_access.UNIVERSAL_SCOPE_TIERS.
     const SCOPE_TIERS = {
-        read: new Set(['read']),
-        write: new Set(['read', 'write']),
-        admin: new Set(['read', 'write', 'admin']),
+        read:     new Set(['read']),
+        editor:   new Set(['read', 'editor']),
+        settings: new Set(['read', 'editor', 'settings']),
+        install:  new Set(['read', 'editor', 'settings', 'install']),
+        write:    new Set(['read', 'editor', 'settings', 'install', 'write']),
+        admin:    new Set(['read', 'editor', 'settings', 'install', 'write', 'admin']),
         custom: null, // no filter
     };
 
@@ -912,7 +981,8 @@
             pill.addEventListener('click', (ev) => {
                 ev.stopPropagation();
                 const link = document.createElement('a');
-                link.href = '/dashboard/sites/' + encodeURIComponent(siteId) + '/edit';
+                const fromV2 = new URLSearchParams(window.location.search).get('from') === 'dashboard-v2';
+                link.href = '/dashboard/sites/' + encodeURIComponent(siteId) + '/edit' + (fromV2 ? '?from=dashboard-v2' : '');
                 link.click();
             });
             left.appendChild(pill);

@@ -1,18 +1,100 @@
 <!DOCTYPE html>
-<html lang="{{ lang|default('en') }}">
+<html lang="{{ lang|default('en') }}" dir="{% if lang|default('en') == 'fa' %}rtl{% else %}ltr{% endif %}" data-theme="dark" data-theme-pref="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
     <title>{% block title %}MCP Hub{% endblock %}</title>
     <link rel="icon" type="image/svg+xml" href="/static/logo.svg">
 
+    <script>
+        (function () {
+            try {
+                var html = document.documentElement;
+                var raw = localStorage.getItem("mcphub-ui");
+                var parsed = raw ? JSON.parse(raw) : null;
+                var state = parsed && parsed.state ? parsed.state : null;
+                var serverLang = html.getAttribute("lang") === "fa" ? "fa" : "en";
+                var storedLang = state && state.lang === "fa" ? "fa" : state && state.lang === "en" ? "en" : null;
+                var lang = storedLang || serverLang;
+                html.setAttribute("lang", lang);
+                html.setAttribute("dir", lang === "fa" ? "rtl" : "ltr");
+
+                var themePref = state && (state.theme === "light" || state.theme === "system" || state.theme === "dark")
+                    ? state.theme
+                    : "dark";
+                var resolved = themePref;
+                if (themePref === "system" && window.matchMedia) {
+                    resolved = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+                }
+                html.setAttribute("data-theme", resolved);
+                html.setAttribute("data-theme-pref", themePref);
+                html.classList.toggle("dark", resolved === "dark");
+                html.style.colorScheme = resolved;
+                if (state && state.brandHue) {
+                    html.style.setProperty("--brand-hue", String(state.brandHue));
+                }
+
+                if (storedLang && storedLang !== serverLang && location.pathname === "/oauth/authorize") {
+                    var url = new URL(location.href);
+                    if (!url.searchParams.has("lang")) {
+                        url.searchParams.set("lang", storedLang);
+                        location.replace(url.toString());
+                    }
+                }
+            } catch (_) {
+                document.documentElement.classList.add("dark");
+            }
+        })();
+    </script>
+
     <!-- Tailwind CSS from CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: "class" };
+    </script>
+
+    <link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
+    <link
+        href="https://fonts.bunny.net/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Vazirmatn:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
 
     <!-- Custom styling -->
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-family: Geist, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: rgb(249 250 251);
+        }
+        html[lang="fa"] body,
+        html[lang="fa"] button,
+        html[lang="fa"] input,
+        html[lang="fa"] textarea,
+        html[lang="fa"] select {
+            font-family: Vazirmatn, Geist, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        }
+        html[data-theme="dark"] body {
+            background: rgb(17 24 39);
+        }
+        html[data-theme="dark"] .dark\:bg-gray-900 {
+            background-color: rgb(17 24 39);
+        }
+        html[data-theme="dark"] .dark\:bg-gray-800 {
+            background-color: rgb(31 41 55);
+        }
+        html[data-theme="dark"] .dark\:bg-gray-700 {
+            background-color: rgb(55 65 81);
+        }
+        html[data-theme="dark"] .dark\:text-white {
+            color: rgb(255 255 255);
+        }
+        html[data-theme="dark"] .dark\:text-gray-200 {
+            color: rgb(229 231 235);
+        }
+        html[data-theme="dark"] .dark\:text-gray-300 {
+            color: rgb(209 213 219);
+        }
+        html[data-theme="dark"] .dark\:text-gray-400 {
+            color: rgb(156 163 175);
         }
         .auth-container {
             min-height: 100vh;

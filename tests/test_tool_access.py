@@ -155,6 +155,61 @@ class TestToolDefinitionDefaults:
 # ---------------------------------------------------------------------------
 
 
+class TestUniversalScopeTierLadder:
+    """F.19.2.0: the universal tier ladder must be a strict chain.
+
+    Each higher tier is a superset of every lower tier; every tier
+    includes ``read`` (so any keyholder can list inventory before
+    acting); ``admin`` includes everything else.
+    """
+
+    def test_each_tier_is_a_strict_superset(self):
+        from core.tool_access import UNIVERSAL_SCOPE_TIERS
+
+        ladder = ["read", "editor", "settings", "install", "write", "admin"]
+        for lower, higher in zip(ladder[:-1], ladder[1:], strict=True):
+            lower_set = UNIVERSAL_SCOPE_TIERS[lower]
+            higher_set = UNIVERSAL_SCOPE_TIERS[higher]
+            assert lower_set <= higher_set, f"{higher} must be superset of {lower}"
+            assert higher_set - lower_set, f"{higher} must add at least one new scope over {lower}"
+
+    def test_every_tier_includes_read(self):
+        from core.tool_access import UNIVERSAL_SCOPE_TIERS
+
+        for tier_name, allowed in UNIVERSAL_SCOPE_TIERS.items():
+            assert "read" in allowed, f"{tier_name} must include read scope"
+
+    def test_admin_is_universal(self):
+        from core.tool_access import UNIVERSAL_SCOPE_TIERS
+
+        # Every required-scope value used elsewhere in the ladder must be
+        # reachable from an admin key.
+        all_scopes = set().union(*UNIVERSAL_SCOPE_TIERS.values())
+        assert UNIVERSAL_SCOPE_TIERS["admin"] == all_scopes
+
+    def test_settings_below_install_below_write(self):
+        """Confirms the F.19.2.0 ordering: settings ⊂ install ⊂ write."""
+        from core.tool_access import UNIVERSAL_SCOPE_TIERS
+
+        s = UNIVERSAL_SCOPE_TIERS["settings"]
+        i = UNIVERSAL_SCOPE_TIERS["install"]
+        w = UNIVERSAL_SCOPE_TIERS["write"]
+        assert s < i < w
+        # Specifically: install adds "install"; write adds "write".
+        assert i - s == {"install"}
+        assert w - i == {"write"}
+
+    def test_tier_descriptions_cover_every_tier(self):
+        """Every UNIVERSAL_SCOPE_TIERS key must have an EN+FA tooltip."""
+        from core.tool_access import TIER_DESCRIPTIONS, UNIVERSAL_SCOPE_TIERS
+
+        for tier_name in UNIVERSAL_SCOPE_TIERS:
+            assert tier_name in TIER_DESCRIPTIONS, f"missing description for tier {tier_name}"
+            entry = TIER_DESCRIPTIONS[tier_name]
+            for field in ("label_en", "label_fa", "hint_en", "hint_fa"):
+                assert field in entry and entry[field], f"{tier_name}.{field} missing or empty"
+
+
 class TestScopesToCategories:
     def test_read_only(self):
         assert scopes_to_categories(["read"]) == {"read"}

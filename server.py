@@ -67,11 +67,13 @@ from core.dashboard.routes import (
     api_delete_key,
     api_delete_site,
     api_get_config,
+    # K.5: Settings routes
+    api_get_settings,
     api_list_keys,
     api_list_site_tools,
     api_list_sites,
     api_patch_site_tool,
-    # K.5: Settings routes
+    api_reset_settings,
     api_save_setting,
     api_scope_presets,
     api_set_site_tool_scope,
@@ -91,8 +93,11 @@ from core.dashboard.routes import (
     dashboard_api_health,
     dashboard_api_keys_create,
     dashboard_api_keys_delete,
+    # Track G: JSON list endpoint for SPA
+    dashboard_api_keys_list_json,
     # K.3: API Keys routes
     dashboard_api_keys_revoke,
+    dashboard_api_login,
     dashboard_api_project_detail,
     dashboard_api_projects,
     dashboard_api_stats,
@@ -111,6 +116,8 @@ from core.dashboard.routes import (
     dashboard_oauth_clients_delete,
     # K.4: OAuth Clients routes
     dashboard_oauth_clients_list,
+    # Track G: JSON list endpoint for SPA
+    dashboard_oauth_clients_list_json,
     # E.2: Profile page
     dashboard_profile_page,
     dashboard_project_detail,
@@ -346,16 +353,14 @@ logger.info("=" * 60)
 _PLUGIN_EXAMPLE_TOOLS = {
     "wordpress": ("wordpress_list_posts(per_page=10)", "wordpress_get_post(post_id=123)"),
     "woocommerce": ("woocommerce_list_products(per_page=10)", "woocommerce_get_order(order_id=1)"),
-    "wordpress_advanced": (
-        "wordpress_advanced_system_info()",
-        "wordpress_advanced_wp_db_check()",
+    "wordpress_specialist": (
+        "wordpress_specialist_wp_plugin_list()",
+        "wordpress_specialist_wp_user_list(role='editor', per_page=10)",
     ),
     "gitea": ("gitea_list_repositories()", "gitea_get_repository(owner='user', repo='name')"),
     "n8n": ("n8n_list_workflows()", "n8n_get_workflow(workflow_id=1)"),
     "supabase": ("supabase_list_tables()", "supabase_query_table(table='users')"),
     "openpanel": ("openpanel_get_event_count()", "openpanel_list_events()"),
-    "appwrite": ("appwrite_list_databases()", "appwrite_list_collections(database_id='db')"),
-    "directus": ("directus_list_collections()", "directus_get_items(collection='posts')"),
 }
 
 
@@ -539,8 +544,8 @@ def extract_plugin_type_from_tool(tool_name: str) -> str | None:
 
     Examples:
         "wordpress_list_posts" -> "wordpress"
-        "wordpress_advanced_wp_db_export" -> "wordpress_advanced"
-        "wordpress_advanced_bulk_update_posts" -> "wordpress_advanced"
+        "wordpress_specialist_wp_db_size" -> "wordpress_specialist"
+        "wordpress_specialist_wp_bulk_post_update" -> "wordpress_specialist"
         "gitea_list_repositories" -> "gitea"
         "list_projects" -> None (system tool)
         "manage_api_keys_list" -> None (system tool)
@@ -554,10 +559,12 @@ def extract_plugin_type_from_tool(tool_name: str) -> str | None:
         # Strip "mcp__{server-name}__" prefix
         clean_name = tool_name.split("__", 2)[-1]
 
-    # Check for plugin types (order matters - check more specific first)
-    # wordpress_advanced must be checked before wordpress
-    if clean_name.startswith("wordpress_advanced_"):
-        return "wordpress_advanced"
+    # Check for plugin types (order matters - check more specific first).
+    # The two-word ``wordpress_specialist`` variant must be checked
+    # before the bare ``wordpress_`` prefix. (``wordpress_advanced`` was
+    # sunset in F.19.3.2-.3.)
+    if clean_name.startswith("wordpress_specialist_"):
+        return "wordpress_specialist"
     elif clean_name.startswith("wordpress_") or clean_name.startswith("woocommerce_"):
         return "wordpress"
     elif clean_name.startswith("gitea_"):
@@ -568,10 +575,6 @@ def extract_plugin_type_from_tool(tool_name: str) -> str | None:
         return "supabase"
     elif clean_name.startswith("openpanel_"):
         return "openpanel"
-    elif clean_name.startswith("appwrite_"):
-        return "appwrite"
-    elif clean_name.startswith("directus_"):
-        return "directus"
     elif clean_name.startswith("ghost_"):
         return "ghost"
 
@@ -598,7 +601,7 @@ def check_tool_visibility(tool_name: str, api_key_project_id: str) -> bool:
     Examples:
         >>> check_tool_visibility("wordpress_list_posts", "wordpress_site1")
         True
-        >>> check_tool_visibility("wordpress_advanced_wp_db_export", "wordpress_advanced_site1")
+        >>> check_tool_visibility("wordpress_specialist_wp_db_size", "wordpress_specialist_site1")
         True
         >>> check_tool_visibility("gitea_list_repos", "wordpress_site1")
         False
@@ -619,9 +622,18 @@ def check_tool_visibility(tool_name: str, api_key_project_id: str) -> bool:
         return False
 
     # Extract plugin type from API key project_id
-    # project_id format: "{plugin_type}_{site_id}" e.g. "wordpress_site1" or "wordpress_advanced_site1"
-    # Known plugin types that may contain underscores
-    known_plugin_types = ["wordpress_advanced", "wordpress", "gitea", "n8n", "supabase", "ghost"]
+    # project_id format: "{plugin_type}_{site_id}" e.g. "wordpress_site1" or
+    # "wordpress_specialist_site1".
+    # IMPORTANT: list multi-word variants BEFORE the bare ``wordpress`` so the
+    # prefix match doesn't claim them as plain wordpress.
+    known_plugin_types = [
+        "wordpress_specialist",
+        "wordpress",
+        "gitea",
+        "n8n",
+        "supabase",
+        "ghost",
+    ]
 
     key_plugin_type = None
     for ptype in known_plugin_types:
@@ -765,7 +777,7 @@ class UserAuthMiddleware(Middleware):
                     check_name = tool_name.split("__", 2)[-1]
                 is_unified_tool = (
                     check_name.startswith("wordpress_")
-                    or check_name.startswith("wordpress_advanced_")
+                    or check_name.startswith("wordpress_specialist_")
                     or check_name.startswith("woocommerce_")
                     or check_name.startswith("gitea_")
                 )
@@ -1348,7 +1360,7 @@ async def _list_sites_impl(plugin_type: str) -> str:
     Internal implementation for listing available sites for a plugin type.
 
     Args:
-        plugin_type: Type of plugin (wordpress, woocommerce, wordpress_advanced)
+        plugin_type: Type of plugin (wordpress, woocommerce, wordpress_specialist)
 
     Returns:
         JSON string with list of available sites
@@ -1356,9 +1368,7 @@ async def _list_sites_impl(plugin_type: str) -> str:
     import json
 
     try:
-        # Normalize plugin type (wordpress_advanced -> wordpress for site lookup)
-        lookup_type = "wordpress" if plugin_type == "wordpress_advanced" else plugin_type
-        sites = site_manager.get_sites_by_type(lookup_type)
+        sites = site_manager.get_sites_by_type(plugin_type)
 
         result = {"plugin_type": plugin_type, "total": len(sites), "sites": []}
 
@@ -1768,27 +1778,31 @@ def register_project_tools():
     except Exception as e:
         logger.error(f"Failed to generate WooCommerce tools: {e}", exc_info=True)
 
-    # Generate tools for WordPress Advanced (Phase D - Separated plugin)
-    logger.info("Generating WordPress Advanced tools from plugin specifications...")
+    # F.19.1: Generate tools for WordPress Specialist (companion-backed,
+    # no Docker socket). Each registered plugin needs its own explicit
+    # tool-generation pass; the plugin registry alone doesn't trigger
+    # ToolGenerator. (The legacy wordpress_advanced plugin was sunset
+    # in F.19.3.2-.3 — wordpress_specialist now owns db inspection +
+    # bulk fan-out via companion v2.18.0.)
+    logger.info("Generating WordPress Specialist tools from plugin specifications...")
     try:
-        from plugins.wordpress_advanced.plugin import WordPressAdvancedPlugin
+        from plugins.wordpress_specialist.plugin import WordPressSpecialistPlugin
 
-        wordpress_advanced_tools = tool_generator.generate_tools(
-            WordPressAdvancedPlugin, "wordpress_advanced"
+        wordpress_specialist_tools = tool_generator.generate_tools(
+            WordPressSpecialistPlugin, "wordpress_specialist"
         )
         logger.info(
-            f"Generated {len(wordpress_advanced_tools)} WordPress Advanced tools from ToolGenerator"
+            f"Generated {len(wordpress_specialist_tools)} WordPress Specialist tools from ToolGenerator"
         )
 
-        # Register WordPress Advanced tools in ToolRegistry
-        for tool_def in wordpress_advanced_tools:
+        for tool_def in wordpress_specialist_tools:
             try:
                 tool_registry.register(tool_def)
             except Exception as e:
-                logger.error(f"Failed to register WordPress Advanced tool {tool_def.name}: {e}")
+                logger.error(f"Failed to register WordPress Specialist tool {tool_def.name}: {e}")
 
     except Exception as e:
-        logger.error(f"Failed to generate WordPress Advanced tools: {e}", exc_info=True)
+        logger.error(f"Failed to generate WordPress Specialist tools: {e}", exc_info=True)
 
     # Generate tools for Gitea (Phase C)
     logger.info("Generating Gitea tools from plugin specifications...")
@@ -1861,42 +1875,6 @@ def register_project_tools():
 
     except Exception as e:
         logger.error(f"Failed to generate OpenPanel tools: {e}", exc_info=True)
-
-    # Generate tools for Appwrite (Phase I - Backend-as-a-Service)
-    logger.info("Generating Appwrite tools from plugin specifications...")
-    try:
-        from plugins.appwrite.plugin import AppwritePlugin
-
-        appwrite_tools = tool_generator.generate_tools(AppwritePlugin, "appwrite")
-        logger.info(f"Generated {len(appwrite_tools)} Appwrite tools from ToolGenerator")
-
-        # Register Appwrite tools in ToolRegistry
-        for tool_def in appwrite_tools:
-            try:
-                tool_registry.register(tool_def)
-            except Exception as e:
-                logger.error(f"Failed to register Appwrite tool {tool_def.name}: {e}")
-
-    except Exception as e:
-        logger.error(f"Failed to generate Appwrite tools: {e}", exc_info=True)
-
-    # Generate tools for Directus (Phase J - Headless CMS)
-    logger.info("Generating Directus tools from plugin specifications...")
-    try:
-        from plugins.directus.plugin import DirectusPlugin
-
-        directus_tools = tool_generator.generate_tools(DirectusPlugin, "directus")
-        logger.info(f"Generated {len(directus_tools)} Directus tools from ToolGenerator")
-
-        # Register Directus tools in ToolRegistry
-        for tool_def in directus_tools:
-            try:
-                tool_registry.register(tool_def)
-            except Exception as e:
-                logger.error(f"Failed to register Directus tool {tool_def.name}: {e}")
-
-    except Exception as e:
-        logger.error(f"Failed to generate Directus tools: {e}", exc_info=True)
 
     # Generate tools for Coolify (Phase F.17 - Deployment Management)
     logger.info("Generating Coolify tools from plugin specifications...")
@@ -2736,6 +2714,11 @@ async def oauth_authorize_confirm(request: Request):
         return RedirectResponse(url=redirect_url, status_code=302)
 
     except OAuthError as e:
+        accept_language = request.headers.get("accept-language")
+        query_lang = params.get("lang") if "params" in locals() else None
+        lang = detect_language(accept_language, query_lang)
+        translations = get_all_translations(lang)
+
         # If redirect_uri is available, redirect with error
         redirect_uri = params.get("redirect_uri") if "params" in locals() else None
         if redirect_uri:
@@ -2751,12 +2734,22 @@ async def oauth_authorize_confirm(request: Request):
             return templates.TemplateResponse(
                 request,
                 "oauth/error.html",
-                {"error": e.error, "error_description": e.error_description},
+                {
+                    "error": e.error,
+                    "error_description": e.error_description,
+                    "lang": lang,
+                    "t": translations,
+                },
                 status_code=e.status_code,
             )
 
     except Exception as e:
         logger.error(f"OAuth authorize confirm error: {e}", exc_info=True)
+        accept_language = request.headers.get("accept-language")
+        query_lang = params.get("lang") if "params" in locals() else None
+        lang = detect_language(accept_language, query_lang)
+        translations = get_all_translations(lang)
+
         # For unexpected errors, try to redirect or render error page
         redirect_uri = params.get("redirect_uri") if "params" in locals() else None
         if redirect_uri:
@@ -2766,7 +2759,12 @@ async def oauth_authorize_confirm(request: Request):
             return templates.TemplateResponse(
                 request,
                 "oauth/error.html",
-                {"error": "server_error", "error_description": str(e)},
+                {
+                    "error": "server_error",
+                    "error_description": str(e),
+                    "lang": lang,
+                    "t": translations,
+                },
                 status_code=500,
             )
 
@@ -3201,11 +3199,11 @@ async def _get_endpoints_impl() -> dict:
                 "plugin_types": ["woocommerce"],
             },
             {
-                "path": "/wordpress-advanced/mcp",
-                "name": "WordPress Advanced",
-                "description": "WordPress advanced operations (database, bulk, system)",
+                "path": "/wordpress-specialist/mcp",
+                "name": "WordPress Specialist",
+                "description": "Specialist WordPress management (plugins, themes, users, options, cron) — companion-backed",
                 "require_master_key": False,
-                "plugin_types": ["wordpress_advanced"],
+                "plugin_types": ["wordpress_specialist"],
             },
             {
                 "path": "/gitea/mcp",
@@ -3234,20 +3232,6 @@ async def _get_endpoints_impl() -> dict:
                 "description": "OpenPanel product analytics",
                 "require_master_key": False,
                 "plugin_types": ["openpanel"],
-            },
-            {
-                "path": "/appwrite/mcp",
-                "name": "Appwrite Manager",
-                "description": "Appwrite backend management",
-                "require_master_key": False,
-                "plugin_types": ["appwrite"],
-            },
-            {
-                "path": "/directus/mcp",
-                "name": "Directus CMS",
-                "description": "Directus headless CMS management",
-                "require_master_key": False,
-                "plugin_types": ["directus"],
             },
         ]
         project_endpoints = []
@@ -3908,9 +3892,8 @@ def create_wordpress_mcp():
     count = 0
     for tool_def in tool_registry.get_all():
         tool_name = tool_def.name
-        # Exclude wordpress_advanced_ tools (they go to the advanced endpoint)
-        # Advanced tools are named: wordpress_advanced_wp_db_*, wordpress_advanced_bulk_*, etc.
-        if tool_name.startswith("wordpress_advanced_"):
+        # Exclude wordpress_specialist_ tools (they go to the specialist endpoint).
+        if tool_name.startswith("wordpress_specialist_"):
             continue
 
         # Include wordpress_ tools only (woocommerce_ moved to /woocommerce/mcp in Phase D.1)
@@ -3943,48 +3926,43 @@ def create_wordpress_mcp():
     return wp_mcp
 
 
-def create_wordpress_advanced_mcp():
-    """Create WordPress Advanced MCP instance"""
+def create_wordpress_specialist_mcp():
+    """Create WordPress Specialist MCP instance (F.19.1).
+
+    Companion-backed advanced WordPress management — plugins, themes,
+    users, options, cron, maintenance, db inspection, bulk fan-out.
+    Exposes only ``wordpress_specialist_*`` tools on its own URL, with
+    no Docker-socket dependency. (The legacy ``wordpress_advanced``
+    plugin was sunset in F.19.3.2-.3 / 2026-05-04.)
+    """
     from fastmcp import FastMCP
 
-    wp_adv_instructions = generate_mcp_instructions(plugin_type="wordpress_advanced")
-    wp_adv_mcp = FastMCP("WordPress Advanced", instructions=wp_adv_instructions)
+    wp_spec_instructions = generate_mcp_instructions(plugin_type="wordpress_specialist")
+    wp_spec_mcp = FastMCP("WordPress Specialist", instructions=wp_spec_instructions)
 
-    # Add authentication middleware (fix: endpoints must have auth)
-    add_endpoint_middleware(wp_adv_mcp, "WordPress Advanced")
+    add_endpoint_middleware(wp_spec_mcp, "WordPress Specialist")
 
-    # Get WordPress Advanced tools only
-    # Advanced tools are named: wordpress_advanced_wp_db_*, wordpress_advanced_bulk_*, etc.
     count = 0
     for tool_def in tool_registry.get_all():
         tool_name = tool_def.name
-        if tool_name.startswith("wordpress_advanced_"):
+        if tool_name.startswith("wordpress_specialist_"):
             try:
                 wrapped = create_dynamic_tool(
                     tool_def.name, tool_def.description, tool_def.handler, tool_def.input_schema
                 )
-                wp_adv_mcp.tool()(wrapped)
+                wp_spec_mcp.tool()(wrapped)
                 count += 1
             except Exception as e:
                 logger.error(f"Failed to register {tool_def.name}: {e}")
 
-    # Phase K.2.3: Add list_sites tool for site discovery
-    @wp_adv_mcp.tool()
+    @wp_spec_mcp.tool()
     async def list_sites() -> str:
-        """
-        List all available WordPress sites for advanced operations.
-
-        Use this tool to discover which sites you can access.
-        The returned 'site' values can be used as the site parameter in other tools.
-
-        Returns:
-            JSON string with list of available sites
-        """
-        return await _list_sites_impl("wordpress_advanced")
+        """List all available WordPress sites for the specialist surface."""
+        return await _list_sites_impl("wordpress_specialist")
 
     count += 1
-    logger.info(f"Created WordPress Advanced endpoint with {count} tools (including list_sites)")
-    return wp_adv_mcp
+    logger.info(f"Created WordPress Specialist endpoint with {count} tools (including list_sites)")
+    return wp_spec_mcp
 
 
 def create_woocommerce_mcp():
@@ -4197,97 +4175,13 @@ def create_supabase_mcp():
     return supabase_mcp
 
 
-def create_appwrite_mcp():
-    """Create Appwrite-only MCP instance"""
-    from fastmcp import FastMCP
-
-    appwrite_instructions = generate_mcp_instructions(plugin_type="appwrite")
-    appwrite_mcp = FastMCP("Appwrite Manager", instructions=appwrite_instructions)
-
-    # Add authentication middleware (fix: endpoints must have auth)
-    add_endpoint_middleware(appwrite_mcp, "Appwrite")
-
-    # Get Appwrite tools only
-    count = 0
-    for tool_def in tool_registry.get_all():
-        if tool_def.name.startswith("appwrite_"):
-            try:
-                wrapped = create_dynamic_tool(
-                    tool_def.name, tool_def.description, tool_def.handler, tool_def.input_schema
-                )
-                appwrite_mcp.tool()(wrapped)
-                count += 1
-            except Exception as e:
-                logger.error(f"Failed to register {tool_def.name}: {e}")
-
-    # Phase K.2.3: Add list_sites tool for site discovery
-    @appwrite_mcp.tool()
-    async def list_sites() -> str:
-        """
-        List all available Appwrite sites.
-
-        Use this tool to discover which sites you can access.
-        The returned 'site' values can be used as the site parameter in other tools.
-
-        Returns:
-            JSON string with list of available sites
-        """
-        return await _list_sites_impl("appwrite")
-
-    count += 1
-    logger.info(f"Created Appwrite endpoint with {count} tools (including list_sites)")
-    return appwrite_mcp
-
-
-def create_directus_mcp():
-    """Create Directus-only MCP instance"""
-    from fastmcp import FastMCP
-
-    directus_instructions = generate_mcp_instructions(plugin_type="directus")
-    directus_mcp = FastMCP("Directus CMS", instructions=directus_instructions)
-
-    # Add authentication middleware (fix: endpoints must have auth)
-    add_endpoint_middleware(directus_mcp, "Directus")
-
-    # Get Directus tools only
-    count = 0
-    for tool_def in tool_registry.get_all():
-        if tool_def.name.startswith("directus_"):
-            try:
-                wrapped = create_dynamic_tool(
-                    tool_def.name, tool_def.description, tool_def.handler, tool_def.input_schema
-                )
-                directus_mcp.tool()(wrapped)
-                count += 1
-            except Exception as e:
-                logger.error(f"Failed to register {tool_def.name}: {e}")
-
-    # Phase K.2.3: Add list_sites tool for site discovery
-    @directus_mcp.tool()
-    async def list_sites() -> str:
-        """
-        List all available Directus sites.
-
-        Use this tool to discover which sites you can access.
-        The returned 'site' values can be used as the site parameter in other tools.
-
-        Returns:
-            JSON string with list of available sites
-        """
-        return await _list_sites_impl("directus")
-
-    count += 1
-    logger.info(f"Created Directus endpoint with {count} tools (including list_sites)")
-    return directus_mcp
-
-
 def create_project_mcp(project_id: str, plugin_type: str, site_id: str, alias: str = None):
     """
     Create MCP instance for a specific project with site-locked tools.
 
     Args:
         project_id: Full project ID (e.g., "wordpress_site1")
-        plugin_type: Plugin type (e.g., "wordpress", "wordpress_advanced", "gitea")
+        plugin_type: Plugin type (e.g., "wordpress", "wordpress_specialist", "gitea")
         site_id: Site identifier for tool injection
         alias: Optional friendly alias for display name
 
@@ -4308,8 +4202,8 @@ def create_project_mcp(project_id: str, plugin_type: str, site_id: str, alias: s
     add_endpoint_middleware(project_mcp, f"Project:{display_name}")
 
     # Determine tool prefix based on plugin type
-    if plugin_type == "wordpress_advanced":
-        tool_prefix = "wordpress_advanced_"
+    if plugin_type == "wordpress_specialist":
+        tool_prefix = "wordpress_specialist_"
     elif plugin_type == "wordpress":
         tool_prefix = "wordpress_"
     elif plugin_type == "woocommerce":  # Phase D.1
@@ -4323,10 +4217,10 @@ def create_project_mcp(project_id: str, plugin_type: str, site_id: str, alias: s
     for tool_def in tool_registry.get_all():
         tool_name = tool_def.name
 
-        # For wordpress plugin type, exclude wordpress_advanced_ and woocommerce_ tools
-        # (Phase D.1: WooCommerce now has its own endpoint)
+        # For wordpress plugin type, exclude wordpress_specialist_ and
+        # woocommerce_ tools (each has its own endpoint).
         if plugin_type == "wordpress":
-            if tool_name.startswith("wordpress_advanced_"):
+            if tool_name.startswith("wordpress_specialist_"):
                 continue
             if tool_name.startswith("woocommerce_"):
                 continue
@@ -4560,7 +4454,7 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
                     path.startswith("/api/dashboard/")
                     or path.startswith("/api/sites")
                     or path.startswith("/api/keys")
-                    or path == "/dashboard/login"
+                    or path == "/dashboard-legacy/login"
                 )
 
                 # API Requests using Bearer tokens are exempt from CSRF
@@ -4612,14 +4506,11 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
     system_mcp = create_system_mcp()  # Phase X.3 - System endpoint
     wp_mcp = create_wordpress_mcp()
     woo_mcp = create_woocommerce_mcp()  # Phase D.1
-    wp_adv_mcp = create_wordpress_advanced_mcp()
+    wp_spec_mcp = create_wordpress_specialist_mcp()  # F.19.1
     gitea_mcp = create_gitea_mcp()
     n8n_mcp = create_n8n_mcp()  # Phase F
     supabase_mcp = create_supabase_mcp()  # Phase G
     openpanel_mcp = create_openpanel_mcp()  # Phase H
-    appwrite_mcp = create_appwrite_mcp()  # Phase I
-    directus_mcp = create_directus_mcp()  # Phase J
-
     # Create per-project endpoints
     project_endpoints = create_per_project_endpoints()
 
@@ -4631,13 +4522,11 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
         system_app = system_mcp.http_app()  # Phase X.3
         wp_app = wp_mcp.http_app()
         woo_app = woo_mcp.http_app()  # Phase D.1
-        wp_adv_app = wp_adv_mcp.http_app()
+        wp_spec_app = wp_spec_mcp.http_app()  # F.19.1
         gitea_app = gitea_mcp.http_app()
         n8n_app = n8n_mcp.http_app()  # Phase F
         supabase_app = supabase_mcp.http_app()  # Phase G
         openpanel_app = openpanel_mcp.http_app()  # Phase H
-        appwrite_app = appwrite_mcp.http_app()  # Phase I
-        directus_app = directus_mcp.http_app()  # Phase J
 
         # Get apps for project endpoints
         project_apps = []
@@ -4651,13 +4540,11 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
             system_app = system_mcp.sse_app()  # Phase X.3
             wp_app = wp_mcp.sse_app()
             woo_app = woo_mcp.sse_app()  # Phase D.1
-            wp_adv_app = wp_adv_mcp.sse_app()
+            wp_spec_app = wp_spec_mcp.sse_app()  # F.19.1
             gitea_app = gitea_mcp.sse_app()
             n8n_app = n8n_mcp.sse_app()  # Phase F
             supabase_app = supabase_mcp.sse_app()  # Phase G
             openpanel_app = openpanel_mcp.sse_app()  # Phase H
-            appwrite_app = appwrite_mcp.sse_app()  # Phase I
-            directus_app = directus_mcp.sse_app()  # Phase J
 
             project_apps = []
             for mount_path, project_mcp, project_id in project_endpoints:
@@ -4668,13 +4555,11 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
             system_app = system_mcp.streamable_http_app()  # Phase X.3
             wp_app = wp_mcp.streamable_http_app()
             woo_app = woo_mcp.streamable_http_app()  # Phase D.1
-            wp_adv_app = wp_adv_mcp.streamable_http_app()
+            wp_spec_app = wp_spec_mcp.streamable_http_app()  # F.19.1
             gitea_app = gitea_mcp.streamable_http_app()
             n8n_app = n8n_mcp.streamable_http_app()  # Phase F
             supabase_app = supabase_mcp.streamable_http_app()  # Phase G
             openpanel_app = openpanel_mcp.streamable_http_app()  # Phase H
-            appwrite_app = appwrite_mcp.streamable_http_app()  # Phase I
-            directus_app = directus_mcp.streamable_http_app()  # Phase J
 
             project_apps = []
             for mount_path, project_mcp, project_id in project_endpoints:
@@ -4687,13 +4572,11 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
         ("system", system_app),  # Phase X.3
         ("wordpress", wp_app),
         ("woocommerce", woo_app),  # Phase D.1
-        ("wordpress-advanced", wp_adv_app),
+        ("wordpress-specialist", wp_spec_app),  # F.19.1
         ("gitea", gitea_app),
         ("n8n", n8n_app),  # Phase F
         ("supabase", supabase_app),  # Phase G
         ("openpanel", openpanel_app),  # Phase H
-        ("appwrite", appwrite_app),  # Phase I
-        ("directus", directus_app),  # Phase J
     ]
 
     # Add project apps to sub_apps for lifespan management
@@ -4781,9 +4664,18 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
             except Exception as e:
                 logger.warning(f"Error closing database: {e}")
 
-    # Root redirect: / → /auth/login (Live Platform landing)
+    # Public home page: serve the SPA shell at "/" so React can render the
+    # landing page without requiring a dashboard session.
     async def root_redirect(request):
-        return RedirectResponse(url="/auth/login", status_code=302)
+        from core.dashboard.spa_routes import serve_spa
+
+        return await serve_spa(request)
+
+    async def public_dashboard_redirect(request):
+        target = f"/dashboard{request.url.path}"
+        if request.url.query:
+            target += f"?{request.url.query}"
+        return RedirectResponse(url=target, status_code=308)
 
     # Build routes
     # Note: Order matters! More specific routes first
@@ -4800,44 +4692,65 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
         ),
         # Root redirect
         Route("/", root_redirect, methods=["GET"]),
+        Route("/landing", root_redirect, methods=["GET"]),
+        Route("/login", public_dashboard_redirect, methods=["GET"]),
+        Route("/onboarding", public_dashboard_redirect, methods=["GET"]),
+        Route("/overview", public_dashboard_redirect, methods=["GET"]),
+        Route("/sites", public_dashboard_redirect, methods=["GET"]),
+        Route("/connect", public_dashboard_redirect, methods=["GET"]),
+        Route("/api-keys", public_dashboard_redirect, methods=["GET"]),
+        Route("/settings", public_dashboard_redirect, methods=["GET"]),
         # Auth routes (E.2: OAuth Social Login)
         Route("/auth/login", auth_login_page, methods=["GET"]),
         Route("/auth/callback/{provider}", auth_callback, methods=["GET"]),
         Route("/auth/logout", auth_logout, methods=["GET", "POST"]),
         Route("/auth/{provider}", auth_provider_redirect, methods=["GET"]),
         # Dashboard routes
-        Route("/dashboard/login", dashboard_login_page, methods=["GET"]),
-        Route("/dashboard/login", dashboard_login_submit, methods=["POST"]),
+        # G.12 cutover: the SPA now owns /dashboard/*. Every Jinja UI page has
+        # been moved to /dashboard-legacy/* so the two coexist without
+        # shadowing each other. The /api/dashboard/* JSON endpoints are
+        # unchanged — they're consumed by both the SPA and the legacy pages.
+        Route("/dashboard-legacy/login", dashboard_login_page, methods=["GET"]),
+        Route("/dashboard-legacy/login", dashboard_login_submit, methods=["POST"]),
+        # JSON login for SPA fetch() — same auth as the form variant.
+        Route("/api/dashboard/login", dashboard_api_login, methods=["POST"]),
+        # Logout is an action endpoint — keep the canonical /dashboard/logout
+        # URL working (clears cookie + 303) so existing bookmarks/curl don't
+        # break. Registered before the SPA catch-all (added near the bottom)
+        # so Starlette matches the action route first.
         Route("/dashboard/logout", dashboard_logout, methods=["GET", "POST"]),
-        Route("/dashboard/profile", dashboard_profile_page, methods=["GET"]),
-        # F.18.8 /dashboard/provider-keys removed in F.5a.9.x — replaced by
-        # per-site AI keys in /dashboard/sites/{id}. See per-site routes
-        # registered below under "Site Management API".
-        Route("/dashboard/sites/add", dashboard_sites_add, methods=["GET"]),
-        Route("/dashboard/sites/{id}/edit", dashboard_sites_edit, methods=["GET"]),
-        Route("/dashboard/sites/{id}", dashboard_sites_view, methods=["GET"]),
-        Route("/dashboard/sites", dashboard_sites_list, methods=["GET"]),
-        # Bug C: User OAuth client routes (must be before /dashboard/connect)
+        Route("/dashboard-legacy/logout", dashboard_logout, methods=["GET", "POST"]),
+        Route("/dashboard-legacy/profile", dashboard_profile_page, methods=["GET"]),
+        Route("/dashboard-legacy/sites/add", dashboard_sites_add, methods=["GET"]),
+        Route("/dashboard-legacy/sites/{id}/edit", dashboard_sites_edit, methods=["GET"]),
+        Route("/dashboard-legacy/sites/{id}", dashboard_sites_view, methods=["GET"]),
+        Route("/dashboard-legacy/sites", dashboard_sites_list, methods=["GET"]),
         Route(
-            "/dashboard/connect/oauth-clients",
+            "/dashboard-legacy/connect/oauth-clients",
             dashboard_user_oauth_clients_list,
             methods=["GET"],
         ),
-        # F.7b session 2: /dashboard/connect → /dashboard/keys (301)
         Route(
-            "/dashboard/connect",
-            lambda r: RedirectResponse("/dashboard/keys", status_code=301),
+            "/dashboard-legacy/connect",
+            lambda r: RedirectResponse("/dashboard-legacy/keys", status_code=301),
             methods=["GET"],
         ),
-        # F.3: Service pages (must be before /dashboard catch-all)
-        Route("/dashboard/services", dashboard_services_list, methods=["GET"]),
-        Route("/dashboard/services/{plugin_type}", dashboard_service_page, methods=["GET"]),
-        Route("/dashboard", dashboard_home, methods=["GET"]),
-        Route("/dashboard/", dashboard_home, methods=["GET"]),
+        Route("/dashboard-legacy/services", dashboard_services_list, methods=["GET"]),
+        Route(
+            "/dashboard-legacy/services/{plugin_type}",
+            dashboard_service_page,
+            methods=["GET"],
+        ),
+        Route("/dashboard-legacy", dashboard_home, methods=["GET"]),
+        Route("/dashboard-legacy/", dashboard_home, methods=["GET"]),
         Route("/api/dashboard/stats", dashboard_api_stats, methods=["GET"]),
         # Dashboard Projects routes (Phase K.2)
-        Route("/dashboard/projects", dashboard_projects_list, methods=["GET"]),
-        Route("/dashboard/projects/{project_id:path}", dashboard_project_detail, methods=["GET"]),
+        Route("/dashboard-legacy/projects", dashboard_projects_list, methods=["GET"]),
+        Route(
+            "/dashboard-legacy/projects/{project_id:path}",
+            dashboard_project_detail,
+            methods=["GET"],
+        ),
         Route("/api/dashboard/projects", dashboard_api_projects, methods=["GET"]),
         # Note: health-check route must come BEFORE generic project_id route
         Route(
@@ -4851,20 +4764,21 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
             methods=["GET"],
         ),
         # Dashboard API Keys routes (Phase K.3 + F.7b session 2: unified /dashboard/keys)
-        Route("/dashboard/keys", dashboard_keys_unified, methods=["GET"]),
-        # /dashboard/api-keys → /dashboard/keys (301)
+        Route("/dashboard-legacy/keys", dashboard_keys_unified, methods=["GET"]),
         Route(
-            "/dashboard/api-keys",
-            lambda r: RedirectResponse("/dashboard/keys", status_code=301),
+            "/dashboard-legacy/api-keys",
+            lambda r: RedirectResponse("/dashboard-legacy/keys", status_code=301),
             methods=["GET"],
         ),
+        Route("/api/dashboard/api-keys", dashboard_api_keys_list_json, methods=["GET"]),
         Route("/api/dashboard/api-keys/create", dashboard_api_keys_create, methods=["POST"]),
         Route(
             "/api/dashboard/api-keys/{key_id}/revoke", dashboard_api_keys_revoke, methods=["POST"]
         ),
         Route("/api/dashboard/api-keys/{key_id}", dashboard_api_keys_delete, methods=["DELETE"]),
         # Dashboard OAuth Clients routes (Phase K.4)
-        Route("/dashboard/oauth-clients", dashboard_oauth_clients_list, methods=["GET"]),
+        Route("/dashboard-legacy/oauth-clients", dashboard_oauth_clients_list, methods=["GET"]),
+        Route("/api/dashboard/oauth-clients", dashboard_oauth_clients_list_json, methods=["GET"]),
         Route(
             "/api/dashboard/oauth-clients/create", dashboard_oauth_clients_create, methods=["POST"]
         ),
@@ -4885,15 +4799,17 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
             methods=["DELETE"],
         ),
         # Dashboard Audit Logs routes (Phase K.4)
-        Route("/dashboard/audit-logs", dashboard_audit_logs_list, methods=["GET"]),
+        Route("/dashboard-legacy/audit-logs", dashboard_audit_logs_list, methods=["GET"]),
         Route("/api/dashboard/audit-logs", dashboard_api_audit_logs, methods=["GET"]),
         # Dashboard Health Monitoring routes (Phase K.5)
-        Route("/dashboard/health", dashboard_health_page, methods=["GET"]),
+        Route("/dashboard-legacy/health", dashboard_health_page, methods=["GET"]),
         Route("/api/dashboard/health", dashboard_api_health, methods=["GET"]),
         Route("/api/dashboard/health/projects", dashboard_health_projects_partial, methods=["GET"]),
         # Dashboard Settings routes (Phase K.5 + 4C.3)
-        Route("/dashboard/settings", dashboard_settings_page, methods=["GET"]),
+        Route("/dashboard-legacy/settings", dashboard_settings_page, methods=["GET"]),
+        Route("/api/dashboard/settings", api_get_settings, methods=["GET"]),
         Route("/api/dashboard/settings", api_save_setting, methods=["POST"]),
+        Route("/api/dashboard/settings/reset", api_reset_settings, methods=["POST"]),
         # Site Management API (E.3)
         Route("/api/sites", api_list_sites, methods=["GET"]),
         Route("/api/sites", api_create_site, methods=["POST"]),
@@ -4982,15 +4898,13 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
         # Multi-Endpoint MCP (Phase X + D.1 + X.3 + F + G + H + I + J)
         # Mount each FastMCP app - they handle their own /mcp path internally
         Mount("/system", app=system_app, name="mcp_system"),  # Phase X.3
-        Mount("/wordpress-advanced", app=wp_adv_app, name="mcp_wordpress_advanced"),
+        Mount("/wordpress-specialist", app=wp_spec_app, name="mcp_wordpress_specialist"),  # F.19.1
         Mount("/woocommerce", app=woo_app, name="mcp_woocommerce"),  # Phase D.1
         Mount("/wordpress", app=wp_app, name="mcp_wordpress"),
         Mount("/gitea", app=gitea_app, name="mcp_gitea"),
         Mount("/n8n", app=n8n_app, name="mcp_n8n"),  # Phase F
         Mount("/supabase", app=supabase_app, name="mcp_supabase"),  # Phase G
         Mount("/openpanel", app=openpanel_app, name="mcp_openpanel"),  # Phase H
-        Mount("/appwrite", app=appwrite_app, name="mcp_appwrite"),  # Phase I
-        Mount("/directus", app=directus_app, name="mcp_directus"),  # Phase J
     ]
 
     # Add per-project routes (before main admin endpoint)
@@ -5016,28 +4930,49 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
     except Exception as e:
         logger.warning("Per-user MCP endpoint not registered: %s", e)
 
-    # Static files (favicon, logo)
+    # Static files (favicon, logo, SPA dist)
     _static_dir = os.path.join(os.path.dirname(__file__), "core", "templates", "static")
     if os.path.isdir(_static_dir):
         from starlette.staticfiles import StaticFiles
 
         routes.append(Mount("/static", app=StaticFiles(directory=_static_dir), name="static"))
 
-    # Catch-all for unmatched GET requests — serves styled 404 page
-    async def catch_all_404(request):
-        _404_path = os.path.join(
-            os.path.dirname(__file__), "core", "templates", "dashboard", "404.html"
+    # Track G — SPA /dashboard support routes (must be registered BEFORE the catch-all)
+    try:
+        from core.dashboard.spa_routes import (
+            api_i18n,
+            api_me,
+            api_plugins,
+            redirect_dashboard_v2,
+            serve_spa,
         )
-        try:
-            with open(_404_path, encoding="utf-8") as f:
-                content = f.read()
-            from starlette.responses import HTMLResponse
 
-            return HTMLResponse(content, status_code=404)
-        except Exception:
-            from starlette.responses import PlainTextResponse
+        routes.extend(
+            [
+                Route("/api/me", api_me, methods=["GET"]),
+                Route("/api/i18n/{lang}", api_i18n, methods=["GET"]),
+                Route("/api/plugins", api_plugins, methods=["GET"]),
+                Route("/dashboard", serve_spa, methods=["GET"]),
+                Route("/dashboard/", serve_spa, methods=["GET"]),
+                Route("/dashboard/{path:path}", serve_spa, methods=["GET"]),
+                Route("/dashboard-v2", redirect_dashboard_v2, methods=["GET"]),
+                Route("/dashboard-v2/", redirect_dashboard_v2, methods=["GET"]),
+                Route("/dashboard-v2/{path:path}", redirect_dashboard_v2, methods=["GET"]),
+            ]
+        )
+        logger.info(
+            "Track G SPA routes registered "
+            "(/api/me, /api/i18n, /api/plugins, /dashboard/*, /dashboard-v2 -> 308)"
+        )
+    except Exception as e:  # pragma: no cover — defensive
+        logger.warning("Track G SPA routes not registered: %s", e)
 
-            return PlainTextResponse("404 Not Found", status_code=404)
+    # Catch-all for unmatched GET requests — serve the same React shell as the
+    # public landing page so the SPA NotFound route owns the visual treatment.
+    async def catch_all_404(request):
+        from core.dashboard.spa_routes import serve_spa
+
+        return await serve_spa(request, status_code=404)
 
     routes.append(Route("/{path:path}", catch_all_404, methods=["GET"]))
 
@@ -5065,13 +5000,11 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
     logger.info("  /system/mcp              - System (24 tools)")
     logger.info("  /wordpress/mcp           - WordPress Core (67 tools)")
     logger.info("  /woocommerce/mcp         - WooCommerce (28 tools)")
-    logger.info("  /wordpress-advanced/mcp  - WordPress Advanced (22 tools)")
+    logger.info("  /wordpress-specialist/mcp - WordPress Specialist (51 tools, companion-backed)")
     logger.info("  /gitea/mcp               - Gitea (56 tools)")
     logger.info("  /n8n/mcp                 - n8n Automation (56 tools)")
     logger.info("  /supabase/mcp            - Supabase (70 tools)")
     logger.info("  /openpanel/mcp           - OpenPanel Analytics (73 tools)")
-    logger.info("  /appwrite/mcp            - Appwrite Backend (100 tools)")
-    logger.info("  /directus/mcp            - Directus CMS (100 tools)")
 
     # Log per-project endpoints
     if project_apps:

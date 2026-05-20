@@ -93,7 +93,7 @@
             {% endif %}
 
             <!-- Login Form -->
-            <form method="POST" action="/dashboard/login" class="space-y-6">
+            <form method="POST" action="/dashboard-legacy/login" class="space-y-6">
                 <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
                 <input type="hidden" name="next" value="{{ next_url }}">
 

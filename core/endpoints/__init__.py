@@ -7,7 +7,7 @@ Each endpoint exposes only the tools relevant to its purpose.
 Endpoints:
     /mcp              - Admin endpoint (all tools, requires Master API Key)
     /mcp/wordpress    - WordPress tools only (92 tools)
-    /mcp/wordpress-advanced - WordPress Advanced tools (22 tools)
+    /mcp/wordpress-specialist - WordPress Specialist tools (companion-backed)
     /mcp/gitea        - Gitea tools only (55 tools)
     /mcp/project/{id} - Project-specific tools
 

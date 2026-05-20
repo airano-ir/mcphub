@@ -162,10 +162,13 @@ class MCPEndpointFactory:
         Returns:
             Plugin type or None for system tools
         """
-        # Check for wordpress_advanced first (before wordpress_)
-        # Tools are named: wordpress_advanced_wp_db_*, wordpress_advanced_bulk_*, wordpress_advanced_system_*
-        if tool_name.startswith("wordpress_advanced_"):
-            return "wordpress_advanced"
+        # Check the multi-word WordPress variant BEFORE the bare
+        # ``wordpress_`` prefix — tool names are
+        # ``wordpress_specialist_wp_plugin_list``,
+        # ``wordpress_create_post`` etc. (``wordpress_advanced`` was
+        # sunset in F.19.3.2-.3 / 2026-05-04.)
+        if tool_name.startswith("wordpress_specialist_"):
+            return "wordpress_specialist"
 
         if tool_name.startswith("wordpress_"):
             return "wordpress"

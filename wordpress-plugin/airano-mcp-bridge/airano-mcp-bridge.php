@@ -1,9 +1,9 @@
 <?php
 /**
  * Plugin Name: Airano MCP Bridge
- * Plugin URI: https://github.com/airano-ir/mcphub
+ * Plugin URI: https://mcp.palebluedot.live
  * Description: Companion plugin for MCP Hub. Exposes SEO meta (Rank Math / Yoast), media upload helpers (bypass upload_max_filesize), and site capabilities via the WordPress REST API for AI agents and MCP servers. Supports posts, pages, and WooCommerce products.
- * Version: 2.10.1
+ * Version: 2.18.1
  * Author: MCP Hub
  * Author URI: https://github.com/airano-ir
  * License: GPL-2.0-or-later
@@ -12,6 +12,15 @@
  * Text Domain: airano-mcp-bridge
  *
  * Changelog:
+ * 2.18.1 - wp.org review fixes: (a) drop unused `wp-admin/includes/media.php` requires from /upload-chunk + /upload-and-attach (the code only calls helpers from file.php and image.php); (b) split /upload-and-attach permission_callback into a dedicated method that explicitly checks `edit_post` on `attach_to_post` and rejects `set_featured` without a target — the per-target check is now enforced at the route gate (visible to static analysis), not just inside the callback.
+ * 2.18.0 - F.19.3.2-.3: Database inspection (read) + bulk fan-out (write). Three new admin routes — `GET /admin/db/size` (single `information_schema.TABLES` aggregation: database_bytes + table_count + row_count_estimate, no SQL exposure), `GET /admin/db/tables` (per-table breakdown: name, engine, rows, data_bytes, index_bytes, total_bytes, collation), `POST /admin/db/search` body `{query, post_type?, status?, limit?}` wraps `WP_Query` with `s=$query` (NOT raw SQL), `query` sanitised via `sanitize_text_field` and capped at 200 chars server-side, `limit` capped at 100. New security rule S-25 — db/search wraps `WP_Query`, never raw SQL; `posts_clauses` filter (same as the WP search page) keeps non-readable posts (private/draft from other authors) out of the result set. Bulk write tools (`wp_bulk_post_update`, `wp_bulk_term_update`) ride stock REST `wp/v2/posts/{id}` and `wp/v2/{taxonomy}/{id}` — no companion routes needed for those. Companion-side cap: 50 items per call, mirror of S-26 (client-side caps at the same number; server is the binding gate). All admin routes gated on `manage_options`. Bundled with the wordpress_advanced sunset (the deprecated WP-CLI/Docker-socket plugin is removed in this round of MCPHub).
+ * 2.17.0 - F.19.6.B: Site layout — menus + widgets + customizer (7 new routes). Menus: `GET /admin/menus`, `GET /admin/menus/{id}`, `PUT /admin/menus/{id}` (full-replace items + optional rename; slug stays frozen). Widgets: `GET /admin/widgets/areas`, `GET /admin/widgets/{area_id}`, `PUT /admin/widgets/{area_id}` (block-kind areas accept any block raw HTML; legacy areas accept `text` widget settings only — other legacy types are read-only this round). Customizer: `POST /admin/customizer/changeset` with `{action: get|apply|discard}` — single-tool wrapper around the changeset queue, lower priority since FSE themes don't use customizer. New security rules: S-22 dispatches per nav-menu item type — `post_type` checks `current_user_can('read_post', id)`, `taxonomy` checks public taxonomy OR `assign_terms` cap (deliberately NOT `manage_categories` which is a write cap), `custom` URL items skip object validation; S-23 sanitises widget HTML via `wp_kses_post` unless caller has `unfiltered_html` (mirrors S-13); S-24 customizer apply requires `customize` cap (not just `manage_options` — same bar as `/wp-admin/customize.php`). All routes gated on `manage_options`. Pre-validates every menu item before mutating so a partial failure leaves the menu untouched.
+ * 2.16.0 - F.19.6.A: Site config surface. Six new routes — `GET/POST /admin/site/identity` (title / tagline / site_icon / custom_logo), `GET/POST /admin/site/reading` (show_on_front / page_on_front / page_for_posts / posts_per_page / posts_per_rss / blog_public), `GET/POST /admin/permalinks` (permalink_structure + category_base + tag_base, with `flush_rewrite_rules()` after write). All gated on `manage_options`. POST routes validate attachment ids against the media library, reject non-published page ids for page_on_front/page_for_posts, and route every option write through WP's own `sanitize_option_*` hooks. After a permalink_structure write the rewrite rules are flushed so the change takes effect immediately.
+ * 2.15.0 - F.19.2.1: Plugin write management. Six new routes — `POST /admin/plugins/install` (accepts {slug} for wp.org install OR {zip_url|zip_base64} for arbitrary zip), `POST /admin/plugins/{slug}/activate`, `POST /admin/plugins/{slug}/deactivate`, `POST /admin/plugins/{slug}/update`, `DELETE /admin/plugins/{slug}`. Per-route capability checks: `install_plugins` (install / update), `activate_plugins` (activate / deactivate), `delete_plugins` (delete). New security rules: S-20 refuses to deactivate or delete the Airano MCP Bridge companion itself (would brick the MCP connection); S-21 refuses to deactivate / delete plugins marked `Required: yes` in their header. Reuses S-15 (slug whitelist via `get_plugins()`) + S-18 (50 MB cap on install zip). All routes gated on `manage_options`.
+ * 2.14.0 - F.19.7: Theme dev surface (install + activate + delete + file CRUD). Seven new routes — `POST /admin/themes/install` (zip_url or zip_base64), `POST /admin/themes/{slug}/activate`, `DELETE /admin/themes/{slug}`, `GET /admin/themes/files/{slug}` (list with glob + max_files), `GET /admin/themes/files/{slug}/{path}` (read), `PUT /admin/themes/files/{slug}/{path}` (write with optional expected_sha256), `DELETE /admin/themes/files/{slug}/{path}`. New security rules: theme_slug whitelist via `wp_get_themes()` (S-15), path canonicalisation via `realpath()` (S-16), PHP write gate via `DISALLOW_FILE_EDIT` (S-17), per-call caps 5 MB/file, 1000 files/list, 50 MB/zip (S-18), optimistic concurrency on `expected_sha256` (S-19). All routes gated on `manage_options`; per-route handlers add `install_themes` / `switch_themes` / `delete_themes` / `edit_themes` checks.
+ * 2.13.0 - F.19.5: Page editing surface (Gutenberg + Elementor + Classic). Seven new write routes — /admin/blocks/{replace,insert,remove}, /admin/elementor/{post_id} (POST + GET), /admin/elementor/{post_id}/regen-css, /admin/elementor/templates/apply, /admin/classic/{post_id}/replace — and three new read routes — /admin/elementor/status, /admin/elementor/{post_id} (GET), /admin/elementor/templates. Writes require `manage_options` AND `edit_post` on the target post (S-12). Block content is sanitised via `wp_kses_post` by default; `raw_html=true` only when the caller passes `manage_options + unfiltered_html` (S-13). Elementor JSON node count capped at 5,000 per call; oversized payloads return `elementor_too_large` (S-14). All Elementor writes fire `elementor/document/after_save` so caches and CSS regenerate cleanly.
+ * 2.12.0 - F.19.3.1: Three more read-only admin routes ported from the legacy wordpress_advanced WP-CLI tools so they can run via the companion instead of `docker exec`. /admin/system-info (PHP/MySQL/WordPress versions + server software + memory limits), /admin/phpinfo (extension list + curated ini snapshot), /admin/disk-usage (uploads/plugins/themes/total bytes + disk_free_space). All gated on `manage_options`.
+ * 2.11.0 - F.19.1: Read-only admin namespace ``airano-mcp/v1/admin/*`` for the WordPress Specialist tool surface. Six new routes — plugins, themes, users, options, cron, maintenance — all gated on ``manage_options``. No state changes in this version; write operations land in F.19.2 once user-supplied security rules are folded in.
  * 2.10.1 - F.X.fix #10: single-source the ``routes`` bitmap via SEO_API_Bridge::get_route_map(). capabilities and site_health previously duplicated the map with conflicting values (audit_hook=true vs false, missing upload_and_attach entries). Both now read from the shared constant.
  * 2.10.0 - F.X.fix #7: /upload-and-attach honours an ``Idempotency-Key`` header. A retry within 24h with the same key returns the already-created attachment (``_idempotent_replay: true``) rather than creating an "-2.webp" orphan. Protects against the orphan-on-client-timeout regression.
  * 2.9.0 - Added /airano-mcp/v1/upload-and-attach route for F.5a.8.5 (single-call raw-body upload + metadata + attach-to-post + set-featured; saves 2-3 REST round-trips per upload).
@@ -46,7 +55,7 @@ class SEO_API_Bridge {
     /**
      * Plugin version
      */
-    const VERSION = '2.10.1';
+    const VERSION = '2.18.1';
 
     /**
      * Single source of truth for the ``routes`` bitmap exposed to
@@ -72,8 +81,75 @@ class SEO_API_Bridge {
             'site_health'           => true,
             'audit_hook'            => true,
             'regenerate_thumbnails' => true,
+            // F.19.1 read-only admin namespace
+            'admin_plugins'         => true,
+            'admin_themes'          => true,
+            'admin_users'           => true,
+            'admin_options'         => true,
+            'admin_cron'            => true,
+            'admin_maintenance'     => true,
+            // F.19.3.1 ports from wordpress_advanced (read-only)
+            'admin_system_info'     => true,
+            'admin_phpinfo'         => true,
+            'admin_disk_usage'      => true,
+            // F.19.5 page editing (Gutenberg + Elementor + Classic)
+            'admin_blocks_replace'         => true,
+            'admin_blocks_insert'          => true,
+            'admin_blocks_remove'          => true,
+            'admin_elementor_status'       => true,
+            'admin_elementor_get'          => true,
+            'admin_elementor_set'          => true,
+            'admin_elementor_render_css'   => true,
+            'admin_elementor_template_list'=> true,
+            'admin_elementor_template_apply'=> true,
+            'admin_classic_html_replace'   => true,
+            // F.19.7 theme dev surface
+            'admin_theme_install'          => true,
+            'admin_theme_activate'         => true,
+            'admin_theme_delete'           => true,
+            'admin_theme_file_list'        => true,
+            'admin_theme_file_read'        => true,
+            'admin_theme_file_write'       => true,
+            'admin_theme_file_delete'      => true,
+            // F.19.2.1 plugin write management
+            'admin_plugin_install'         => true,
+            'admin_plugin_activate'        => true,
+            'admin_plugin_deactivate'      => true,
+            'admin_plugin_update'          => true,
+            'admin_plugin_delete'          => true,
+            // F.19.6.A site config (identity + reading + permalinks)
+            'admin_site_identity_get'      => true,
+            'admin_site_identity_set'      => true,
+            'admin_site_reading_get'       => true,
+            'admin_site_reading_set'       => true,
+            'admin_permalinks_get'         => true,
+            'admin_permalinks_set'         => true,
+            // F.19.6.B site layout (menus + widgets + customizer)
+            'admin_menus_list'             => true,
+            'admin_menu_get'               => true,
+            'admin_menu_set'               => true,
+            'admin_widget_areas_list'      => true,
+            'admin_widget_get'             => true,
+            'admin_widget_set'             => true,
+            'admin_customizer_changeset'   => true,
+            // F.19.3.2-.3 database inspection (read-only)
+            'admin_db_size'                => true,
+            'admin_db_tables'              => true,
+            'admin_db_search'              => true,
         ];
     }
+
+    /**
+     * Option keys that admin_option_get refuses to return — they
+     * commonly hold credentials or per-install secrets. The whitelist
+     * approach used by the rest of the plugin is wrong for this route
+     * (the universe of safe option keys is too large), so we use a
+     * deny-list of *suffix patterns* instead. F.19.1.
+     */
+    const ADMIN_OPTION_BLOCKED_PATTERNS = [
+        '/(_|^)(secret|password|passwd|api[_-]?key|token|nonce_salt|auth_salt|secret_key)$/i',
+        '/^(auth|secure_auth|logged_in|nonce)_(key|salt)$/i',
+    ];
 
     /**
      * Option keys used by F.18.7 audit-hook persistence.
@@ -264,7 +340,7 @@ class SEO_API_Bridge {
         register_rest_route('airano-mcp/v1', '/upload-and-attach', [
             'methods' => 'POST',
             'callback' => [$this, 'handle_upload_and_attach'],
-            'permission_callback' => [$this, 'require_upload_capability'],
+            'permission_callback' => [$this, 'require_upload_and_attach_capability'],
         ]);
 
         // --- F.18.1: Capability probe ------------------------------------
@@ -380,6 +456,307 @@ class SEO_API_Bridge {
                 return current_user_can('upload_files') || current_user_can('manage_options');
             },
         ]);
+
+        // ============================================================
+        // F.19.1 — Read-only admin namespace (manage_options gated)
+        // ============================================================
+        register_rest_route('airano-mcp/v1', '/admin/plugins', [
+            'methods' => 'GET',
+            'callback' => [$this, 'handle_admin_plugins'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/themes', [
+            'methods' => 'GET',
+            'callback' => [$this, 'handle_admin_themes'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/users', [
+            'methods' => 'GET',
+            'callback' => [$this, 'handle_admin_users'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/options/(?P<name>[A-Za-z0-9_\-]+)', [
+            'methods' => 'GET',
+            'callback' => [$this, 'handle_admin_option_get'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/cron', [
+            'methods' => 'GET',
+            'callback' => [$this, 'handle_admin_cron'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/maintenance', [
+            'methods' => 'GET',
+            'callback' => [$this, 'handle_admin_maintenance'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+
+        // ============================================================
+        // F.19.3.1 — Ports from wordpress_advanced (read-only)
+        // ============================================================
+        register_rest_route('airano-mcp/v1', '/admin/system-info', [
+            'methods' => 'GET',
+            'callback' => [$this, 'handle_admin_system_info'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/phpinfo', [
+            'methods' => 'GET',
+            'callback' => [$this, 'handle_admin_phpinfo'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/disk-usage', [
+            'methods' => 'GET',
+            'callback' => [$this, 'handle_admin_disk_usage'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+
+        // ============================================================
+        // F.19.5 — Page editing (Gutenberg blocks + Elementor + Classic)
+        // ============================================================
+        // Writes use a shared permission callback that enforces
+        // `manage_options` AND `edit_post` on the target post (S-12).
+        // The per-post check happens inside the handler because the
+        // post id arrives in the JSON body for blocks, but in the URL
+        // for elementor/classic. The base `manage_options` check is
+        // still done at the route layer so non-admins are rejected
+        // before any payload parsing.
+
+        // Gutenberg block writes (S-12 + S-13).
+        register_rest_route('airano-mcp/v1', '/admin/blocks/replace', [
+            'methods' => 'POST',
+            'callback' => [$this, 'handle_admin_blocks_replace'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/blocks/insert', [
+            'methods' => 'POST',
+            'callback' => [$this, 'handle_admin_blocks_insert'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/blocks/remove', [
+            'methods' => 'POST',
+            'callback' => [$this, 'handle_admin_blocks_remove'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+
+        // Elementor read.
+        register_rest_route('airano-mcp/v1', '/admin/elementor/status', [
+            'methods' => 'GET',
+            'callback' => [$this, 'handle_admin_elementor_status'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/elementor/templates', [
+            'methods' => 'GET',
+            'callback' => [$this, 'handle_admin_elementor_template_list'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/elementor/(?P<post_id>\d+)', [
+            'methods' => 'GET',
+            'callback' => [$this, 'handle_admin_elementor_get'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+
+        // Elementor writes (S-12 + S-14).
+        register_rest_route('airano-mcp/v1', '/admin/elementor/(?P<post_id>\d+)', [
+            'methods' => 'POST',
+            'callback' => [$this, 'handle_admin_elementor_set'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/elementor/(?P<post_id>\d+)/regen-css', [
+            'methods' => 'POST',
+            'callback' => [$this, 'handle_admin_elementor_render_css'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/elementor/templates/apply', [
+            'methods' => 'POST',
+            'callback' => [$this, 'handle_admin_elementor_template_apply'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+
+        // Classic editor fallback (S-12 + S-13).
+        register_rest_route('airano-mcp/v1', '/admin/classic/(?P<post_id>\d+)/replace', [
+            'methods' => 'POST',
+            'callback' => [$this, 'handle_admin_classic_html_replace'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+
+        // ============================================================
+        // F.19.7 — Theme dev surface (install + activate + delete +
+        //          file CRUD). All gated on `manage_options` route-side;
+        //          per-handler checks for install_themes / switch_themes /
+        //          delete_themes / edit_themes (+ DISALLOW_FILE_EDIT for
+        //          PHP writes — S-17).
+        // ============================================================
+        register_rest_route('airano-mcp/v1', '/admin/themes/install', [
+            'methods' => 'POST',
+            'callback' => [$this, 'handle_admin_theme_install'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/themes/(?P<slug>[A-Za-z0-9][A-Za-z0-9_\-]{0,63})/activate', [
+            'methods' => 'POST',
+            'callback' => [$this, 'handle_admin_theme_activate'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/themes/(?P<slug>[A-Za-z0-9][A-Za-z0-9_\-]{0,63})', [
+            'methods' => 'DELETE',
+            'callback' => [$this, 'handle_admin_theme_delete'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/themes/files/(?P<slug>[A-Za-z0-9][A-Za-z0-9_\-]{0,63})', [
+            'methods' => 'GET',
+            'callback' => [$this, 'handle_admin_theme_file_list'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/themes/files/(?P<slug>[A-Za-z0-9][A-Za-z0-9_\-]{0,63})/(?P<path>.+)', [
+            'methods' => 'GET',
+            'callback' => [$this, 'handle_admin_theme_file_read'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/themes/files/(?P<slug>[A-Za-z0-9][A-Za-z0-9_\-]{0,63})/(?P<path>.+)', [
+            'methods' => 'PUT',
+            'callback' => [$this, 'handle_admin_theme_file_write'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/themes/files/(?P<slug>[A-Za-z0-9][A-Za-z0-9_\-]{0,63})/(?P<path>.+)', [
+            'methods' => 'DELETE',
+            'callback' => [$this, 'handle_admin_theme_file_delete'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+
+        // ============================================================
+        // F.19.2.1 — Plugin write management. Per-handler caps:
+        //   install/update → install_plugins
+        //   activate/deactivate → activate_plugins
+        //   delete → delete_plugins
+        // S-20: refuses to deactivate/delete the airano-mcp-bridge
+        //       companion itself (would brick the MCP connection).
+        // S-21: refuses to deactivate/delete plugins marked Required.
+        // ============================================================
+        register_rest_route('airano-mcp/v1', '/admin/plugins/install', [
+            'methods' => 'POST',
+            'callback' => [$this, 'handle_admin_plugin_install'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/plugins/(?P<slug>[A-Za-z0-9][A-Za-z0-9_\-]{0,63})/activate', [
+            'methods' => 'POST',
+            'callback' => [$this, 'handle_admin_plugin_activate'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/plugins/(?P<slug>[A-Za-z0-9][A-Za-z0-9_\-]{0,63})/deactivate', [
+            'methods' => 'POST',
+            'callback' => [$this, 'handle_admin_plugin_deactivate'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/plugins/(?P<slug>[A-Za-z0-9][A-Za-z0-9_\-]{0,63})/update', [
+            'methods' => 'POST',
+            'callback' => [$this, 'handle_admin_plugin_update'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/plugins/(?P<slug>[A-Za-z0-9][A-Za-z0-9_\-]{0,63})', [
+            'methods' => 'DELETE',
+            'callback' => [$this, 'handle_admin_plugin_delete'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+
+        // ============================================================
+        // F.19.6.A — Site config (identity + reading + permalinks).
+        // All routes gated on manage_options. Writes route every
+        // option through WP's own sanitize_option_* hooks; permalink
+        // writes additionally call flush_rewrite_rules().
+        // ============================================================
+        register_rest_route('airano-mcp/v1', '/admin/site/identity', [
+            'methods' => 'GET',
+            'callback' => [$this, 'handle_admin_site_identity_get'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/site/identity', [
+            'methods' => 'POST',
+            'callback' => [$this, 'handle_admin_site_identity_set'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/site/reading', [
+            'methods' => 'GET',
+            'callback' => [$this, 'handle_admin_site_reading_get'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/site/reading', [
+            'methods' => 'POST',
+            'callback' => [$this, 'handle_admin_site_reading_set'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/permalinks', [
+            'methods' => 'GET',
+            'callback' => [$this, 'handle_admin_permalinks_get'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/permalinks', [
+            'methods' => 'POST',
+            'callback' => [$this, 'handle_admin_permalinks_set'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+
+        // ============================================================
+        // F.19.6.B — Site layout (menus + widgets + customizer).
+        // All routes gated on manage_options at the route level.
+        // Per-request capability checks (S-22 / S-24) and content
+        // sanitisation (S-23) live inside the handlers.
+        // ============================================================
+        register_rest_route('airano-mcp/v1', '/admin/menus', [
+            'methods' => 'GET',
+            'callback' => [$this, 'handle_admin_menus_list'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/menus/(?P<menu_id>\d+)', [
+            'methods' => 'GET',
+            'callback' => [$this, 'handle_admin_menu_get'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/menus/(?P<menu_id>\d+)', [
+            'methods' => 'PUT',
+            'callback' => [$this, 'handle_admin_menu_set'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/widgets/areas', [
+            'methods' => 'GET',
+            'callback' => [$this, 'handle_admin_widget_areas_list'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/widgets/(?P<area_id>[A-Za-z0-9_\-]+)', [
+            'methods' => 'GET',
+            'callback' => [$this, 'handle_admin_widget_get'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/widgets/(?P<area_id>[A-Za-z0-9_\-]+)', [
+            'methods' => 'PUT',
+            'callback' => [$this, 'handle_admin_widget_set'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/customizer/changeset', [
+            'methods' => 'POST',
+            'callback' => [$this, 'handle_admin_customizer_changeset'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+
+        // ============================================================
+        // F.19.3.2-.3 — Database inspection (read-only).
+        // No SQL exposure: db/size + db/tables aggregate
+        // information_schema.TABLES server-side; db/search wraps
+        // WP_Query with s=$query (S-25). All gated on manage_options.
+        // ============================================================
+        register_rest_route('airano-mcp/v1', '/admin/db/size', [
+            'methods' => 'GET',
+            'callback' => [$this, 'handle_admin_db_size'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/db/tables', [
+            'methods' => 'GET',
+            'callback' => [$this, 'handle_admin_db_tables'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/db/search', [
+            'methods' => 'POST',
+            'callback' => [$this, 'handle_admin_db_search'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
     }
 
     /**
@@ -390,6 +767,64 @@ class SEO_API_Bridge {
      */
     public function require_upload_capability() {
         return current_user_can('upload_files') || current_user_can('manage_options');
+    }
+
+    /**
+     * Permission callback for `/upload-and-attach`.
+     *
+     * Two-layer gate, enforced BEFORE the callback runs (per wp.org review
+     * guidance — a capability check inside the callback is not visible to
+     * static analysis):
+     *   1. Caller must have `upload_files` (or `manage_options`).
+     *   2. If `attach_to_post` is supplied, caller must also have
+     *      `edit_post` on that specific target.
+     *   3. If `set_featured` is supplied without an `attach_to_post`,
+     *      reject — featured-image needs a target post.
+     */
+    public function require_upload_and_attach_capability( $request ) {
+        if ( ! current_user_can('upload_files') && ! current_user_can('manage_options') ) {
+            return new WP_Error(
+                'rest_forbidden',
+                __( 'Sorry, you are not allowed to upload files.', 'airano-mcp-bridge' ),
+                ['status' => rest_authorization_required_code()]
+            );
+        }
+
+        $attach_to_post = (int) $request->get_param('attach_to_post');
+        $set_featured_raw = $request->get_param('set_featured');
+        $set_featured = in_array(
+            strtolower((string) $set_featured_raw),
+            ['1', 'true', 'yes', 'on'],
+            true
+        );
+
+        if ( $set_featured && $attach_to_post <= 0 ) {
+            return new WP_Error(
+                'rest_invalid_param',
+                __( 'set_featured requires a valid attach_to_post target.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+
+        if ( $attach_to_post > 0 && ! current_user_can('edit_post', $attach_to_post) ) {
+            return new WP_Error(
+                'rest_cannot_edit',
+                __( 'Sorry, you are not allowed to attach media to this post.', 'airano-mcp-bridge' ),
+                ['status' => rest_authorization_required_code(), 'attach_to_post' => $attach_to_post]
+            );
+        }
+
+        return true;
+    }
+
+    /**
+     * Permission callback for the F.19.1 admin namespace.
+     *
+     * Strict ``manage_options`` check — same bar as the WP Settings page.
+     * Subscriber/Author/Editor roles are intentionally rejected here.
+     */
+    public function require_admin_capability() {
+        return current_user_can('manage_options');
     }
 
     /**
@@ -1004,9 +1439,10 @@ class SEO_API_Bridge {
             );
         }
 
-        // Stage to tmp + hand off to wp_handle_sideload().
+        // wp_tempnam() + wp_handle_sideload() live in file.php;
+        // wp_generate_attachment_metadata() lives in image.php. media.php
+        // is intentionally NOT loaded — none of its helpers are called here.
         require_once ABSPATH . 'wp-admin/includes/file.php';
-        require_once ABSPATH . 'wp-admin/includes/media.php';
         require_once ABSPATH . 'wp-admin/includes/image.php';
 
         $tmp = wp_tempnam($filename);
@@ -1154,8 +1590,10 @@ class SEO_API_Bridge {
             );
         }
 
+        // file.php → wp_tempnam, wp_handle_sideload; image.php →
+        // wp_generate_attachment_metadata. media.php is NOT needed — none
+        // of its helpers are used in this REST callback.
         require_once ABSPATH . 'wp-admin/includes/file.php';
-        require_once ABSPATH . 'wp-admin/includes/media.php';
         require_once ABSPATH . 'wp-admin/includes/image.php';
 
         $tmp = wp_tempnam($filename);
@@ -2854,6 +3292,3361 @@ class SEO_API_Bridge {
             }
             echo '</div>';
         }
+    }
+
+    // ============================================================
+    // F.19.1 — Admin namespace handlers (read-only)
+    // ============================================================
+
+    /**
+     * GET /airano-mcp/v1/admin/plugins
+     *
+     * Returns every plugin known to WordPress with active/network-active
+     * status, version, author, update availability. No state changes;
+     * activation lands in F.19.2.
+     */
+    public function handle_admin_plugins(WP_REST_Request $request) {
+        if (!function_exists('get_plugins')) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+        $plugins = get_plugins();
+        $active = (array) get_option('active_plugins', []);
+        $network_active = is_multisite() ? array_keys((array) get_site_option('active_sitewide_plugins', [])) : [];
+
+        // Update detection — use the cached transient set by WP's update
+        // checker. We never trigger a fresh check here (it's slow + can
+        // hit wp.org). MCPHub can force a refresh by calling the WP-CLI
+        // path during F.19.3 if needed.
+        $update_data = get_site_transient('update_plugins');
+        $updates_available = isset($update_data->response) ? (array) $update_data->response : [];
+
+        $items = [];
+        foreach ($plugins as $file => $meta) {
+            $items[] = [
+                'file'           => $file,
+                'slug'           => dirname($file) === '.' ? basename($file, '.php') : dirname($file),
+                'name'           => isset($meta['Name']) ? (string) $meta['Name'] : '',
+                'version'        => isset($meta['Version']) ? (string) $meta['Version'] : '',
+                'author'         => isset($meta['Author']) ? wp_strip_all_tags((string) $meta['Author']) : '',
+                'plugin_uri'     => isset($meta['PluginURI']) ? (string) $meta['PluginURI'] : '',
+                'description'    => isset($meta['Description']) ? wp_strip_all_tags((string) $meta['Description']) : '',
+                'active'         => in_array($file, $active, true),
+                'network_active' => in_array($file, $network_active, true),
+                'update_available' => isset($updates_available[$file]),
+                'new_version'    => isset($updates_available[$file]->new_version)
+                    ? (string) $updates_available[$file]->new_version : null,
+            ];
+        }
+
+        return rest_ensure_response([
+            'plugins'      => $items,
+            'total'        => count($items),
+            'active_count' => count($active),
+            'multisite'    => is_multisite(),
+        ]);
+    }
+
+    /**
+     * GET /airano-mcp/v1/admin/themes
+     *
+     * Lists every installed theme + which is active. Parent/child
+     * relationship surfaced via ``parent`` field.
+     */
+    public function handle_admin_themes(WP_REST_Request $request) {
+        $themes = wp_get_themes();
+        $active_stylesheet = get_option('stylesheet');
+        $active_template = get_option('template');
+
+        $update_data = get_site_transient('update_themes');
+        $updates_available = isset($update_data->response) ? (array) $update_data->response : [];
+
+        $items = [];
+        foreach ($themes as $stylesheet => $theme) {
+            /** @var WP_Theme $theme */
+            $parent = $theme->parent();
+            $items[] = [
+                'stylesheet'       => (string) $stylesheet,
+                'name'             => (string) $theme->get('Name'),
+                'version'          => (string) $theme->get('Version'),
+                'author'           => wp_strip_all_tags((string) $theme->get('Author')),
+                'description'      => wp_strip_all_tags((string) $theme->get('Description')),
+                'theme_uri'        => (string) $theme->get('ThemeURI'),
+                'template'         => (string) $theme->get_template(),
+                'parent'           => $parent ? (string) $parent->get_stylesheet() : null,
+                'is_block_theme'   => method_exists($theme, 'is_block_theme') ? (bool) $theme->is_block_theme() : false,
+                'active'           => $stylesheet === $active_stylesheet,
+                'is_template'      => $stylesheet === $active_template,
+                'update_available' => isset($updates_available[$stylesheet]),
+                'new_version'      => isset($updates_available[$stylesheet]['new_version'])
+                    ? (string) $updates_available[$stylesheet]['new_version'] : null,
+            ];
+        }
+
+        return rest_ensure_response([
+            'themes'             => $items,
+            'total'              => count($items),
+            'active_stylesheet'  => (string) $active_stylesheet,
+            'active_template'    => (string) $active_template,
+        ]);
+    }
+
+    /**
+     * GET /airano-mcp/v1/admin/users
+     *
+     * Lists users (id, username, email, roles, registration timestamp).
+     * Honours the ``role`` and ``search`` query params; default cap of
+     * 200 per call to keep payload sane on large installs.
+     */
+    public function handle_admin_users(WP_REST_Request $request) {
+        $role  = $request->get_param('role');
+        $search = $request->get_param('search');
+        $per_page = (int) $request->get_param('per_page');
+        if ($per_page <= 0 || $per_page > 200) {
+            $per_page = 50;
+        }
+        $page = (int) $request->get_param('page');
+        if ($page <= 0) {
+            $page = 1;
+        }
+
+        $args = [
+            'number' => $per_page,
+            'paged'  => $page,
+            'fields' => ['ID', 'user_login', 'user_email', 'user_registered', 'display_name'],
+        ];
+        if (is_string($role) && $role !== '') {
+            $args['role'] = sanitize_key($role);
+        }
+        if (is_string($search) && $search !== '') {
+            $args['search']         = '*' . esc_attr($search) . '*';
+            $args['search_columns'] = ['user_login', 'user_email', 'display_name'];
+        }
+
+        $query = new WP_User_Query($args);
+        $items = [];
+        foreach ((array) $query->get_results() as $user) {
+            $u = get_userdata($user->ID);
+            if (!$u) {
+                continue;
+            }
+            $items[] = [
+                'id'              => (int) $u->ID,
+                'username'        => (string) $u->user_login,
+                'email'           => (string) $u->user_email,
+                'display_name'    => (string) $u->display_name,
+                'roles'           => array_values((array) $u->roles),
+                'user_registered' => (string) $u->user_registered,
+            ];
+        }
+
+        return rest_ensure_response([
+            'users'       => $items,
+            'total'       => (int) $query->get_total(),
+            'page'        => $page,
+            'per_page'    => $per_page,
+        ]);
+    }
+
+    /**
+     * GET /airano-mcp/v1/admin/options/{name}
+     *
+     * Returns a single named option. Refuses keys that match the
+     * deny-list of credential-shaped suffixes. The caller already has
+     * ``manage_options``, so this is a defence-in-depth check (operators
+     * who store extra secrets in custom options should still be safe).
+     */
+    public function handle_admin_option_get(WP_REST_Request $request) {
+        $name = (string) $request->get_param('name');
+        $name = sanitize_key($name);
+        if ($name === '') {
+            return new WP_Error(
+                'invalid_option_name',
+                __( 'Option name is required.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+
+        foreach (self::ADMIN_OPTION_BLOCKED_PATTERNS as $pattern) {
+            if (preg_match($pattern, $name)) {
+                return new WP_Error(
+                    'option_blocked',
+                    __( 'This option key is blocked from remote read for safety. Inspect it directly via wp-admin if needed.', 'airano-mcp-bridge' ),
+                    ['status' => 403, 'option' => $name]
+                );
+            }
+        }
+
+        $sentinel = '__airano_mcp_missing__';
+        $value = get_option($name, $sentinel);
+        $exists = ($value !== $sentinel);
+        if (!$exists) {
+            $value = null;
+        }
+
+        return rest_ensure_response([
+            'option'  => $name,
+            'exists'  => $exists,
+            'value'   => $value,
+            'autoload' => $exists ? null : null,  // reserved for F.19.2
+        ]);
+    }
+
+    /**
+     * GET /airano-mcp/v1/admin/cron
+     *
+     * Dumps the current cron array (next run, hook name, schedule, args).
+     * Times reported as both unix epoch and ISO 8601 UTC.
+     */
+    public function handle_admin_cron(WP_REST_Request $request) {
+        $cron = _get_cron_array();
+        $events = [];
+        if (is_array($cron)) {
+            foreach ($cron as $timestamp => $hooks) {
+                if (!is_array($hooks)) {
+                    continue;
+                }
+                foreach ($hooks as $hook => $instances) {
+                    if (!is_array($instances)) {
+                        continue;
+                    }
+                    foreach ($instances as $key => $event) {
+                        $schedule = isset($event['schedule']) ? (string) $event['schedule'] : '';
+                        $interval = isset($event['interval']) ? (int) $event['interval'] : null;
+                        $events[] = [
+                            'hook'         => (string) $hook,
+                            'next_run_at'  => (int) $timestamp,
+                            'next_run_iso' => gmdate('c', (int) $timestamp),
+                            'schedule'     => $schedule,
+                            'interval_sec' => $interval,
+                            'args'         => isset($event['args']) ? $event['args'] : [],
+                            'key'          => (string) $key,
+                        ];
+                    }
+                }
+            }
+        }
+
+        return rest_ensure_response([
+            'events'    => $events,
+            'total'     => count($events),
+            'now'       => time(),
+            'now_iso'   => gmdate('c'),
+            'timezone'  => (string) wp_timezone_string(),
+            'doing_cron' => (bool) defined('DOING_CRON') && DOING_CRON,
+        ]);
+    }
+
+    /**
+     * GET /airano-mcp/v1/admin/maintenance
+     *
+     * Reports maintenance-mode status by inspecting WP's
+     * ``.maintenance`` sentinel file in ABSPATH (set during core/plugin
+     * updates, removed when finished). Toggling lands in F.19.2.
+     */
+    public function handle_admin_maintenance(WP_REST_Request $request) {
+        $sentinel = ABSPATH . '.maintenance';
+        $enabled = false;
+        $started_at = null;
+        $stale = false;
+
+        if (file_exists($sentinel)) {
+            $enabled = true;
+            $upgrading = 0;
+            // The file defines $upgrading = time() at the moment WP
+            // entered maintenance. Read it without including (the file
+            // only does an integer assignment, but include is risky).
+            $contents = file_get_contents($sentinel);
+            if (is_string($contents) && preg_match('/\$upgrading\s*=\s*(\d+)/', $contents, $m)) {
+                $upgrading = (int) $m[1];
+            }
+            $started_at = $upgrading > 0 ? $upgrading : null;
+            // WP itself treats >10 min as stale (wp_is_maintenance_mode).
+            $stale = $upgrading > 0 && (time() - $upgrading) > 600;
+        }
+
+        return rest_ensure_response([
+            'enabled'    => $enabled,
+            'started_at' => $started_at,
+            'started_iso' => $started_at ? gmdate('c', $started_at) : null,
+            'stale'      => $stale,
+        ]);
+    }
+
+    // ============================================================
+    // F.19.3.1 — Ports from wordpress_advanced (read-only)
+    // ============================================================
+
+    /**
+     * GET /airano-mcp/v1/admin/system-info
+     *
+     * Replaces wordpress_advanced.system_info — returns the same shape
+     * the WP-CLI version produced (PHP/MySQL/WordPress versions, server
+     * software, memory limits, time settings, multisite flag) but via
+     * native PHP so no Docker socket is required.
+     */
+    public function handle_admin_system_info(WP_REST_Request $request) {
+        global $wpdb;
+
+        $mysql_version = '';
+        try {
+            $row = $wpdb->get_var('SELECT VERSION()');
+            if (is_string($row)) {
+                $mysql_version = $row;
+            }
+        } catch (Exception $e) {  // pragma: defensive
+            $mysql_version = '';
+        }
+
+        $upload_dir = wp_upload_dir();
+
+        return rest_ensure_response([
+            'wordpress' => [
+                'version'      => get_bloginfo('version'),
+                'site_url'     => home_url(),
+                'admin_url'    => admin_url(),
+                'language'     => get_locale(),
+                'timezone'     => (string) wp_timezone_string(),
+                'multisite'    => is_multisite(),
+                'debug'        => defined('WP_DEBUG') && WP_DEBUG,
+                'debug_log'    => defined('WP_DEBUG_LOG') && WP_DEBUG_LOG,
+                'memory_limit' => defined('WP_MEMORY_LIMIT') ? WP_MEMORY_LIMIT : null,
+            ],
+            'php' => [
+                'version'              => PHP_VERSION,
+                'sapi'                 => PHP_SAPI,
+                'memory_limit'         => ini_get('memory_limit'),
+                'max_execution_time'   => (int) ini_get('max_execution_time'),
+                'post_max_size'        => ini_get('post_max_size'),
+                'upload_max_filesize'  => ini_get('upload_max_filesize'),
+                'max_input_vars'       => (int) ini_get('max_input_vars'),
+            ],
+            'database' => [
+                'engine'        => 'MySQL/MariaDB',
+                'version'       => $mysql_version,
+                'charset'       => defined('DB_CHARSET') ? DB_CHARSET : null,
+                'collate'       => defined('DB_COLLATE') ? DB_COLLATE : null,
+                'table_prefix'  => $wpdb->prefix,
+            ],
+            'server' => [
+                'software'   => isset($_SERVER['SERVER_SOFTWARE']) ? sanitize_text_field(wp_unslash($_SERVER['SERVER_SOFTWARE'])) : '',
+                'os'         => function_exists('php_uname') ? php_uname('s') . ' ' . php_uname('r') : '',
+                'protocol'   => isset($_SERVER['SERVER_PROTOCOL']) ? sanitize_text_field(wp_unslash($_SERVER['SERVER_PROTOCOL'])) : '',
+            ],
+            'paths' => [
+                'abspath'    => ABSPATH,
+                'wp_content' => defined('WP_CONTENT_DIR') ? WP_CONTENT_DIR : null,
+                'plugins'    => defined('WP_PLUGIN_DIR') ? WP_PLUGIN_DIR : null,
+                'uploads'    => $upload_dir['basedir'] ?? null,
+            ],
+        ]);
+    }
+
+    /**
+     * GET /airano-mcp/v1/admin/phpinfo
+     *
+     * Curated PHP configuration snapshot — extension list, common ini
+     * settings, disabled functions, opcache state. Unlike PHP's
+     * built-in ``phpinfo()`` this returns structured JSON; we never
+     * dump full ``phpinfo(INFO_ALL)`` output because that leaks
+     * server-internal paths and credentials.
+     */
+    public function handle_admin_phpinfo(WP_REST_Request $request) {
+        $extensions = get_loaded_extensions();
+        sort($extensions);
+
+        // Curated subset of ini settings — covers the common
+        // diagnostic surface (memory, file uploads, sessions) without
+        // exposing the full ini map.
+        $ini_keys = [
+            'memory_limit',
+            'max_execution_time',
+            'max_input_time',
+            'max_input_vars',
+            'post_max_size',
+            'upload_max_filesize',
+            'file_uploads',
+            'allow_url_fopen',
+            'allow_url_include',
+            'display_errors',
+            'log_errors',
+            'error_log',
+            'session.gc_maxlifetime',
+            'session.save_handler',
+            'date.timezone',
+            'default_socket_timeout',
+        ];
+        $ini = [];
+        foreach ($ini_keys as $key) {
+            $ini[$key] = ini_get($key);
+        }
+
+        $opcache_enabled = function_exists('opcache_get_status') && (bool) ini_get('opcache.enable');
+        $opcache = null;
+        if ($opcache_enabled) {
+            $status = @opcache_get_status(false);
+            if (is_array($status)) {
+                $opcache = [
+                    'enabled'         => (bool) ($status['opcache_enabled'] ?? false),
+                    'cache_full'      => (bool) ($status['cache_full'] ?? false),
+                    'memory_used'     => (int) ($status['memory_usage']['used_memory'] ?? 0),
+                    'memory_free'     => (int) ($status['memory_usage']['free_memory'] ?? 0),
+                    'cached_scripts'  => (int) ($status['opcache_statistics']['num_cached_scripts'] ?? 0),
+                ];
+            }
+        }
+
+        $disabled_functions_raw = (string) ini_get('disable_functions');
+        $disabled_functions = $disabled_functions_raw === ''
+            ? []
+            : array_values(array_filter(array_map('trim', explode(',', $disabled_functions_raw))));
+
+        return rest_ensure_response([
+            'php_version'        => PHP_VERSION,
+            'sapi'               => PHP_SAPI,
+            'extensions'         => $extensions,
+            'ini'                => $ini,
+            'disabled_functions' => $disabled_functions,
+            'opcache'            => $opcache,
+        ]);
+    }
+
+    /**
+     * GET /airano-mcp/v1/admin/disk-usage
+     *
+     * Replaces wordpress_advanced.system_disk_usage. Returns bytes (not
+     * MB strings) so the dashboard can format them client-side. Walks
+     * uploads, plugins, themes — caps at 200k files / 5s wall clock per
+     * tree to keep the route bounded on huge installs.
+     */
+    public function handle_admin_disk_usage(WP_REST_Request $request) {
+        $upload_dir = wp_upload_dir();
+        $uploads_path = $upload_dir['basedir'] ?? '';
+        $plugins_path = defined('WP_PLUGIN_DIR') ? WP_PLUGIN_DIR : '';
+        $themes_path = defined('WP_CONTENT_DIR') ? trailingslashit(WP_CONTENT_DIR) . 'themes' : '';
+        $abspath = ABSPATH;
+
+        $uploads = $this->_safe_dir_size($uploads_path);
+        $plugins = $this->_safe_dir_size($plugins_path);
+        $themes  = $this->_safe_dir_size($themes_path);
+
+        $disk_total = function_exists('disk_total_space') ? @disk_total_space($abspath) : null;
+        $disk_free  = function_exists('disk_free_space') ? @disk_free_space($abspath) : null;
+        $disk_used  = ($disk_total !== false && $disk_free !== false && $disk_total !== null && $disk_free !== null)
+            ? ($disk_total - $disk_free) : null;
+
+        return rest_ensure_response([
+            'uploads' => $uploads,
+            'plugins' => $plugins,
+            'themes'  => $themes,
+            'disk' => [
+                'total_bytes' => $disk_total === false ? null : $disk_total,
+                'free_bytes'  => $disk_free === false ? null : $disk_free,
+                'used_bytes'  => $disk_used,
+            ],
+            'paths' => [
+                'uploads' => $uploads_path,
+                'plugins' => $plugins_path,
+                'themes'  => $themes_path,
+                'abspath' => $abspath,
+            ],
+        ]);
+    }
+
+    /**
+     * Safely walk a directory tree and return total bytes + file count.
+     * Bounded at 200,000 files OR 5 seconds wall clock per tree so a
+     * pathological directory cannot hang the request. Truncated walks
+     * surface ``truncated: true`` in the response so the caller can
+     * tell the number is a lower bound.
+     */
+    private function _safe_dir_size(string $path): array {
+        if ($path === '' || !is_dir($path) || !is_readable($path)) {
+            return ['size_bytes' => 0, 'file_count' => 0, 'truncated' => false, 'available' => false];
+        }
+        $deadline = microtime(true) + 5.0;
+        $max_files = 200000;
+        $size = 0;
+        $count = 0;
+        $truncated = false;
+        try {
+            $iterator = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS | FilesystemIterator::FOLLOW_SYMLINKS)
+            );
+            foreach ($iterator as $file) {
+                if ($file->isFile()) {
+                    $size += (int) $file->getSize();
+                    $count++;
+                    if ($count >= $max_files || microtime(true) > $deadline) {
+                        $truncated = true;
+                        break;
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            // Permission denied somewhere mid-walk — return what we have.
+            $truncated = true;
+        }
+        return [
+            'size_bytes' => $size,
+            'file_count' => $count,
+            'truncated'  => $truncated,
+            'available'  => true,
+        ];
+    }
+
+    // ============================================================
+    // F.19.5 — Page editing (Gutenberg + Elementor + Classic)
+    // ============================================================
+    //
+    // Security rules enforced here, on top of the F.19.2 S-1…S-11 set
+    // documented in `docs/ROADMAP.md`:
+    //   * S-12 — every block / Elementor write requires `edit_post`
+    //            on the target post (per-item, not just the global tier).
+    //   * S-13 — block content is sanitised via `wp_kses_post` by
+    //            default; `raw_html=true` only with `unfiltered_html`
+    //            (which WP grants only to administrators on
+    //            single-site, and only to network admins on
+    //            multisite).
+    //   * S-14 — Elementor JSON node count capped at 5,000 per call
+    //            to bound parse cost; oversized payloads return
+    //            `elementor_too_large`.
+
+    /**
+     * Maximum number of blocks accepted in a single F.19.5 write call.
+     * Bounds parse + serialize cost on huge `wp_kses_post` runs.
+     */
+    const BLOCKS_MAX_PER_CALL = 200;
+
+    /**
+     * Maximum number of Elementor nodes accepted in a single F.19.5
+     * write call (S-14). Counted recursively across the whole tree.
+     */
+    const ELEMENTOR_MAX_NODES = 5000;
+
+    /**
+     * Resolve a post id from request input.
+     *
+     * @param mixed $raw The raw input (from URL param or JSON body).
+     * @return int|WP_Error Positive int post id on success, WP_Error otherwise.
+     */
+    private function _resolve_post_id($raw) {
+        if (!is_numeric($raw)) {
+            return new WP_Error(
+                'invalid_post_id',
+                __( 'post_id must be an integer.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+        $post_id = (int) $raw;
+        if ($post_id <= 0) {
+            return new WP_Error(
+                'invalid_post_id',
+                __( 'post_id must be a positive integer.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+        $post = get_post($post_id);
+        if (!$post) {
+            return new WP_Error(
+                'post_not_found',
+                sprintf(
+                    /* translators: %d is the post id. */
+                    __( 'No post with id %d exists.', 'airano-mcp-bridge' ),
+                    $post_id
+                ),
+                ['status' => 404]
+            );
+        }
+        // S-12 — per-item edit_post check on top of the route-level
+        // manage_options gate.
+        if (!current_user_can('edit_post', $post_id)) {
+            return new WP_Error(
+                'rest_forbidden',
+                __( 'Current user cannot edit this post.', 'airano-mcp-bridge' ),
+                ['status' => 403]
+            );
+        }
+        return $post_id;
+    }
+
+    /**
+     * Sanitize a single block's content per S-13.
+     *
+     * Recursively walks the block tree applying `wp_kses_post` to
+     * `innerHTML` / `innerContent` strings. When `$raw_html` is true
+     * and the current user has `unfiltered_html`, the strings are
+     * passed through unchanged. Anything else falls back to
+     * `wp_kses_post` regardless of the flag (defence in depth — a
+     * caller can never bypass sanitisation by lying about caps).
+     *
+     * @param array $blocks   Parsed block tree from `parse_blocks()`.
+     * @param bool  $raw_html Whether to skip sanitisation.
+     * @return array Sanitised block tree (same shape).
+     */
+    private function _sanitize_blocks(array $blocks, bool $raw_html): array {
+        $allow_raw = $raw_html && current_user_can('unfiltered_html');
+        return array_values(array_map(
+            function ($block) use ($allow_raw) {
+                if (!is_array($block)) {
+                    return $block;
+                }
+                if (isset($block['innerHTML']) && is_string($block['innerHTML']) && !$allow_raw) {
+                    $block['innerHTML'] = wp_kses_post($block['innerHTML']);
+                }
+                if (isset($block['innerContent']) && is_array($block['innerContent']) && !$allow_raw) {
+                    $block['innerContent'] = array_map(
+                        function ($chunk) {
+                            return is_string($chunk) ? wp_kses_post($chunk) : $chunk;
+                        },
+                        $block['innerContent']
+                    );
+                }
+                if (isset($block['innerBlocks']) && is_array($block['innerBlocks'])) {
+                    $block['innerBlocks'] = $this->_sanitize_blocks($block['innerBlocks'], $allow_raw);
+                }
+                return $block;
+            },
+            $blocks
+        ));
+    }
+
+    /**
+     * Validate Elementor data shape per S-14 — every node must carry
+     * `id`, `elType`, `settings`, and the recursive node count must
+     * stay under {@see ELEMENTOR_MAX_NODES}.
+     *
+     * @param array $tree Top-level Elementor data array.
+     * @return true|WP_Error true on success, WP_Error on validation failure.
+     */
+    private function _validate_elementor_tree(array $tree) {
+        $count = 0;
+        $walker = function (array $nodes) use (&$walker, &$count) {
+            foreach ($nodes as $node) {
+                if (!is_array($node)) {
+                    return new WP_Error(
+                        'elementor_invalid',
+                        __( 'Elementor node must be an object.', 'airano-mcp-bridge' ),
+                        ['status' => 400]
+                    );
+                }
+                foreach (['id', 'elType', 'settings'] as $required) {
+                    if (!array_key_exists($required, $node)) {
+                        return new WP_Error(
+                            'elementor_invalid',
+                            sprintf(
+                                /* translators: %s is the missing field name. */
+                                __( 'Elementor node missing required field: %s', 'airano-mcp-bridge' ),
+                                $required
+                            ),
+                            ['status' => 400]
+                        );
+                    }
+                }
+                $count++;
+                if ($count > self::ELEMENTOR_MAX_NODES) {
+                    return new WP_Error(
+                        'elementor_too_large',
+                        sprintf(
+                            /* translators: %d is the configured node cap. */
+                            __( 'Elementor payload exceeds %d nodes — use template apply instead.', 'airano-mcp-bridge' ),
+                            self::ELEMENTOR_MAX_NODES
+                        ),
+                        ['status' => 413]
+                    );
+                }
+                if (!empty($node['elements']) && is_array($node['elements'])) {
+                    $err = $walker($node['elements']);
+                    if (is_wp_error($err)) {
+                        return $err;
+                    }
+                }
+            }
+            return null;
+        };
+        $err = $walker($tree);
+        if (is_wp_error($err)) {
+            return $err;
+        }
+        return true;
+    }
+
+    /**
+     * Read-back helper: parse a post's content into blocks and return
+     * the ready-to-send envelope used by /admin/blocks/* responses.
+     */
+    private function _blocks_envelope(int $post_id): array {
+        $post = get_post($post_id);
+        $blocks = parse_blocks((string) ($post ? $post->post_content : ''));
+        return [
+            'post_id' => $post_id,
+            'count'   => count($blocks),
+            'blocks'  => $blocks,
+        ];
+    }
+
+    /**
+     * POST /airano-mcp/v1/admin/blocks/replace
+     *
+     * Body: { "post_id": int, "blocks": array, "raw_html"?: bool }
+     */
+    public function handle_admin_blocks_replace(WP_REST_Request $request) {
+        $params = $request->get_json_params();
+        if (!is_array($params)) {
+            return new WP_Error('invalid_body', __( 'Expected JSON body.', 'airano-mcp-bridge' ), ['status' => 400]);
+        }
+        $post_id = $this->_resolve_post_id($params['post_id'] ?? null);
+        if (is_wp_error($post_id)) {
+            return $post_id;
+        }
+        $blocks = $params['blocks'] ?? null;
+        if (!is_array($blocks)) {
+            return new WP_Error('invalid_blocks', __( '`blocks` must be an array.', 'airano-mcp-bridge' ), ['status' => 400]);
+        }
+        if (count($blocks) > self::BLOCKS_MAX_PER_CALL) {
+            return new WP_Error(
+                'blocks_too_large',
+                sprintf(
+                    /* translators: %d is the per-call cap. */
+                    __( 'Block payload exceeds %d items per call.', 'airano-mcp-bridge' ),
+                    self::BLOCKS_MAX_PER_CALL
+                ),
+                ['status' => 413]
+            );
+        }
+        $sanitised = $this->_sanitize_blocks($blocks, !empty($params['raw_html']));
+        $serialised = serialize_blocks($sanitised);
+        $update = wp_update_post([
+            'ID'           => $post_id,
+            'post_content' => $serialised,
+        ], true);
+        if (is_wp_error($update)) {
+            return $update;
+        }
+        return rest_ensure_response($this->_blocks_envelope($post_id));
+    }
+
+    /**
+     * POST /airano-mcp/v1/admin/blocks/insert
+     *
+     * Body: { "post_id": int, "index": int, "block": array, "raw_html"?: bool }
+     */
+    public function handle_admin_blocks_insert(WP_REST_Request $request) {
+        $params = $request->get_json_params();
+        if (!is_array($params)) {
+            return new WP_Error('invalid_body', __( 'Expected JSON body.', 'airano-mcp-bridge' ), ['status' => 400]);
+        }
+        $post_id = $this->_resolve_post_id($params['post_id'] ?? null);
+        if (is_wp_error($post_id)) {
+            return $post_id;
+        }
+        if (!isset($params['block']) || !is_array($params['block'])) {
+            return new WP_Error('invalid_block', __( '`block` must be an object.', 'airano-mcp-bridge' ), ['status' => 400]);
+        }
+        $existing = parse_blocks((string) get_post_field('post_content', $post_id));
+        $index = isset($params['index']) ? (int) $params['index'] : count($existing);
+        if ($index < 0 || $index > count($existing)) {
+            return new WP_Error(
+                'index_out_of_range',
+                sprintf(
+                    /* translators: 1: requested index, 2: current block count. */
+                    __( 'index %1$d out of range for post with %2$d blocks.', 'airano-mcp-bridge' ),
+                    $index,
+                    count($existing)
+                ),
+                ['status' => 400]
+            );
+        }
+        if (count($existing) + 1 > self::BLOCKS_MAX_PER_CALL) {
+            return new WP_Error(
+                'blocks_too_large',
+                sprintf(
+                    /* translators: %d is the per-call cap. */
+                    __( 'Inserting would push the post beyond %d blocks.', 'airano-mcp-bridge' ),
+                    self::BLOCKS_MAX_PER_CALL
+                ),
+                ['status' => 413]
+            );
+        }
+        $sanitised_one = $this->_sanitize_blocks([$params['block']], !empty($params['raw_html']));
+        array_splice($existing, $index, 0, $sanitised_one);
+        $update = wp_update_post([
+            'ID'           => $post_id,
+            'post_content' => serialize_blocks($existing),
+        ], true);
+        if (is_wp_error($update)) {
+            return $update;
+        }
+        return rest_ensure_response($this->_blocks_envelope($post_id));
+    }
+
+    /**
+     * POST /airano-mcp/v1/admin/blocks/remove
+     *
+     * Body: { "post_id": int, "index": int }
+     * Returns the removed block under `removed` so the caller can rollback.
+     */
+    public function handle_admin_blocks_remove(WP_REST_Request $request) {
+        $params = $request->get_json_params();
+        if (!is_array($params)) {
+            return new WP_Error('invalid_body', __( 'Expected JSON body.', 'airano-mcp-bridge' ), ['status' => 400]);
+        }
+        $post_id = $this->_resolve_post_id($params['post_id'] ?? null);
+        if (is_wp_error($post_id)) {
+            return $post_id;
+        }
+        $existing = parse_blocks((string) get_post_field('post_content', $post_id));
+        if (!isset($params['index']) || !is_numeric($params['index'])) {
+            return new WP_Error('invalid_index', __( '`index` is required.', 'airano-mcp-bridge' ), ['status' => 400]);
+        }
+        $index = (int) $params['index'];
+        if ($index < 0 || $index >= count($existing)) {
+            return new WP_Error(
+                'index_out_of_range',
+                sprintf(
+                    /* translators: 1: requested index, 2: current block count. */
+                    __( 'index %1$d out of range for post with %2$d blocks.', 'airano-mcp-bridge' ),
+                    $index,
+                    count($existing)
+                ),
+                ['status' => 400]
+            );
+        }
+        $removed = $existing[$index];
+        array_splice($existing, $index, 1);
+        $update = wp_update_post([
+            'ID'           => $post_id,
+            'post_content' => serialize_blocks($existing),
+        ], true);
+        if (is_wp_error($update)) {
+            return $update;
+        }
+        $envelope = $this->_blocks_envelope($post_id);
+        $envelope['removed'] = $removed;
+        return rest_ensure_response($envelope);
+    }
+
+    /**
+     * GET /airano-mcp/v1/admin/elementor/status
+     *
+     * Reports Elementor presence + version + Pro flag + supported post
+     * types. Returns `{installed: false}` cleanly when Elementor is not
+     * active, so the caller can branch without a 404.
+     */
+    public function handle_admin_elementor_status(WP_REST_Request $request) {
+        $installed = defined('ELEMENTOR_VERSION') || class_exists('\\Elementor\\Plugin');
+        if (!$installed) {
+            return rest_ensure_response([
+                'installed'   => false,
+                'version'     => null,
+                'pro'         => false,
+                'post_types'  => [],
+            ]);
+        }
+        $version = defined('ELEMENTOR_VERSION') ? ELEMENTOR_VERSION : null;
+        $pro = defined('ELEMENTOR_PRO_VERSION') || class_exists('\\ElementorPro\\Plugin');
+
+        // Elementor's own getter for editable post types — fall back
+        // to the conventional defaults if the API isn't reachable.
+        $post_types = ['page', 'post'];
+        if (class_exists('\\Elementor\\Plugin') && method_exists('\\Elementor\\Plugin', 'instance')) {
+            try {
+                $plugin = \Elementor\Plugin::instance();
+                if (isset($plugin->documents) && method_exists($plugin->documents, 'get_cpt_support')) {
+                    $cpt = $plugin->documents->get_cpt_support();
+                    if (is_array($cpt) && !empty($cpt)) {
+                        $post_types = array_values(array_unique(array_map('strval', $cpt)));
+                    }
+                }
+            } catch (Exception $e) {  // pragma: defensive
+                // Fall through to defaults.
+            }
+        }
+
+        return rest_ensure_response([
+            'installed'  => true,
+            'version'    => $version,
+            'pro'        => $pro,
+            'post_types' => $post_types,
+        ]);
+    }
+
+    /**
+     * GET /airano-mcp/v1/admin/elementor/{post_id}
+     *
+     * Returns the parsed _elementor_data JSON. Elementor stores the
+     * data as escaped JSON in post meta; we slash-strip and decode
+     * server-side so the client always sees a plain array.
+     */
+    public function handle_admin_elementor_get(WP_REST_Request $request) {
+        $post_id = $this->_resolve_post_id($request['post_id']);
+        if (is_wp_error($post_id)) {
+            return $post_id;
+        }
+        $raw = get_post_meta($post_id, '_elementor_data', true);
+        if ($raw === '' || $raw === null) {
+            return rest_ensure_response([
+                'post_id' => $post_id,
+                'edited_with_elementor' => false,
+                'data' => [],
+            ]);
+        }
+        $json = is_string($raw) ? wp_unslash($raw) : $raw;
+        $data = is_string($json) ? json_decode($json, true) : $json;
+        if (!is_array($data)) {
+            return new WP_Error(
+                'elementor_invalid',
+                __( 'Stored Elementor data is not a JSON array.', 'airano-mcp-bridge' ),
+                ['status' => 500]
+            );
+        }
+        return rest_ensure_response([
+            'post_id' => $post_id,
+            'edited_with_elementor' => true,
+            'data' => $data,
+        ]);
+    }
+
+    /**
+     * POST /airano-mcp/v1/admin/elementor/{post_id}
+     *
+     * Body: { "data": array }   ← top-level Elementor sections array.
+     * Validates shape (every node has id/elType/settings), enforces
+     * the 5,000-node cap (S-14), writes via update_post_meta, and
+     * fires `elementor/document/after_save` so caches and CSS clear.
+     */
+    public function handle_admin_elementor_set(WP_REST_Request $request) {
+        $post_id = $this->_resolve_post_id($request['post_id']);
+        if (is_wp_error($post_id)) {
+            return $post_id;
+        }
+        $params = $request->get_json_params();
+        if (!is_array($params) || !isset($params['data']) || !is_array($params['data'])) {
+            return new WP_Error('invalid_body', __( '`data` array is required.', 'airano-mcp-bridge' ), ['status' => 400]);
+        }
+        $tree = $params['data'];
+        $check = $this->_validate_elementor_tree($tree);
+        if (is_wp_error($check)) {
+            return $check;
+        }
+        $encoded = wp_slash(wp_json_encode($tree));
+        if ($encoded === false) {
+            return new WP_Error(
+                'elementor_encode_failed',
+                __( 'Could not encode Elementor data as JSON.', 'airano-mcp-bridge' ),
+                ['status' => 500]
+            );
+        }
+        update_post_meta($post_id, '_elementor_data', $encoded);
+        update_post_meta($post_id, '_elementor_edit_mode', 'builder');
+
+        // Fire the Elementor save hook so cache/CSS clears match the
+        // editor's own write path.
+        if (class_exists('\\Elementor\\Plugin') && method_exists('\\Elementor\\Plugin', 'instance')) {
+            try {
+                $plugin = \Elementor\Plugin::instance();
+                if (isset($plugin->documents) && method_exists($plugin->documents, 'get')) {
+                    $document = $plugin->documents->get($post_id);
+                    if ($document && method_exists($document, 'save')) {
+                        do_action('elementor/document/after_save', $document, $tree);
+                    }
+                }
+            } catch (Exception $e) {  // pragma: defensive
+                // Swallow — write succeeded; cache regen is best-effort.
+            }
+        }
+        return rest_ensure_response([
+            'post_id'   => $post_id,
+            'node_count' => $this->_count_elementor_nodes($tree),
+            'saved'     => true,
+        ]);
+    }
+
+    /**
+     * Recursive node counter (mirrors _validate_elementor_tree's walker).
+     */
+    private function _count_elementor_nodes(array $tree): int {
+        $count = 0;
+        foreach ($tree as $node) {
+            if (is_array($node)) {
+                $count++;
+                if (!empty($node['elements']) && is_array($node['elements'])) {
+                    $count += $this->_count_elementor_nodes($node['elements']);
+                }
+            }
+        }
+        return $count;
+    }
+
+    /**
+     * POST /airano-mcp/v1/admin/elementor/{post_id}/regen-css
+     *
+     * Triggers Elementor's per-post CSS regeneration. Equivalent to
+     * "Regenerate CSS" on the Elementor → Tools → Regenerate Files
+     * page, scoped to one post.
+     */
+    public function handle_admin_elementor_render_css(WP_REST_Request $request) {
+        $post_id = $this->_resolve_post_id($request['post_id']);
+        if (is_wp_error($post_id)) {
+            return $post_id;
+        }
+        if (!class_exists('\\Elementor\\Plugin')) {
+            return new WP_Error(
+                'elementor_missing',
+                __( 'Elementor is not active on this site.', 'airano-mcp-bridge' ),
+                ['status' => 409]
+            );
+        }
+        try {
+            $plugin = \Elementor\Plugin::instance();
+            // Elementor exposes Files_Manager::clear_cache() on $plugin->files_manager.
+            // Per-post regeneration is best handled by deleting the
+            // Post_CSS file and letting the next render rebuild it.
+            if (isset($plugin->files_manager) && method_exists($plugin->files_manager, 'clear_cache')) {
+                $plugin->files_manager->clear_cache();
+            }
+            if (class_exists('\\Elementor\\Core\\Files\\CSS\\Post')) {
+                $css_file = new \Elementor\Core\Files\CSS\Post($post_id);
+                if (method_exists($css_file, 'update')) {
+                    $css_file->update();
+                }
+            }
+        } catch (Exception $e) {
+            return new WP_Error(
+                'elementor_render_failed',
+                $e->getMessage(),
+                ['status' => 500]
+            );
+        }
+        return rest_ensure_response([
+            'post_id' => $post_id,
+            'regenerated' => true,
+        ]);
+    }
+
+    /**
+     * GET /airano-mcp/v1/admin/elementor/templates
+     *
+     * Lists saved Elementor templates (the `elementor_library` CPT).
+     */
+    public function handle_admin_elementor_template_list(WP_REST_Request $request) {
+        if (!post_type_exists('elementor_library')) {
+            return rest_ensure_response([
+                'installed' => false,
+                'templates' => [],
+            ]);
+        }
+        $posts = get_posts([
+            'post_type'      => 'elementor_library',
+            'post_status'    => ['publish', 'private'],
+            'posts_per_page' => 200,
+            'orderby'        => 'title',
+            'order'          => 'ASC',
+        ]);
+        $templates = [];
+        foreach ($posts as $post) {
+            $templates[] = [
+                'id'    => (int) $post->ID,
+                'title' => get_the_title($post),
+                'type'  => get_post_meta($post->ID, '_elementor_template_type', true),
+                'modified_gmt' => $post->post_modified_gmt,
+            ];
+        }
+        return rest_ensure_response([
+            'installed' => true,
+            'templates' => $templates,
+            'total' => count($templates),
+        ]);
+    }
+
+    /**
+     * POST /airano-mcp/v1/admin/elementor/templates/apply
+     *
+     * Body: { "template_id": int, "post_id": int }
+     * Copies the template's _elementor_data into the target post,
+     * subject to the same S-12 (edit_post on target) and S-14 caps as
+     * elementor/set.
+     */
+    public function handle_admin_elementor_template_apply(WP_REST_Request $request) {
+        $params = $request->get_json_params();
+        if (!is_array($params)) {
+            return new WP_Error('invalid_body', __( 'Expected JSON body.', 'airano-mcp-bridge' ), ['status' => 400]);
+        }
+        if (!isset($params['template_id']) || !is_numeric($params['template_id'])) {
+            return new WP_Error('invalid_template_id', __( '`template_id` is required.', 'airano-mcp-bridge' ), ['status' => 400]);
+        }
+        $template_id = (int) $params['template_id'];
+        $template_post = get_post($template_id);
+        if (!$template_post || $template_post->post_type !== 'elementor_library') {
+            return new WP_Error(
+                'template_not_found',
+                sprintf(
+                    /* translators: %d is the template id. */
+                    __( 'No Elementor template with id %d.', 'airano-mcp-bridge' ),
+                    $template_id
+                ),
+                ['status' => 404]
+            );
+        }
+        $target_id = $this->_resolve_post_id($params['post_id'] ?? null);
+        if (is_wp_error($target_id)) {
+            return $target_id;
+        }
+        $raw = get_post_meta($template_id, '_elementor_data', true);
+        $json = is_string($raw) ? wp_unslash($raw) : $raw;
+        $data = is_string($json) ? json_decode($json, true) : $json;
+        if (!is_array($data)) {
+            return new WP_Error(
+                'template_invalid',
+                __( 'Source template has no Elementor data.', 'airano-mcp-bridge' ),
+                ['status' => 409]
+            );
+        }
+        $check = $this->_validate_elementor_tree($data);
+        if (is_wp_error($check)) {
+            return $check;
+        }
+        $encoded = wp_slash(wp_json_encode($data));
+        update_post_meta($target_id, '_elementor_data', $encoded);
+        update_post_meta($target_id, '_elementor_edit_mode', 'builder');
+        return rest_ensure_response([
+            'post_id'     => $target_id,
+            'template_id' => $template_id,
+            'applied'     => true,
+            'node_count'  => $this->_count_elementor_nodes($data),
+        ]);
+    }
+
+    /**
+     * POST /airano-mcp/v1/admin/classic/{post_id}/replace
+     *
+     * Body: { "html": string, "raw_html"?: bool }
+     * Pure post_content swap for sites still on the Classic editor
+     * (S-13: wp_kses_post by default).
+     */
+    public function handle_admin_classic_html_replace(WP_REST_Request $request) {
+        $post_id = $this->_resolve_post_id($request['post_id']);
+        if (is_wp_error($post_id)) {
+            return $post_id;
+        }
+        $params = $request->get_json_params();
+        if (!is_array($params) || !isset($params['html']) || !is_string($params['html'])) {
+            return new WP_Error('invalid_body', __( '`html` string is required.', 'airano-mcp-bridge' ), ['status' => 400]);
+        }
+        $allow_raw = !empty($params['raw_html']) && current_user_can('unfiltered_html');
+        $content = $allow_raw ? $params['html'] : wp_kses_post($params['html']);
+        $update = wp_update_post([
+            'ID'           => $post_id,
+            'post_content' => $content,
+        ], true);
+        if (is_wp_error($update)) {
+            return $update;
+        }
+        return rest_ensure_response([
+            'post_id' => $post_id,
+            'length'  => strlen($content),
+            'sanitised' => !$allow_raw,
+        ]);
+    }
+
+    // ================================================================
+    // F.19.7 — Theme dev surface (install + activate + delete + file CRUD)
+    // ================================================================
+    //
+    // Security ruleset (extends F.19.5 S-12…S-14):
+    //
+    //   * S-15 — `theme_slug` must match a key in `wp_get_themes()`.
+    //            Companion rejects anything else with `theme_not_found`
+    //            (404). Structural pre-check via the route regex
+    //            ([A-Za-z0-9][A-Za-z0-9_\-]{0,63}); the wp_get_themes()
+    //            membership check is the binding gate.
+    //   * S-16 — Path canonicalisation. File routes resolve
+    //            `wp-content/themes/{slug}/{path}` via realpath() and
+    //            reject any result outside the slug directory. Blocks
+    //            `..`, symlinks, absolute paths, null bytes.
+    //   * S-17 — PHP file writes require `current_user_can('edit_themes')`
+    //            AND `!defined('DISALLOW_FILE_EDIT') || !DISALLOW_FILE_EDIT`.
+    //            Non-PHP files (CSS/JSON/MO/PO/JS/images/fonts) skip the
+    //            DISALLOW_FILE_EDIT check but still require edit_themes.
+    //   * S-18 — Per-call caps: 5 MB per file, 1000 files per list,
+    //            50 MB per theme install zip.
+    //   * S-19 — Optimistic concurrency. When `expected_sha256` is
+    //            supplied on write, compare against the current file's
+    //            sha256 and return `sha_mismatch` (409) on drift.
+
+    /** Hard cap for theme file payloads (S-18). */
+    const THEME_FILE_MAX_BYTES = 5242880; // 5 MB
+
+    /** Hard cap for theme install zip payloads (S-18). */
+    const THEME_ZIP_MAX_BYTES = 52428800; // 50 MB
+
+    /** Hard cap for files per `theme_file_list` call (S-18). */
+    const THEME_LIST_MAX_FILES = 1000;
+
+    /**
+     * S-15 — Validate a theme slug against wp_get_themes().
+     *
+     * @param mixed $slug Raw input (URL param).
+     * @return string|WP_Error The slug on success, WP_Error on failure.
+     */
+    private function _validate_theme_slug($slug) {
+        if (!is_string($slug) || $slug === '') {
+            return new WP_Error(
+                'invalid_theme_slug',
+                __( 'theme_slug must be a non-empty string.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+        if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9_\-]{0,63}$/', $slug)) {
+            return new WP_Error(
+                'invalid_theme_slug',
+                __( 'theme_slug must be alphanumerics + dashes + underscores (<=64 chars).', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+        $themes = wp_get_themes();
+        if (!isset($themes[$slug])) {
+            return new WP_Error(
+                'theme_not_found',
+                sprintf(
+                    /* translators: %s is the theme slug. */
+                    __( 'No theme with slug %s installed.', 'airano-mcp-bridge' ),
+                    $slug
+                ),
+                ['status' => 404]
+            );
+        }
+        return $slug;
+    }
+
+    /**
+     * S-16 — Resolve a theme-relative path under wp-content/themes/{slug}.
+     *
+     * Returns the absolute path (real-resolved when the file exists,
+     * structurally validated when the file may not yet exist for
+     * write+create_dirs). Rejects any traversal that escapes the slug
+     * directory.
+     *
+     * @param string $slug   Theme slug (already validated by S-15).
+     * @param mixed  $path   Caller-supplied relative path.
+     * @param bool   $must_exist If true (default) the resolved path must
+     *                           exist; otherwise the parent directory
+     *                           tree is canonicalised and the candidate
+     *                           is returned for create-then-write.
+     * @return array|WP_Error On success: [
+     *     'absolute' => absolute path,
+     *     'relative' => normalised relative path,
+     *     'base'     => absolute slug directory,
+     *     'exists'   => bool,
+     * ].
+     */
+    private function _resolve_theme_file_path($slug, $path, $must_exist = true) {
+        if (!is_string($path) || $path === '') {
+            return new WP_Error(
+                'path_invalid',
+                __( 'path must be a non-empty string.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+        if (strpos($path, "\0") !== false) {
+            return new WP_Error(
+                'path_invalid',
+                __( 'path must not contain null bytes.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+        // Reject backslashes (Windows-style escapes) and absolute paths.
+        if (strpos($path, '\\') !== false) {
+            return new WP_Error(
+                'path_invalid',
+                __( 'path must use forward slashes only.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+        if ($path[0] === '/') {
+            return new WP_Error(
+                'path_invalid',
+                __( 'path must be theme-relative.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+        $segments = array_values(array_filter(explode('/', $path), function ($p) {
+            return $p !== '';
+        }));
+        foreach ($segments as $seg) {
+            if ($seg === '..') {
+                return new WP_Error(
+                    'path_invalid',
+                    __( 'path must not contain `..` segments.', 'airano-mcp-bridge' ),
+                    ['status' => 400]
+                );
+            }
+        }
+        if (empty($segments)) {
+            return new WP_Error(
+                'path_invalid',
+                __( 'path must reference a file, not the theme root.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+        $relative = implode('/', $segments);
+        $themes_root = WP_CONTENT_DIR . '/themes';
+        $base = realpath($themes_root . '/' . $slug);
+        if ($base === false) {
+            return new WP_Error(
+                'theme_not_found',
+                __( 'Theme directory does not exist on disk.', 'airano-mcp-bridge' ),
+                ['status' => 404]
+            );
+        }
+        $candidate = $base . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
+        $real = realpath($candidate);
+        if ($real !== false) {
+            // Path exists — confirm it stays inside $base.
+            $base_with_sep = rtrim($base, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+            if (strpos($real, $base_with_sep) !== 0 && $real !== $base) {
+                return new WP_Error(
+                    'path_invalid',
+                    __( 'path resolves outside the theme directory.', 'airano-mcp-bridge' ),
+                    ['status' => 400]
+                );
+            }
+            return [
+                'absolute' => $real,
+                'relative' => $relative,
+                'base'     => $base,
+                'exists'   => !is_dir($real),  // we want files; mark dirs as non-existent so callers reject them
+                'is_dir'   => is_dir($real),
+            ];
+        }
+        if ($must_exist) {
+            return new WP_Error(
+                'file_not_found',
+                __( 'No file at that path.', 'airano-mcp-bridge' ),
+                ['status' => 404]
+            );
+        }
+        // For writes the candidate may not exist yet — we must validate
+        // the deepest existing ancestor and confirm it is inside $base.
+        $ancestor = dirname($candidate);
+        $real_ancestor = realpath($ancestor);
+        while ($real_ancestor === false && $ancestor !== '.' && $ancestor !== DIRECTORY_SEPARATOR) {
+            $parent = dirname($ancestor);
+            if ($parent === $ancestor) {
+                break;
+            }
+            $ancestor = $parent;
+            $real_ancestor = realpath($ancestor);
+        }
+        if ($real_ancestor === false) {
+            return new WP_Error(
+                'path_invalid',
+                __( 'path does not resolve to a real ancestor.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+        $base_with_sep = rtrim($base, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+        if ($real_ancestor !== $base && strpos($real_ancestor, $base_with_sep) !== 0) {
+            return new WP_Error(
+                'path_invalid',
+                __( 'path resolves outside the theme directory.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+        return [
+            'absolute' => $candidate,
+            'relative' => $relative,
+            'base'     => $base,
+            'exists'   => false,
+            'is_dir'   => false,
+        ];
+    }
+
+    /**
+     * Best-effort mime detection — uses fileinfo when available, falls
+     * back to the WP-supplied list which keys off the extension.
+     */
+    private function _theme_file_mime($absolute) {
+        if (function_exists('mime_content_type')) {
+            $detected = @mime_content_type($absolute);
+            if (is_string($detected) && $detected !== '') {
+                return $detected;
+            }
+        }
+        $info = wp_check_filetype(basename($absolute));
+        if (!empty($info['type'])) {
+            return $info['type'];
+        }
+        return 'application/octet-stream';
+    }
+
+    /**
+     * Translate an fnmatch glob (with leading `**` support) into a
+     * suffix-aware predicate compatible with PHP's fnmatch().
+     *
+     * `**\/*.php`   → match every .php file at any depth
+     * `**\/*`       → match every file at any depth
+     * `*.css`       → match .css at any depth (interpreted permissively)
+     * literal       → exact relative-path match
+     */
+    private function _theme_glob_match($pattern, $relative) {
+        if ($pattern === '' || $pattern === '**/*') {
+            return true;
+        }
+        // fnmatch only handles a single `*` segment — strip a leading
+        // `**/` so the remaining pattern matches against any tail.
+        $tail = $pattern;
+        if (strpos($tail, '**/') === 0) {
+            $tail = substr($tail, 3);
+        } elseif ($tail === '**') {
+            return true;
+        }
+        // If `tail` has no slashes, match the basename anywhere; else
+        // match the full relative path.
+        if (strpos($tail, '/') === false) {
+            return fnmatch($tail, basename($relative));
+        }
+        return fnmatch($pattern, $relative) || fnmatch($tail, $relative);
+    }
+
+    /**
+     * Recursively walk a directory and append matching entries to
+     * &$entries until the cap is reached. Returns the (possibly
+     * truncated) entries array via reference; the boolean return value
+     * indicates whether the walk was truncated.
+     */
+    private function _theme_walk(
+        $dir,
+        $base,
+        $glob,
+        $max_files,
+        &$entries
+    ) {
+        $iter = @scandir($dir);
+        if ($iter === false) {
+            return false;
+        }
+        sort($iter);
+        foreach ($iter as $name) {
+            if ($name === '.' || $name === '..') {
+                continue;
+            }
+            if (count($entries) >= $max_files) {
+                return true;
+            }
+            $abs = $dir . DIRECTORY_SEPARATOR . $name;
+            if (is_link($abs)) {
+                // S-16 — never follow a symlink that escapes the base
+                // (defensive; theme dirs rarely contain symlinks).
+                $target = realpath($abs);
+                if ($target === false) {
+                    continue;
+                }
+                $base_with_sep = rtrim($base, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+                if (strpos($target, $base_with_sep) !== 0 && $target !== $base) {
+                    continue;
+                }
+            }
+            if (is_dir($abs)) {
+                $truncated = $this->_theme_walk($abs, $base, $glob, $max_files, $entries);
+                if ($truncated) {
+                    return true;
+                }
+                continue;
+            }
+            if (!is_file($abs)) {
+                continue;
+            }
+            $relative = ltrim(
+                str_replace(DIRECTORY_SEPARATOR, '/', substr($abs, strlen($base))),
+                '/'
+            );
+            if (!$this->_theme_glob_match($glob, $relative)) {
+                continue;
+            }
+            $size = @filesize($abs);
+            $modified = @filemtime($abs);
+            $sha = @hash_file('sha256', $abs);
+            $entries[] = [
+                'path'        => $relative,
+                'size'        => $size === false ? null : (int) $size,
+                'mime'        => $this->_theme_file_mime($abs),
+                'sha256'      => $sha === false ? null : $sha,
+                'modified_at' => $modified === false ? null : (int) $modified,
+            ];
+        }
+        return count($entries) >= $max_files;
+    }
+
+    /**
+     * S-17 — Decide whether a write to $relative is permitted given
+     * `edit_themes` (already checked by caller) plus the
+     * `DISALLOW_FILE_EDIT` constant for PHP files.
+     */
+    private function _theme_write_allowed($relative) {
+        $is_php = preg_match('/\.php$/i', $relative) === 1;
+        if ($is_php && defined('DISALLOW_FILE_EDIT') && DISALLOW_FILE_EDIT) {
+            return new WP_Error(
+                'file_edit_disabled',
+                __( 'PHP file edits are disabled (DISALLOW_FILE_EDIT) on this site.', 'airano-mcp-bridge' ),
+                ['status' => 403]
+            );
+        }
+        return true;
+    }
+
+    /**
+     * Lazy-load WP_Filesystem (Direct transport). Returns the global on
+     * success or a WP_Error if it could not be initialised.
+     */
+    private function _theme_filesystem() {
+        global $wp_filesystem;
+        if (!empty($wp_filesystem)) {
+            return $wp_filesystem;
+        }
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+        WP_Filesystem();
+        if (empty($wp_filesystem) || !is_object($wp_filesystem)) {
+            return new WP_Error(
+                'filesystem_unavailable',
+                __( 'WP_Filesystem could not be initialised.', 'airano-mcp-bridge' ),
+                ['status' => 500]
+            );
+        }
+        return $wp_filesystem;
+    }
+
+    /**
+     * POST /airano-mcp/v1/admin/themes/install
+     *
+     * Body: { zip_url? | zip_base64?, activate?, overwrite? }
+     */
+    public function handle_admin_theme_install(WP_REST_Request $request) {
+        if (!current_user_can('install_themes')) {
+            return new WP_Error('rest_forbidden', __( 'install_themes capability required.', 'airano-mcp-bridge' ), ['status' => 403]);
+        }
+        $params = $request->get_json_params();
+        if (!is_array($params)) {
+            return new WP_Error('invalid_body', __( 'Expected JSON body.', 'airano-mcp-bridge' ), ['status' => 400]);
+        }
+        $zip_url = isset($params['zip_url']) && is_string($params['zip_url']) ? $params['zip_url'] : '';
+        $zip_b64 = isset($params['zip_base64']) && is_string($params['zip_base64']) ? $params['zip_base64'] : '';
+        if ($zip_url === '' && $zip_b64 === '') {
+            return new WP_Error('invalid_body', __( 'zip_url or zip_base64 is required.', 'airano-mcp-bridge' ), ['status' => 400]);
+        }
+        if ($zip_url !== '' && $zip_b64 !== '') {
+            return new WP_Error('invalid_body', __( 'pass exactly one of zip_url or zip_base64.', 'airano-mcp-bridge' ), ['status' => 400]);
+        }
+        $activate = !empty($params['activate']);
+        $overwrite = !empty($params['overwrite']);
+
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+        require_once ABSPATH . 'wp-admin/includes/misc.php';
+        require_once ABSPATH . 'wp-admin/includes/theme.php';
+        require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
+        if (!class_exists('WP_Ajax_Upgrader_Skin')) {
+            require_once ABSPATH . 'wp-admin/includes/class-wp-ajax-upgrader-skin.php';
+        }
+
+        $tmp_path = '';
+        if ($zip_url !== '') {
+            $download = download_url($zip_url);
+            if (is_wp_error($download)) {
+                return $download;
+            }
+            $tmp_path = $download;
+        } else {
+            // S-18 — base64 decode size cap. Strict mode rejects invalid
+            // input rather than silently dropping bad characters.
+            $decoded = base64_decode($zip_b64, true);
+            if ($decoded === false) {
+                return new WP_Error('invalid_zip', __( 'zip_base64 is not valid base64.', 'airano-mcp-bridge' ), ['status' => 400]);
+            }
+            if (strlen($decoded) > self::THEME_ZIP_MAX_BYTES) {
+                return new WP_Error(
+                    'zip_too_large',
+                    sprintf(
+                        /* translators: %d is the byte cap. */
+                        __( 'Zip exceeds %d byte cap.', 'airano-mcp-bridge' ),
+                        self::THEME_ZIP_MAX_BYTES
+                    ),
+                    ['status' => 413]
+                );
+            }
+            $tmp_path = wp_tempnam('theme-install-');
+            if (!$tmp_path) {
+                return new WP_Error('tmpnam_failed', __( 'Could not allocate a temp file.', 'airano-mcp-bridge' ), ['status' => 500]);
+            }
+            $fs = $this->_theme_filesystem();
+            if (is_wp_error($fs)) {
+                @unlink($tmp_path);
+                return $fs;
+            }
+            if (!$fs->put_contents($tmp_path, $decoded, FS_CHMOD_FILE)) {
+                @unlink($tmp_path);
+                return new WP_Error('write_failed', __( 'Could not write temp zip.', 'airano-mcp-bridge' ), ['status' => 500]);
+            }
+        }
+
+        $skin = new WP_Ajax_Upgrader_Skin();
+        $upgrader = new Theme_Upgrader($skin);
+        $result = $upgrader->install($tmp_path, [
+            'overwrite_package' => (bool) $overwrite,
+        ]);
+        @unlink($tmp_path);
+
+        if (is_wp_error($result)) {
+            return $result;
+        }
+        if ($result === false) {
+            $errors = $skin->get_errors();
+            $msg = is_object($errors) && method_exists($errors, 'get_error_message')
+                ? $errors->get_error_message()
+                : __( 'Theme install failed.', 'airano-mcp-bridge' );
+            return new WP_Error('install_failed', $msg ?: __( 'Theme install failed.', 'airano-mcp-bridge' ), ['status' => 500]);
+        }
+
+        $info = $upgrader->theme_info();
+        $slug = '';
+        if ($info && is_object($info) && method_exists($info, 'get_stylesheet')) {
+            $slug = (string) $info->get_stylesheet();
+        }
+
+        $activated = false;
+        if ($activate && $slug !== '') {
+            if (!current_user_can('switch_themes')) {
+                return new WP_Error('rest_forbidden', __( 'switch_themes capability required to activate.', 'airano-mcp-bridge' ), ['status' => 403]);
+            }
+            switch_theme($slug);
+            $activated = (string) get_option('stylesheet') === $slug;
+        }
+
+        return rest_ensure_response([
+            'installed' => true,
+            'slug'      => $slug,
+            'activated' => $activated,
+        ]);
+    }
+
+    /**
+     * POST /airano-mcp/v1/admin/themes/{slug}/activate
+     */
+    public function handle_admin_theme_activate(WP_REST_Request $request) {
+        if (!current_user_can('switch_themes')) {
+            return new WP_Error('rest_forbidden', __( 'switch_themes capability required.', 'airano-mcp-bridge' ), ['status' => 403]);
+        }
+        $slug = $this->_validate_theme_slug($request['slug']);
+        if (is_wp_error($slug)) {
+            return $slug;
+        }
+        switch_theme($slug);
+        $stylesheet = (string) get_option('stylesheet');
+        $template = (string) get_option('template');
+        if ($stylesheet !== $slug) {
+            return new WP_Error(
+                'activation_failed',
+                __( 'Activation did not stick — check the theme has a valid style.css header.', 'airano-mcp-bridge' ),
+                ['status' => 500]
+            );
+        }
+        return rest_ensure_response([
+            'activated'  => true,
+            'stylesheet' => $stylesheet,
+            'template'   => $template,
+        ]);
+    }
+
+    /**
+     * DELETE /airano-mcp/v1/admin/themes/{slug}
+     */
+    public function handle_admin_theme_delete(WP_REST_Request $request) {
+        if (!current_user_can('delete_themes')) {
+            return new WP_Error('rest_forbidden', __( 'delete_themes capability required.', 'airano-mcp-bridge' ), ['status' => 403]);
+        }
+        $slug = $this->_validate_theme_slug($request['slug']);
+        if (is_wp_error($slug)) {
+            return $slug;
+        }
+        if ($slug === (string) get_option('stylesheet')) {
+            return new WP_Error('theme_active', __( 'Refusing to delete the active theme.', 'airano-mcp-bridge' ), ['status' => 409]);
+        }
+        if ($slug === (string) get_option('template')) {
+            return new WP_Error('theme_active', __( 'Refusing to delete the active parent theme.', 'airano-mcp-bridge' ), ['status' => 409]);
+        }
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+        require_once ABSPATH . 'wp-admin/includes/theme.php';
+        $deleted = delete_theme($slug);
+        if (is_wp_error($deleted)) {
+            return $deleted;
+        }
+        if ($deleted === false) {
+            return new WP_Error('delete_failed', __( 'Theme delete failed.', 'airano-mcp-bridge' ), ['status' => 500]);
+        }
+        return rest_ensure_response([
+            'deleted' => true,
+            'slug'    => $slug,
+        ]);
+    }
+
+    /**
+     * GET /airano-mcp/v1/admin/themes/files/{slug}
+     */
+    public function handle_admin_theme_file_list(WP_REST_Request $request) {
+        $slug = $this->_validate_theme_slug($request['slug']);
+        if (is_wp_error($slug)) {
+            return $slug;
+        }
+        $glob = $request->get_param('glob');
+        if (!is_string($glob) || $glob === '') {
+            $glob = '**/*';
+        }
+        $max_files = (int) $request->get_param('max_files');
+        if ($max_files <= 0) {
+            $max_files = self::THEME_LIST_MAX_FILES;
+        }
+        if ($max_files > self::THEME_LIST_MAX_FILES) {
+            $max_files = self::THEME_LIST_MAX_FILES;
+        }
+        $base = realpath(WP_CONTENT_DIR . '/themes/' . $slug);
+        if ($base === false) {
+            return new WP_Error('theme_not_found', __( 'Theme directory missing.', 'airano-mcp-bridge' ), ['status' => 404]);
+        }
+        $entries = [];
+        $truncated = $this->_theme_walk($base, $base, $glob, $max_files, $entries);
+        return rest_ensure_response([
+            'theme_slug' => $slug,
+            'count'      => count($entries),
+            'truncated'  => (bool) $truncated,
+            'glob'       => $glob,
+            'files'      => $entries,
+        ]);
+    }
+
+    /**
+     * GET /airano-mcp/v1/admin/themes/files/{slug}/{path}
+     */
+    public function handle_admin_theme_file_read(WP_REST_Request $request) {
+        $slug = $this->_validate_theme_slug($request['slug']);
+        if (is_wp_error($slug)) {
+            return $slug;
+        }
+        $resolved = $this->_resolve_theme_file_path($slug, $request['path'], true);
+        if (is_wp_error($resolved)) {
+            return $resolved;
+        }
+        if (!empty($resolved['is_dir'])) {
+            return new WP_Error('path_invalid', __( 'path refers to a directory.', 'airano-mcp-bridge' ), ['status' => 400]);
+        }
+        $absolute = $resolved['absolute'];
+        $size = filesize($absolute);
+        if ($size === false) {
+            return new WP_Error('read_failed', __( 'Could not stat file.', 'airano-mcp-bridge' ), ['status' => 500]);
+        }
+        if ($size > self::THEME_FILE_MAX_BYTES) {
+            return new WP_Error(
+                'file_too_large',
+                sprintf(
+                    /* translators: %d is the byte cap. */
+                    __( 'File exceeds %d byte cap.', 'airano-mcp-bridge' ),
+                    self::THEME_FILE_MAX_BYTES
+                ),
+                ['status' => 413]
+            );
+        }
+        $body = file_get_contents($absolute);
+        if ($body === false) {
+            return new WP_Error('read_failed', __( 'Could not read file.', 'airano-mcp-bridge' ), ['status' => 500]);
+        }
+        $sha = hash('sha256', $body);
+        $modified = filemtime($absolute);
+        return rest_ensure_response([
+            'theme_slug'      => $slug,
+            'path'            => $resolved['relative'],
+            'size'            => (int) $size,
+            'mime'            => $this->_theme_file_mime($absolute),
+            'sha256'          => $sha,
+            'modified_at'     => $modified === false ? null : (int) $modified,
+            'content_base64'  => base64_encode($body),
+        ]);
+    }
+
+    /**
+     * PUT /airano-mcp/v1/admin/themes/files/{slug}/{path}
+     */
+    public function handle_admin_theme_file_write(WP_REST_Request $request) {
+        if (!current_user_can('edit_themes')) {
+            return new WP_Error('rest_forbidden', __( 'edit_themes capability required.', 'airano-mcp-bridge' ), ['status' => 403]);
+        }
+        $slug = $this->_validate_theme_slug($request['slug']);
+        if (is_wp_error($slug)) {
+            return $slug;
+        }
+        $params = $request->get_json_params();
+        if (!is_array($params) || !isset($params['content_base64']) || !is_string($params['content_base64'])) {
+            return new WP_Error('invalid_body', __( 'content_base64 string is required.', 'airano-mcp-bridge' ), ['status' => 400]);
+        }
+        $create_dirs = !array_key_exists('create_dirs', $params) || !empty($params['create_dirs']);
+        $resolved = $this->_resolve_theme_file_path($slug, $request['path'], false);
+        if (is_wp_error($resolved)) {
+            return $resolved;
+        }
+        if (!empty($resolved['is_dir'])) {
+            return new WP_Error('path_invalid', __( 'path refers to a directory.', 'airano-mcp-bridge' ), ['status' => 400]);
+        }
+        $allowed = $this->_theme_write_allowed($resolved['relative']);
+        if (is_wp_error($allowed)) {
+            return $allowed;
+        }
+        $decoded = base64_decode($params['content_base64'], true);
+        if ($decoded === false) {
+            return new WP_Error('invalid_body', __( 'content_base64 is not valid base64.', 'airano-mcp-bridge' ), ['status' => 400]);
+        }
+        if (strlen($decoded) > self::THEME_FILE_MAX_BYTES) {
+            return new WP_Error(
+                'file_too_large',
+                sprintf(
+                    /* translators: %d is the byte cap. */
+                    __( 'Decoded body exceeds %d byte cap.', 'airano-mcp-bridge' ),
+                    self::THEME_FILE_MAX_BYTES
+                ),
+                ['status' => 413]
+            );
+        }
+        // S-19 — optimistic concurrency.
+        if (isset($params['expected_sha256']) && is_string($params['expected_sha256']) && $params['expected_sha256'] !== '') {
+            $expected = strtolower($params['expected_sha256']);
+            if (!preg_match('/^[0-9a-f]{64}$/', $expected)) {
+                return new WP_Error('invalid_body', __( 'expected_sha256 must be 64 hex chars.', 'airano-mcp-bridge' ), ['status' => 400]);
+            }
+            if ($resolved['exists']) {
+                $current = @hash_file('sha256', $resolved['absolute']);
+                if ($current === false || $current !== $expected) {
+                    return new WP_Error(
+                        'sha_mismatch',
+                        __( 'On-disk sha256 does not match expected_sha256.', 'airano-mcp-bridge' ),
+                        ['status' => 409]
+                    );
+                }
+            } else {
+                // Caller expected an existing file but none exists.
+                return new WP_Error(
+                    'sha_mismatch',
+                    __( 'expected_sha256 supplied but file does not exist.', 'airano-mcp-bridge' ),
+                    ['status' => 409]
+                );
+            }
+        }
+        // Create parent directories if requested.
+        $absolute = $resolved['absolute'];
+        $parent = dirname($absolute);
+        if (!is_dir($parent)) {
+            if (!$create_dirs) {
+                return new WP_Error('parent_missing', __( 'Parent directory does not exist; pass create_dirs=true to auto-create.', 'airano-mcp-bridge' ), ['status' => 409]);
+            }
+            if (!wp_mkdir_p($parent)) {
+                return new WP_Error('mkdir_failed', __( 'Could not create parent directories.', 'airano-mcp-bridge' ), ['status' => 500]);
+            }
+        }
+        $fs = $this->_theme_filesystem();
+        if (is_wp_error($fs)) {
+            return $fs;
+        }
+        if (!$fs->put_contents($absolute, $decoded, FS_CHMOD_FILE)) {
+            return new WP_Error('write_failed', __( 'Theme file write failed.', 'airano-mcp-bridge' ), ['status' => 500]);
+        }
+        $new_sha = hash('sha256', $decoded);
+        $modified = @filemtime($absolute);
+        return rest_ensure_response([
+            'theme_slug'  => $slug,
+            'path'        => $resolved['relative'],
+            'size'        => strlen($decoded),
+            'sha256'      => $new_sha,
+            'modified_at' => $modified === false ? null : (int) $modified,
+            'created'     => !$resolved['exists'],
+        ]);
+    }
+
+    /**
+     * DELETE /airano-mcp/v1/admin/themes/files/{slug}/{path}
+     */
+    public function handle_admin_theme_file_delete(WP_REST_Request $request) {
+        if (!current_user_can('edit_themes')) {
+            return new WP_Error('rest_forbidden', __( 'edit_themes capability required.', 'airano-mcp-bridge' ), ['status' => 403]);
+        }
+        $slug = $this->_validate_theme_slug($request['slug']);
+        if (is_wp_error($slug)) {
+            return $slug;
+        }
+        $resolved = $this->_resolve_theme_file_path($slug, $request['path'], true);
+        if (is_wp_error($resolved)) {
+            return $resolved;
+        }
+        if (!empty($resolved['is_dir'])) {
+            return new WP_Error('path_invalid', __( 'path refers to a directory; refusing to recurse.', 'airano-mcp-bridge' ), ['status' => 400]);
+        }
+        // Refuse to delete style.css of the active theme — it would
+        // break the front-end immediately.
+        $is_active = $slug === (string) get_option('stylesheet');
+        if ($is_active && strtolower($resolved['relative']) === 'style.css') {
+            return new WP_Error('refused', __( 'Refusing to delete style.css of the active theme.', 'airano-mcp-bridge' ), ['status' => 409]);
+        }
+        $allowed = $this->_theme_write_allowed($resolved['relative']);
+        if (is_wp_error($allowed)) {
+            return $allowed;
+        }
+        if (!@unlink($resolved['absolute'])) {
+            return new WP_Error('delete_failed', __( 'Theme file delete failed.', 'airano-mcp-bridge' ), ['status' => 500]);
+        }
+        return rest_ensure_response([
+            'deleted'    => true,
+            'theme_slug' => $slug,
+            'path'       => $resolved['relative'],
+        ]);
+    }
+
+    // ================================================================
+    // F.19.2.1 — Plugin write management
+    // ================================================================
+    //
+    // Security ruleset (extends F.19.7's S-15..S-19):
+    //
+    //   * S-15 (reused) — slug must match a key in get_plugins() for
+    //                     activate/deactivate/update/delete.
+    //   * S-18 (reused) — 50 MB cap on install zip payloads.
+    //   * S-20 — refuses to deactivate/delete the airano-mcp-bridge
+    //            companion itself. Doing so would brick the MCP
+    //            connection; operators must use the WP-Admin Plugins
+    //            page instead.
+    //   * S-21 — refuses to deactivate/delete plugins whose `Required`
+    //            header is `yes` (must-use plugins shipped by some
+    //            managed hosts).
+
+    /** Hard cap for plugin install zip payloads (S-18, mirrors theme zip). */
+    const PLUGIN_ZIP_MAX_BYTES = 52428800; // 50 MB
+
+    /** Slug of the companion itself — never deactivate/delete via this surface (S-20). */
+    const COMPANION_SLUG = 'airano-mcp-bridge';
+
+    /**
+     * Resolve a plugin slug to its plugin_file (e.g. "akismet/akismet.php").
+     *
+     * S-15 — also acts as the wp_get_themes() equivalent: a slug that
+     * doesn't appear in get_plugins() is rejected with `plugin_not_found`.
+     *
+     * @param mixed $slug Raw slug from URL/body.
+     * @return string|WP_Error plugin_file on success, WP_Error otherwise.
+     */
+    private function _resolve_plugin_file($slug) {
+        if (!is_string($slug) || $slug === '' || !preg_match('/^[A-Za-z0-9][A-Za-z0-9_\-]{0,63}$/', $slug)) {
+            return new WP_Error(
+                'invalid_plugin_slug',
+                __( 'slug must be alphanumerics + dashes + underscores (<=64 chars).', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+        if (!function_exists('get_plugins')) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+        $plugins = get_plugins();
+        // Two valid forms: dir/main.php (most common) or main.php (rare,
+        // for single-file plugins like Hello Dolly).
+        foreach ($plugins as $file => $_meta) {
+            $file_slug = (dirname($file) === '.') ? basename($file, '.php') : dirname($file);
+            if ($file_slug === $slug) {
+                return $file;
+            }
+        }
+        return new WP_Error(
+            'plugin_not_found',
+            sprintf(
+                /* translators: %s is the plugin slug. */
+                __( 'No installed plugin with slug %s.', 'airano-mcp-bridge' ),
+                $slug
+            ),
+            ['status' => 404]
+        );
+    }
+
+    /**
+     * S-21 — fetch plugin meta and refuse if `Required: yes`.
+     * Returns true on allow, WP_Error on refusal.
+     */
+    private function _plugin_not_required($plugin_file) {
+        $path = WP_PLUGIN_DIR . '/' . $plugin_file;
+        if (!is_file($path)) {
+            return true;  // can't read; let downstream handlers fail with the real reason
+        }
+        $data = get_plugin_data($path, false, false);
+        if (!empty($data['Required']) && strtolower((string) $data['Required']) === 'yes') {
+            return new WP_Error(
+                'plugin_required',
+                __( 'Plugin marked Required by this site; refusing to deactivate or delete.', 'airano-mcp-bridge' ),
+                ['status' => 409]
+            );
+        }
+        return true;
+    }
+
+    /**
+     * POST /airano-mcp/v1/admin/plugins/install
+     *
+     * Body shape A (slug install — install_plugins, install tier on MCPHub):
+     *   { "slug": "akismet", "activate"?: bool }
+     *
+     * Body shape B (zip install — install_plugins, admin tier on MCPHub):
+     *   { "zip_url"?: str | "zip_base64"?: str, "activate"?: bool, "overwrite"?: bool }
+     */
+    public function handle_admin_plugin_install(WP_REST_Request $request) {
+        if (!current_user_can('install_plugins')) {
+            return new WP_Error('rest_forbidden', __( 'install_plugins capability required.', 'airano-mcp-bridge' ), ['status' => 403]);
+        }
+        $params = $request->get_json_params();
+        if (!is_array($params)) {
+            return new WP_Error('invalid_body', __( 'Expected JSON body.', 'airano-mcp-bridge' ), ['status' => 400]);
+        }
+
+        $slug = isset($params['slug']) && is_string($params['slug']) ? $params['slug'] : '';
+        $zip_url = isset($params['zip_url']) && is_string($params['zip_url']) ? $params['zip_url'] : '';
+        $zip_b64 = isset($params['zip_base64']) && is_string($params['zip_base64']) ? $params['zip_base64'] : '';
+        $modes = (int) ($slug !== '') + (int) ($zip_url !== '') + (int) ($zip_b64 !== '');
+        if ($modes !== 1) {
+            return new WP_Error(
+                'invalid_body',
+                __( 'pass exactly one of slug, zip_url, or zip_base64.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+        $activate = !empty($params['activate']);
+        $overwrite = !empty($params['overwrite']);
+
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+        require_once ABSPATH . 'wp-admin/includes/misc.php';
+        require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        require_once ABSPATH . 'wp-admin/includes/plugin-install.php';
+        require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
+        if (!class_exists('WP_Ajax_Upgrader_Skin')) {
+            require_once ABSPATH . 'wp-admin/includes/class-wp-ajax-upgrader-skin.php';
+        }
+
+        $tmp_path = '';
+
+        if ($slug !== '') {
+            // Slug install — resolve the wp.org package URL and download.
+            if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9_\-]{0,63}$/', $slug)) {
+                return new WP_Error('invalid_plugin_slug', __( 'invalid slug.', 'airano-mcp-bridge' ), ['status' => 400]);
+            }
+            $info = plugins_api('plugin_information', [
+                'slug'   => $slug,
+                'fields' => ['short_description' => false, 'sections' => false, 'icons' => false],
+            ]);
+            if (is_wp_error($info)) {
+                return $info;
+            }
+            if (empty($info->download_link)) {
+                return new WP_Error(
+                    'wporg_no_download',
+                    __( 'wp.org returned no download link for that slug.', 'airano-mcp-bridge' ),
+                    ['status' => 502]
+                );
+            }
+            $download = download_url($info->download_link);
+            if (is_wp_error($download)) {
+                return $download;
+            }
+            $tmp_path = $download;
+        } elseif ($zip_url !== '') {
+            $download = download_url($zip_url);
+            if (is_wp_error($download)) {
+                return $download;
+            }
+            $tmp_path = $download;
+        } else {
+            // base64 install
+            $decoded = base64_decode($zip_b64, true);
+            if ($decoded === false) {
+                return new WP_Error('invalid_zip', __( 'zip_base64 is not valid base64.', 'airano-mcp-bridge' ), ['status' => 400]);
+            }
+            if (strlen($decoded) > self::PLUGIN_ZIP_MAX_BYTES) {
+                return new WP_Error(
+                    'zip_too_large',
+                    sprintf(
+                        /* translators: %d is the byte cap. */
+                        __( 'Zip exceeds %d byte cap.', 'airano-mcp-bridge' ),
+                        self::PLUGIN_ZIP_MAX_BYTES
+                    ),
+                    ['status' => 413]
+                );
+            }
+            $tmp_path = wp_tempnam('plugin-install-');
+            if (!$tmp_path) {
+                return new WP_Error('tmpnam_failed', __( 'Could not allocate a temp file.', 'airano-mcp-bridge' ), ['status' => 500]);
+            }
+            $fs = $this->_theme_filesystem();  // reuse helper from F.19.7
+            if (is_wp_error($fs)) {
+                @unlink($tmp_path);
+                return $fs;
+            }
+            if (!$fs->put_contents($tmp_path, $decoded, FS_CHMOD_FILE)) {
+                @unlink($tmp_path);
+                return new WP_Error('write_failed', __( 'Could not write temp zip.', 'airano-mcp-bridge' ), ['status' => 500]);
+            }
+        }
+
+        $skin = new WP_Ajax_Upgrader_Skin();
+        $upgrader = new Plugin_Upgrader($skin);
+        $result = $upgrader->install($tmp_path, [
+            'overwrite_package' => (bool) $overwrite,
+        ]);
+        @unlink($tmp_path);
+
+        if (is_wp_error($result)) {
+            return $result;
+        }
+        if ($result === false) {
+            $errors = $skin->get_errors();
+            $msg = is_object($errors) && method_exists($errors, 'get_error_message')
+                ? $errors->get_error_message()
+                : __( 'Plugin install failed.', 'airano-mcp-bridge' );
+            return new WP_Error('install_failed', $msg ?: __( 'Plugin install failed.', 'airano-mcp-bridge' ), ['status' => 500]);
+        }
+
+        // Resolve the installed plugin file so callers can chain.
+        $installed_file = (string) $upgrader->plugin_info();
+        $installed_slug = $installed_file !== ''
+            ? ((dirname($installed_file) === '.') ? basename($installed_file, '.php') : dirname($installed_file))
+            : '';
+
+        $activated = false;
+        if ($activate && $installed_file !== '') {
+            if (!current_user_can('activate_plugins')) {
+                return new WP_Error('rest_forbidden', __( 'activate_plugins capability required to activate.', 'airano-mcp-bridge' ), ['status' => 403]);
+            }
+            $err = activate_plugin($installed_file);
+            $activated = !is_wp_error($err);
+        }
+
+        return rest_ensure_response([
+            'installed'   => true,
+            'slug'        => $installed_slug,
+            'plugin_file' => $installed_file,
+            'activated'   => $activated,
+        ]);
+    }
+
+    /**
+     * POST /airano-mcp/v1/admin/plugins/{slug}/activate
+     */
+    public function handle_admin_plugin_activate(WP_REST_Request $request) {
+        if (!current_user_can('activate_plugins')) {
+            return new WP_Error('rest_forbidden', __( 'activate_plugins capability required.', 'airano-mcp-bridge' ), ['status' => 403]);
+        }
+        $plugin_file = $this->_resolve_plugin_file($request['slug']);
+        if (is_wp_error($plugin_file)) {
+            return $plugin_file;
+        }
+        $params = $request->get_json_params();
+        $network_wide = is_array($params) && !empty($params['network_wide']);
+        if ($network_wide && is_multisite() && !current_user_can('manage_network_plugins')) {
+            return new WP_Error('rest_forbidden', __( 'manage_network_plugins required for network-wide activation.', 'airano-mcp-bridge' ), ['status' => 403]);
+        }
+        if (!function_exists('activate_plugin')) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+        $err = activate_plugin($plugin_file, '', $network_wide);
+        if (is_wp_error($err)) {
+            return $err;
+        }
+        return rest_ensure_response([
+            'activated'    => is_plugin_active($plugin_file) || ($network_wide && is_plugin_active_for_network($plugin_file)),
+            'slug'         => (string) $request['slug'],
+            'plugin_file'  => $plugin_file,
+            'network_wide' => (bool) $network_wide,
+        ]);
+    }
+
+    /**
+     * POST /airano-mcp/v1/admin/plugins/{slug}/deactivate
+     */
+    public function handle_admin_plugin_deactivate(WP_REST_Request $request) {
+        if (!current_user_can('activate_plugins')) {
+            return new WP_Error('rest_forbidden', __( 'activate_plugins capability required.', 'airano-mcp-bridge' ), ['status' => 403]);
+        }
+        $slug = (string) $request['slug'];
+        // S-20: guard against deactivating the companion itself.
+        if ($slug === self::COMPANION_SLUG) {
+            return new WP_Error(
+                'companion_self',
+                __( 'Refusing to deactivate the Airano MCP Bridge companion via its own route — would brick the MCP connection. Use WP-Admin → Plugins instead.', 'airano-mcp-bridge' ),
+                ['status' => 409]
+            );
+        }
+        $plugin_file = $this->_resolve_plugin_file($slug);
+        if (is_wp_error($plugin_file)) {
+            return $plugin_file;
+        }
+        // S-21: refuse if header marks this plugin Required.
+        $req_check = $this->_plugin_not_required($plugin_file);
+        if (is_wp_error($req_check)) {
+            return $req_check;
+        }
+        $params = $request->get_json_params();
+        $network_wide = is_array($params) && !empty($params['network_wide']);
+        if (!function_exists('deactivate_plugins')) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+        deactivate_plugins([$plugin_file], false, $network_wide);
+        return rest_ensure_response([
+            'deactivated'  => !is_plugin_active($plugin_file),
+            'slug'         => $slug,
+            'plugin_file'  => $plugin_file,
+            'network_wide' => (bool) $network_wide,
+        ]);
+    }
+
+    /**
+     * POST /airano-mcp/v1/admin/plugins/{slug}/update
+     */
+    public function handle_admin_plugin_update(WP_REST_Request $request) {
+        if (!current_user_can('update_plugins')) {
+            return new WP_Error('rest_forbidden', __( 'update_plugins capability required.', 'airano-mcp-bridge' ), ['status' => 403]);
+        }
+        $plugin_file = $this->_resolve_plugin_file($request['slug']);
+        if (is_wp_error($plugin_file)) {
+            return $plugin_file;
+        }
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+        require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
+        if (!class_exists('WP_Ajax_Upgrader_Skin')) {
+            require_once ABSPATH . 'wp-admin/includes/class-wp-ajax-upgrader-skin.php';
+        }
+
+        // Refresh the cached update_plugins transient so the upgrader
+        // sees the latest available version.
+        wp_update_plugins();
+        $update_data = get_site_transient('update_plugins');
+        $has_update = isset($update_data->response[$plugin_file]);
+
+        if (!$has_update) {
+            return rest_ensure_response([
+                'up_to_date'  => true,
+                'updated'     => false,
+                'slug'        => (string) $request['slug'],
+                'plugin_file' => $plugin_file,
+            ]);
+        }
+
+        $skin = new WP_Ajax_Upgrader_Skin();
+        $upgrader = new Plugin_Upgrader($skin);
+        $result = $upgrader->upgrade($plugin_file);
+        if (is_wp_error($result)) {
+            return $result;
+        }
+        if ($result === false) {
+            $errors = $skin->get_errors();
+            $msg = is_object($errors) && method_exists($errors, 'get_error_message')
+                ? $errors->get_error_message()
+                : __( 'Plugin update failed.', 'airano-mcp-bridge' );
+            return new WP_Error('update_failed', $msg ?: __( 'Plugin update failed.', 'airano-mcp-bridge' ), ['status' => 500]);
+        }
+
+        // After upgrade, re-read the plugin meta for the new version.
+        $new_data = get_plugin_data(WP_PLUGIN_DIR . '/' . $plugin_file, false, false);
+        return rest_ensure_response([
+            'up_to_date'  => false,
+            'updated'     => true,
+            'slug'        => (string) $request['slug'],
+            'plugin_file' => $plugin_file,
+            'new_version' => isset($new_data['Version']) ? (string) $new_data['Version'] : null,
+        ]);
+    }
+
+    /**
+     * DELETE /airano-mcp/v1/admin/plugins/{slug}
+     */
+    // ================================================================
+    // F.19.6.A — Site config (identity + reading + permalinks)
+    // ================================================================
+
+    /**
+     * Validate that an attachment id refers to an existing media item.
+     * 0 is valid (means "clear"). Returns true on allow, WP_Error otherwise.
+     */
+    private function _validate_attachment_id($id, $field) {
+        if (!is_int($id) || $id < 0) {
+            return new WP_Error(
+                'invalid_attachment',
+                sprintf(
+                    /* translators: %s is the field name. */
+                    __( '%s must be a non-negative integer.', 'airano-mcp-bridge' ),
+                    $field
+                ),
+                ['status' => 400]
+            );
+        }
+        if ($id === 0) {
+            return true;
+        }
+        $post = get_post($id);
+        if (!$post || $post->post_type !== 'attachment') {
+            return new WP_Error(
+                'invalid_attachment',
+                sprintf(
+                    /* translators: %d is the attachment id. */
+                    __( 'No attachment with id %d.', 'airano-mcp-bridge' ),
+                    $id
+                ),
+                ['status' => 404]
+            );
+        }
+        return true;
+    }
+
+    /**
+     * Validate a page id refers to a published Page (or 0 to clear).
+     */
+    private function _validate_page_id($id, $field) {
+        if (!is_int($id) || $id < 0) {
+            return new WP_Error(
+                'invalid_page',
+                sprintf(
+                    __( '%s must be a non-negative integer.', 'airano-mcp-bridge' ),
+                    $field
+                ),
+                ['status' => 400]
+            );
+        }
+        if ($id === 0) {
+            return true;
+        }
+        $post = get_post($id);
+        if (!$post || $post->post_type !== 'page' || $post->post_status !== 'publish') {
+            return new WP_Error(
+                'invalid_page',
+                sprintf(
+                    __( '%s must reference a published Page (got id %d).', 'airano-mcp-bridge' ),
+                    $field,
+                    $id
+                ),
+                ['status' => 400]
+            );
+        }
+        return true;
+    }
+
+    /**
+     * GET /airano-mcp/v1/admin/site/identity
+     */
+    public function handle_admin_site_identity_get(WP_REST_Request $request) {
+        return rest_ensure_response([
+            'title'          => (string) get_option('blogname', ''),
+            'tagline'        => (string) get_option('blogdescription', ''),
+            'site_icon'      => (int) get_option('site_icon', 0),
+            'custom_logo'    => (int) get_theme_mod('custom_logo', 0),
+            'admin_email'    => (string) get_option('admin_email', ''),
+            'blog_charset'   => (string) get_option('blog_charset', 'UTF-8'),
+            'wp_version'     => function_exists('get_bloginfo') ? (string) get_bloginfo('version') : null,
+            'language'       => (string) get_option('WPLANG', get_locale()),
+            'timezone'       => (string) get_option('timezone_string', ''),
+            'siteurl'        => (string) get_option('siteurl', ''),
+            'home'           => (string) get_option('home', ''),
+        ]);
+    }
+
+    /**
+     * POST /airano-mcp/v1/admin/site/identity
+     * Body: { title?, tagline?, site_icon_id?, custom_logo_id? }
+     */
+    public function handle_admin_site_identity_set(WP_REST_Request $request) {
+        $params = $request->get_json_params();
+        if (!is_array($params) || empty($params)) {
+            return new WP_Error('invalid_body', __( 'Expected a non-empty JSON body.', 'airano-mcp-bridge' ), ['status' => 400]);
+        }
+        $changed = [];
+        if (array_key_exists('title', $params)) {
+            if (!is_string($params['title'])) {
+                return new WP_Error('invalid_title', __( 'title must be a string.', 'airano-mcp-bridge' ), ['status' => 400]);
+            }
+            update_option('blogname', sanitize_text_field($params['title']));
+            $changed[] = 'title';
+        }
+        if (array_key_exists('tagline', $params)) {
+            if (!is_string($params['tagline'])) {
+                return new WP_Error('invalid_tagline', __( 'tagline must be a string.', 'airano-mcp-bridge' ), ['status' => 400]);
+            }
+            update_option('blogdescription', sanitize_text_field($params['tagline']));
+            $changed[] = 'tagline';
+        }
+        if (array_key_exists('site_icon_id', $params)) {
+            $check = $this->_validate_attachment_id($params['site_icon_id'], 'site_icon_id');
+            if (is_wp_error($check)) {
+                return $check;
+            }
+            update_option('site_icon', (int) $params['site_icon_id']);
+            $changed[] = 'site_icon';
+        }
+        if (array_key_exists('custom_logo_id', $params)) {
+            $check = $this->_validate_attachment_id($params['custom_logo_id'], 'custom_logo_id');
+            if (is_wp_error($check)) {
+                return $check;
+            }
+            $logo_id = (int) $params['custom_logo_id'];
+            if ($logo_id === 0) {
+                remove_theme_mod('custom_logo');
+            } else {
+                set_theme_mod('custom_logo', $logo_id);
+            }
+            $changed[] = 'custom_logo';
+        }
+        if (empty($changed)) {
+            return new WP_Error('invalid_body', __( 'No supported fields supplied.', 'airano-mcp-bridge' ), ['status' => 400]);
+        }
+        return rest_ensure_response([
+            'updated' => $changed,
+            'identity' => [
+                'title'       => (string) get_option('blogname', ''),
+                'tagline'     => (string) get_option('blogdescription', ''),
+                'site_icon'   => (int) get_option('site_icon', 0),
+                'custom_logo' => (int) get_theme_mod('custom_logo', 0),
+            ],
+        ]);
+    }
+
+    /**
+     * GET /airano-mcp/v1/admin/site/reading
+     */
+    public function handle_admin_site_reading_get(WP_REST_Request $request) {
+        return rest_ensure_response([
+            'show_on_front'   => (string) get_option('show_on_front', 'posts'),
+            'page_on_front'   => (int) get_option('page_on_front', 0),
+            'page_for_posts'  => (int) get_option('page_for_posts', 0),
+            'posts_per_page'  => (int) get_option('posts_per_page', 10),
+            'posts_per_rss'   => (int) get_option('posts_per_rss', 10),
+            'blog_public'     => ((int) get_option('blog_public', 1)) === 1,
+        ]);
+    }
+
+    /**
+     * POST /airano-mcp/v1/admin/site/reading
+     */
+    public function handle_admin_site_reading_set(WP_REST_Request $request) {
+        $params = $request->get_json_params();
+        if (!is_array($params) || empty($params)) {
+            return new WP_Error('invalid_body', __( 'Expected a non-empty JSON body.', 'airano-mcp-bridge' ), ['status' => 400]);
+        }
+        $changed = [];
+        if (array_key_exists('show_on_front', $params)) {
+            if (!in_array($params['show_on_front'], ['posts', 'page'], true)) {
+                return new WP_Error(
+                    'invalid_show_on_front',
+                    __( "show_on_front must be 'posts' or 'page'.", 'airano-mcp-bridge' ),
+                    ['status' => 400]
+                );
+            }
+            update_option('show_on_front', $params['show_on_front']);
+            $changed[] = 'show_on_front';
+        }
+        if (array_key_exists('page_on_front', $params)) {
+            $check = $this->_validate_page_id($params['page_on_front'], 'page_on_front');
+            if (is_wp_error($check)) {
+                return $check;
+            }
+            update_option('page_on_front', (int) $params['page_on_front']);
+            $changed[] = 'page_on_front';
+        }
+        if (array_key_exists('page_for_posts', $params)) {
+            $check = $this->_validate_page_id($params['page_for_posts'], 'page_for_posts');
+            if (is_wp_error($check)) {
+                return $check;
+            }
+            update_option('page_for_posts', (int) $params['page_for_posts']);
+            $changed[] = 'page_for_posts';
+        }
+        if (array_key_exists('posts_per_page', $params)) {
+            if (!is_int($params['posts_per_page']) || $params['posts_per_page'] < 1 || $params['posts_per_page'] > 100) {
+                return new WP_Error(
+                    'invalid_posts_per_page',
+                    __( 'posts_per_page must be an integer between 1 and 100.', 'airano-mcp-bridge' ),
+                    ['status' => 400]
+                );
+            }
+            update_option('posts_per_page', (int) $params['posts_per_page']);
+            $changed[] = 'posts_per_page';
+        }
+        if (array_key_exists('posts_per_rss', $params)) {
+            if (!is_int($params['posts_per_rss']) || $params['posts_per_rss'] < 1 || $params['posts_per_rss'] > 100) {
+                return new WP_Error(
+                    'invalid_posts_per_rss',
+                    __( 'posts_per_rss must be an integer between 1 and 100.', 'airano-mcp-bridge' ),
+                    ['status' => 400]
+                );
+            }
+            update_option('posts_per_rss', (int) $params['posts_per_rss']);
+            $changed[] = 'posts_per_rss';
+        }
+        if (array_key_exists('blog_public', $params)) {
+            if (!is_bool($params['blog_public'])) {
+                return new WP_Error(
+                    'invalid_blog_public',
+                    __( 'blog_public must be a boolean.', 'airano-mcp-bridge' ),
+                    ['status' => 400]
+                );
+            }
+            update_option('blog_public', $params['blog_public'] ? 1 : 0);
+            $changed[] = 'blog_public';
+        }
+        if (empty($changed)) {
+            return new WP_Error('invalid_body', __( 'No supported fields supplied.', 'airano-mcp-bridge' ), ['status' => 400]);
+        }
+        // Re-emit the freshly-stored values so the caller can verify.
+        return rest_ensure_response([
+            'updated'  => $changed,
+            'reading'  => [
+                'show_on_front'  => (string) get_option('show_on_front', 'posts'),
+                'page_on_front'  => (int) get_option('page_on_front', 0),
+                'page_for_posts' => (int) get_option('page_for_posts', 0),
+                'posts_per_page' => (int) get_option('posts_per_page', 10),
+                'posts_per_rss'  => (int) get_option('posts_per_rss', 10),
+                'blog_public'    => ((int) get_option('blog_public', 1)) === 1,
+            ],
+        ]);
+    }
+
+    /**
+     * GET /airano-mcp/v1/admin/permalinks
+     */
+    public function handle_admin_permalinks_get(WP_REST_Request $request) {
+        return rest_ensure_response([
+            'structure'     => (string) get_option('permalink_structure', ''),
+            'category_base' => (string) get_option('category_base', ''),
+            'tag_base'      => (string) get_option('tag_base', ''),
+        ]);
+    }
+
+    /**
+     * POST /airano-mcp/v1/admin/permalinks
+     * Body: { structure, category_base?, tag_base? }
+     * Calls flush_rewrite_rules() after option writes.
+     */
+    public function handle_admin_permalinks_set(WP_REST_Request $request) {
+        $params = $request->get_json_params();
+        if (!is_array($params) || !array_key_exists('structure', $params)) {
+            return new WP_Error('invalid_body', __( 'structure is required (use "" for plain).', 'airano-mcp-bridge' ), ['status' => 400]);
+        }
+        if (!is_string($params['structure'])) {
+            return new WP_Error('invalid_structure', __( 'structure must be a string.', 'airano-mcp-bridge' ), ['status' => 400]);
+        }
+
+        // Ensure the rewrite-rule flush helpers are loaded.
+        require_once ABSPATH . 'wp-admin/includes/misc.php';
+
+        global $wp_rewrite;
+
+        $wp_rewrite->set_permalink_structure($params['structure']);
+
+        if (array_key_exists('category_base', $params)) {
+            if (!is_string($params['category_base']) || strlen($params['category_base']) > 64) {
+                return new WP_Error('invalid_category_base', __( 'category_base must be a string up to 64 chars.', 'airano-mcp-bridge' ), ['status' => 400]);
+            }
+            $wp_rewrite->set_category_base($params['category_base']);
+        }
+        if (array_key_exists('tag_base', $params)) {
+            if (!is_string($params['tag_base']) || strlen($params['tag_base']) > 64) {
+                return new WP_Error('invalid_tag_base', __( 'tag_base must be a string up to 64 chars.', 'airano-mcp-bridge' ), ['status' => 400]);
+            }
+            $wp_rewrite->set_tag_base($params['tag_base']);
+        }
+
+        // Hard flush so the rules table is rebuilt from scratch — same
+        // as clicking "Save Changes" on Settings → Permalinks.
+        flush_rewrite_rules(true);
+
+        return rest_ensure_response([
+            'flushed'       => true,
+            'structure'     => (string) get_option('permalink_structure', ''),
+            'category_base' => (string) get_option('category_base', ''),
+            'tag_base'      => (string) get_option('tag_base', ''),
+        ]);
+    }
+
+    public function handle_admin_plugin_delete(WP_REST_Request $request) {
+        if (!current_user_can('delete_plugins')) {
+            return new WP_Error('rest_forbidden', __( 'delete_plugins capability required.', 'airano-mcp-bridge' ), ['status' => 403]);
+        }
+        $slug = (string) $request['slug'];
+        // S-20: never delete the companion via its own route.
+        if ($slug === self::COMPANION_SLUG) {
+            return new WP_Error(
+                'companion_self',
+                __( 'Refusing to delete the Airano MCP Bridge companion via its own route. Use WP-Admin → Plugins instead.', 'airano-mcp-bridge' ),
+                ['status' => 409]
+            );
+        }
+        $plugin_file = $this->_resolve_plugin_file($slug);
+        if (is_wp_error($plugin_file)) {
+            return $plugin_file;
+        }
+        if (!function_exists('is_plugin_active')) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+        if (is_plugin_active($plugin_file) || is_plugin_active_for_network($plugin_file)) {
+            return new WP_Error(
+                'plugin_active',
+                __( 'Refusing to delete an active plugin. Deactivate it first.', 'airano-mcp-bridge' ),
+                ['status' => 409]
+            );
+        }
+        // S-21: header-marked Required plugins are off-limits for delete.
+        $req_check = $this->_plugin_not_required($plugin_file);
+        if (is_wp_error($req_check)) {
+            return $req_check;
+        }
+        $deleted = delete_plugins([$plugin_file]);
+        if (is_wp_error($deleted)) {
+            return $deleted;
+        }
+        if ($deleted === false || $deleted === null) {
+            return new WP_Error('delete_failed', __( 'Plugin delete failed.', 'airano-mcp-bridge' ), ['status' => 500]);
+        }
+        return rest_ensure_response([
+            'deleted'     => true,
+            'slug'        => $slug,
+            'plugin_file' => $plugin_file,
+        ]);
+    }
+
+    // ================================================================
+    // F.19.6.B — Site layout (menus + widgets + customizer)
+    // ================================================================
+
+    /**
+     * S-22: validate a nav-menu item's object reference.
+     *
+     * Dispatch by item ``type``:
+     *   - ``post_type`` → ``current_user_can('read_post', $object_id)``.
+     *     Refuses items pointing at posts the caller can't read.
+     *   - ``taxonomy``  → resolve term + taxonomy. Public taxonomies
+     *     are readable by everyone; non-public requires the taxonomy's
+     *     ``assign_terms`` cap. Deliberately NOT ``manage_categories``
+     *     (that's a write cap and would refuse routine editor flows).
+     *   - ``custom``    → no object_id; URL is sanitised separately.
+     */
+    private function _validate_menu_object_ref($type, $object, $object_id) {
+        if ($type === 'custom') {
+            return true;
+        }
+        $object_id = (int) $object_id;
+        if ($object_id <= 0) {
+            return new WP_Error(
+                'forbidden_object_id',
+                sprintf(__( 'object_id is required for %s items.', 'airano-mcp-bridge' ), $type),
+                ['status' => 400]
+            );
+        }
+        if ($type === 'post_type') {
+            $post = get_post($object_id);
+            if (!$post) {
+                return new WP_Error(
+                    'forbidden_object_id',
+                    sprintf(__( 'Post %d not found.', 'airano-mcp-bridge' ), $object_id),
+                    ['status' => 404]
+                );
+            }
+            if (!current_user_can('read_post', $object_id)) {
+                return new WP_Error(
+                    'forbidden_object_id',
+                    sprintf(__( 'Cannot read post %d.', 'airano-mcp-bridge' ), $object_id),
+                    ['status' => 403]
+                );
+            }
+            return true;
+        }
+        if ($type === 'taxonomy') {
+            $taxonomy = is_string($object) && $object !== '' ? $object : 'category';
+            $tax = get_taxonomy($taxonomy);
+            if (!$tax) {
+                return new WP_Error(
+                    'forbidden_object_id',
+                    sprintf(__( 'Unknown taxonomy %s.', 'airano-mcp-bridge' ), $taxonomy),
+                    ['status' => 400]
+                );
+            }
+            $term = get_term($object_id, $taxonomy);
+            if (is_wp_error($term) || !$term) {
+                return new WP_Error(
+                    'forbidden_object_id',
+                    sprintf(__( 'Term %d not found in taxonomy %s.', 'airano-mcp-bridge' ), $object_id, $taxonomy),
+                    ['status' => 404]
+                );
+            }
+            if (!empty($tax->public)) {
+                return true;
+            }
+            $cap = isset($tax->cap->assign_terms) ? $tax->cap->assign_terms : 'edit_posts';
+            if (!current_user_can($cap)) {
+                return new WP_Error(
+                    'forbidden_object_id',
+                    sprintf(__( 'Cannot reference term %d in non-public taxonomy %s.', 'airano-mcp-bridge' ), $object_id, $taxonomy),
+                    ['status' => 403]
+                );
+            }
+            return true;
+        }
+        return new WP_Error(
+            'forbidden_object_id',
+            sprintf(__( 'Unsupported menu item type %s.', 'airano-mcp-bridge' ), $type),
+            ['status' => 400]
+        );
+    }
+
+    /**
+     * GET /airano-mcp/v1/admin/menus
+     */
+    public function handle_admin_menus_list(WP_REST_Request $request) {
+        $menus = wp_get_nav_menus();
+        if (is_wp_error($menus)) {
+            return $menus;
+        }
+        $locations = get_nav_menu_locations();
+        $menu_to_location = [];
+        foreach ($locations as $loc => $mid) {
+            if (!isset($menu_to_location[$mid])) {
+                $menu_to_location[$mid] = [];
+            }
+            $menu_to_location[$mid][] = $loc;
+        }
+        $out = [];
+        foreach ($menus as $menu) {
+            $items = wp_get_nav_menu_items($menu->term_id);
+            $out[] = [
+                'id'         => (int) $menu->term_id,
+                'name'       => (string) $menu->name,
+                'slug'       => (string) $menu->slug,
+                'locations'  => isset($menu_to_location[$menu->term_id]) ? $menu_to_location[$menu->term_id] : [],
+                'item_count' => is_array($items) ? count($items) : 0,
+            ];
+        }
+        return rest_ensure_response(['menus' => $out]);
+    }
+
+    /**
+     * GET /airano-mcp/v1/admin/menus/{menu_id}
+     */
+    public function handle_admin_menu_get(WP_REST_Request $request) {
+        $menu_id = (int) $request['menu_id'];
+        $menu = wp_get_nav_menu_object($menu_id);
+        if (!$menu) {
+            return new WP_Error('menu_not_found', __( 'Menu not found.', 'airano-mcp-bridge' ), ['status' => 404]);
+        }
+        $items_raw = wp_get_nav_menu_items($menu_id);
+        if ($items_raw === false || $items_raw === null) {
+            $items_raw = [];
+        }
+        $items = [];
+        foreach ($items_raw as $it) {
+            $items[] = [
+                'id'        => (int) $it->ID,
+                'title'     => (string) $it->title,
+                'type'      => (string) $it->type,
+                'object'    => (string) $it->object,
+                'object_id' => (int) $it->object_id,
+                'parent'    => (int) $it->menu_item_parent,
+                'order'     => (int) $it->menu_order,
+                'url'       => (string) $it->url,
+                'target'    => (string) $it->target,
+                'classes'   => is_array($it->classes) ? array_values($it->classes) : [],
+                'xfn'       => (string) $it->xfn,
+            ];
+        }
+        return rest_ensure_response([
+            'id'    => (int) $menu->term_id,
+            'name'  => (string) $menu->name,
+            'slug'  => (string) $menu->slug,
+            'items' => $items,
+        ]);
+    }
+
+    /**
+     * PUT /airano-mcp/v1/admin/menus/{menu_id}
+     * Body: { items: [...], name? } — full replace, slug frozen.
+     * Two-pass: validate every item against S-22 first, then mutate.
+     */
+    public function handle_admin_menu_set(WP_REST_Request $request) {
+        $menu_id = (int) $request['menu_id'];
+        $menu = wp_get_nav_menu_object($menu_id);
+        if (!$menu) {
+            return new WP_Error('menu_not_found', __( 'Menu not found.', 'airano-mcp-bridge' ), ['status' => 404]);
+        }
+        $params = $request->get_json_params();
+        if (!is_array($params) || !isset($params['items']) || !is_array($params['items'])) {
+            return new WP_Error('invalid_body', __( 'items array is required.', 'airano-mcp-bridge' ), ['status' => 400]);
+        }
+        $items = $params['items'];
+        // ── Pass 1: validate every item up-front (S-22).
+        foreach ($items as $idx => $it) {
+            if (!is_array($it)) {
+                return new WP_Error('invalid_item', sprintf(__( 'items[%d] must be an object.', 'airano-mcp-bridge' ), $idx), ['status' => 400]);
+            }
+            $type = isset($it['type']) ? (string) $it['type'] : 'custom';
+            $object = isset($it['object']) ? (string) $it['object'] : '';
+            $object_id = isset($it['object_id']) ? (int) $it['object_id'] : 0;
+            $check = $this->_validate_menu_object_ref($type, $object, $object_id);
+            if (is_wp_error($check)) {
+                return $check;
+            }
+        }
+        // ── Optional rename (slug stays frozen — theme_location maps via slug).
+        if (array_key_exists('name', $params)) {
+            if (!is_string($params['name']) || trim($params['name']) === '') {
+                return new WP_Error('invalid_name', __( 'name must be a non-empty string.', 'airano-mcp-bridge' ), ['status' => 400]);
+            }
+            $rename = wp_update_nav_menu_object($menu_id, ['menu-name' => sanitize_text_field($params['name'])]);
+            if (is_wp_error($rename)) {
+                return $rename;
+            }
+        }
+        // ── Pass 2: write items.
+        require_once ABSPATH . 'wp-admin/includes/nav-menu.php';
+        $existing = wp_get_nav_menu_items($menu_id);
+        if ($existing === false || $existing === null) {
+            $existing = [];
+        }
+        $existing_ids = [];
+        foreach ($existing as $e) {
+            $existing_ids[(int) $e->ID] = true;
+        }
+        $kept_ids = [];
+        $created = 0;
+        $updated = 0;
+        foreach ($items as $idx => $it) {
+            $type = isset($it['type']) ? (string) $it['type'] : 'custom';
+            $object = isset($it['object']) ? (string) $it['object'] : '';
+            $object_id = isset($it['object_id']) ? (int) $it['object_id'] : 0;
+            $title = isset($it['title']) ? (string) $it['title'] : '';
+            $url = isset($it['url']) ? esc_url_raw($it['url']) : '';
+            $parent = isset($it['parent']) ? (int) $it['parent'] : 0;
+            $order = isset($it['order']) ? (int) $it['order'] : ($idx + 1);
+            $target = isset($it['target']) ? (string) $it['target'] : '';
+            $existing_item_id = isset($it['id']) ? (int) $it['id'] : 0;
+            $menu_item_data = [
+                'menu-item-title'      => sanitize_text_field($title),
+                'menu-item-type'       => $type,
+                'menu-item-object'     => $object,
+                'menu-item-object-id'  => $object_id,
+                'menu-item-parent-id'  => $parent,
+                'menu-item-position'   => $order,
+                'menu-item-url'        => $url,
+                'menu-item-target'     => $target,
+                'menu-item-status'     => 'publish',
+            ];
+            if ($existing_item_id > 0 && isset($existing_ids[$existing_item_id])) {
+                $rid = wp_update_nav_menu_item($menu_id, $existing_item_id, $menu_item_data);
+                if (is_wp_error($rid)) {
+                    return $rid;
+                }
+                $kept_ids[(int) $rid] = true;
+                $updated++;
+            } else {
+                $rid = wp_update_nav_menu_item($menu_id, 0, $menu_item_data);
+                if (is_wp_error($rid)) {
+                    return $rid;
+                }
+                $kept_ids[(int) $rid] = true;
+                $created++;
+            }
+        }
+        // ── Delete items no longer in the array.
+        $deleted = 0;
+        foreach (array_keys($existing_ids) as $eid) {
+            if (!isset($kept_ids[$eid])) {
+                $r = wp_delete_post($eid, true);
+                if ($r) {
+                    $deleted++;
+                }
+            }
+        }
+        return rest_ensure_response([
+            'id'      => $menu_id,
+            'created' => $created,
+            'updated' => $updated,
+            'deleted' => $deleted,
+            'total'   => count($items),
+        ]);
+    }
+
+    /**
+     * Detect whether a sidebar's existing widgets are all `block-N` (block-kind)
+     * or contain at least one legacy widget. Empty area falls back to the
+     * global ``wp_use_widgets_block_editor()`` signal.
+     */
+    private function _detect_widget_area_kind($widget_ids) {
+        if (is_array($widget_ids) && !empty($widget_ids)) {
+            foreach ($widget_ids as $wid) {
+                if (strpos((string) $wid, 'block-') !== 0) {
+                    return 'legacy';
+                }
+            }
+            return 'block';
+        }
+        return (function_exists('wp_use_widgets_block_editor') && wp_use_widgets_block_editor()) ? 'block' : 'legacy';
+    }
+
+    /**
+     * GET /airano-mcp/v1/admin/widgets/areas
+     */
+    public function handle_admin_widget_areas_list(WP_REST_Request $request) {
+        global $wp_registered_sidebars;
+        $sidebars_widgets = wp_get_sidebars_widgets();
+        $out = [];
+        if (is_array($wp_registered_sidebars)) {
+            foreach ($wp_registered_sidebars as $sidebar_id => $sidebar) {
+                $widget_ids = isset($sidebars_widgets[$sidebar_id]) ? $sidebars_widgets[$sidebar_id] : [];
+                $out[] = [
+                    'id'             => (string) $sidebar_id,
+                    'name'           => (string) (isset($sidebar['name']) ? $sidebar['name'] : $sidebar_id),
+                    'description'    => (string) (isset($sidebar['description']) ? $sidebar['description'] : ''),
+                    'theme_location' => (string) $sidebar_id,
+                    'widget_count'   => is_array($widget_ids) ? count($widget_ids) : 0,
+                    'kind'           => $this->_detect_widget_area_kind($widget_ids),
+                ];
+            }
+        }
+        return rest_ensure_response(['areas' => $out]);
+    }
+
+    /**
+     * GET /airano-mcp/v1/admin/widgets/{area_id}
+     */
+    public function handle_admin_widget_get(WP_REST_Request $request) {
+        $area_id = (string) $request['area_id'];
+        global $wp_registered_sidebars;
+        if (!is_array($wp_registered_sidebars) || !isset($wp_registered_sidebars[$area_id])) {
+            return new WP_Error('area_not_found', __( 'Widget area not found.', 'airano-mcp-bridge' ), ['status' => 404]);
+        }
+        $sidebars_widgets = wp_get_sidebars_widgets();
+        $widget_ids = isset($sidebars_widgets[$area_id]) ? $sidebars_widgets[$area_id] : [];
+        $kind = $this->_detect_widget_area_kind($widget_ids);
+        $widgets = [];
+        if (is_array($widget_ids)) {
+            foreach ($widget_ids as $wid) {
+                $wid_str = (string) $wid;
+                $parts = preg_split('/-(?=\d+$)/', $wid_str);
+                $base = isset($parts[0]) ? $parts[0] : $wid_str;
+                $num = isset($parts[1]) ? (int) $parts[1] : 0;
+                $opt = get_option('widget_' . $base, []);
+                $instance = is_array($opt) && isset($opt[$num]) ? $opt[$num] : [];
+                if ($base === 'block') {
+                    $raw = isset($instance['content']) ? (string) $instance['content'] : '';
+                    $widgets[] = [
+                        'id'     => $wid_str,
+                        'type'   => 'block',
+                        'blocks' => function_exists('parse_blocks') ? parse_blocks($raw) : [],
+                        'raw'    => $raw,
+                    ];
+                } else {
+                    $widgets[] = [
+                        'id'       => $wid_str,
+                        'type'     => $base,
+                        'settings' => is_array($instance) ? $instance : [],
+                    ];
+                }
+            }
+        }
+        return rest_ensure_response([
+            'area_id' => $area_id,
+            'kind'    => $kind,
+            'widgets' => $widgets,
+        ]);
+    }
+
+    /**
+     * Walk every other sidebar and collect the widget instances (keyed
+     * by integer index) currently in use. We need this to avoid orphaning
+     * shared widget instances when we rewrite a single area.
+     */
+    private function _other_sidebars_used_instances($sidebars_widgets, $skip_area_id, $base_prefix, $existing_option) {
+        $out = [];
+        $prefix_len = strlen($base_prefix);
+        foreach ($sidebars_widgets as $sid => $wids) {
+            if ($sid === $skip_area_id) continue;
+            if (!is_array($wids)) continue;
+            foreach ($wids as $wid) {
+                if (strpos((string) $wid, $base_prefix) === 0) {
+                    $n = (int) substr((string) $wid, $prefix_len);
+                    if (isset($existing_option[$n])) {
+                        $out[$n] = $existing_option[$n];
+                    }
+                }
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * PUT /airano-mcp/v1/admin/widgets/{area_id}
+     * Body: { widgets: [...] } — full replace. Block-kind areas accept
+     * any widget with ``raw`` (block HTML, sanitised via wp_kses_post per
+     * S-23 unless caller has unfiltered_html). Legacy-kind areas accept
+     * ``text`` widget settings only this round; other legacy types are
+     * read-only and return ``unsupported_legacy_widget``. Any caller-side
+     * ``kind`` field in the body is ignored — area kind is determined by
+     * the area itself, not the request.
+     */
+    public function handle_admin_widget_set(WP_REST_Request $request) {
+        $area_id = (string) $request['area_id'];
+        global $wp_registered_sidebars;
+        if (!is_array($wp_registered_sidebars) || !isset($wp_registered_sidebars[$area_id])) {
+            return new WP_Error('area_not_found', __( 'Widget area not found.', 'airano-mcp-bridge' ), ['status' => 404]);
+        }
+        $params = $request->get_json_params();
+        if (!is_array($params) || !isset($params['widgets']) || !is_array($params['widgets'])) {
+            return new WP_Error('invalid_body', __( 'widgets array is required.', 'airano-mcp-bridge' ), ['status' => 400]);
+        }
+        $widgets_in = $params['widgets'];
+        $sidebars_widgets = wp_get_sidebars_widgets();
+        $existing_ids = isset($sidebars_widgets[$area_id]) ? $sidebars_widgets[$area_id] : [];
+        $area_kind = $this->_detect_widget_area_kind($existing_ids);
+        $can_raw_html = current_user_can('unfiltered_html');
+        // ── Pass 1: validate every widget shape up-front.
+        foreach ($widgets_in as $idx => $w) {
+            if (!is_array($w)) {
+                return new WP_Error('invalid_widget', sprintf(__( 'widgets[%d] must be an object.', 'airano-mcp-bridge' ), $idx), ['status' => 400]);
+            }
+            $type = isset($w['type']) ? (string) $w['type'] : '';
+            if ($area_kind === 'block') {
+                if ($type !== '' && $type !== 'block') {
+                    return new WP_Error('invalid_widget', sprintf(__( 'Block-kind area accepts only `block` widgets (widgets[%d] has type=%s).', 'airano-mcp-bridge' ), $idx, $type), ['status' => 400]);
+                }
+            } else {
+                if ($type !== 'text') {
+                    return new WP_Error('unsupported_legacy_widget', sprintf(__( 'F.19.6.B writes legacy widgets of type `text` only (widgets[%d] has type=%s). Other legacy types are read-only.', 'airano-mcp-bridge' ), $idx, $type), ['status' => 400]);
+                }
+            }
+        }
+        // ── Pass 2: write.
+        if ($area_kind === 'block') {
+            $existing_block = get_option('widget_block', []);
+            if (!is_array($existing_block)) {
+                $existing_block = [];
+            }
+            $next_num = 2;
+            foreach (array_keys($existing_block) as $k) {
+                if (is_int($k) && $k >= $next_num) {
+                    $next_num = $k + 1;
+                }
+            }
+            $new_widget_ids = [];
+            $new_block_option = [];
+            foreach ($widgets_in as $w) {
+                $raw = isset($w['raw']) ? (string) $w['raw'] : '';
+                if ($raw === '' && isset($w['blocks']) && is_array($w['blocks']) && function_exists('serialize_blocks')) {
+                    $raw = serialize_blocks($w['blocks']);
+                }
+                $sanitised = $can_raw_html ? $raw : wp_kses_post($raw);
+                $new_block_option[$next_num] = ['content' => $sanitised];
+                $new_widget_ids[] = 'block-' . $next_num;
+                $next_num++;
+            }
+            $other_used = $this->_other_sidebars_used_instances($sidebars_widgets, $area_id, 'block-', $existing_block);
+            $final_block = $other_used + $new_block_option;
+            $final_block['_multiwidget'] = 1;
+            update_option('widget_block', $final_block);
+            $sidebars_widgets[$area_id] = $new_widget_ids;
+            wp_set_sidebars_widgets($sidebars_widgets);
+            return rest_ensure_response([
+                'area_id' => $area_id,
+                'kind'    => 'block',
+                'count'   => count($new_widget_ids),
+            ]);
+        }
+        // Legacy text-only path.
+        $existing_text = get_option('widget_text', []);
+        if (!is_array($existing_text)) {
+            $existing_text = [];
+        }
+        $next_num = 2;
+        foreach (array_keys($existing_text) as $k) {
+            if (is_int($k) && $k >= $next_num) {
+                $next_num = $k + 1;
+            }
+        }
+        $new_widget_ids = [];
+        $new_text_option = [];
+        foreach ($widgets_in as $w) {
+            $settings = isset($w['settings']) && is_array($w['settings']) ? $w['settings'] : [];
+            $title = isset($settings['title']) ? sanitize_text_field((string) $settings['title']) : '';
+            $text = isset($settings['text']) ? (string) $settings['text'] : '';
+            $sanitised_text = $can_raw_html ? $text : wp_kses_post($text);
+            $filter = isset($settings['filter']) ? (bool) $settings['filter'] : false;
+            $visual = isset($settings['visual']) ? (bool) $settings['visual'] : true;
+            $new_text_option[$next_num] = [
+                'title'  => $title,
+                'text'   => $sanitised_text,
+                'filter' => $filter,
+                'visual' => $visual,
+            ];
+            $new_widget_ids[] = 'text-' . $next_num;
+            $next_num++;
+        }
+        $other_used = $this->_other_sidebars_used_instances($sidebars_widgets, $area_id, 'text-', $existing_text);
+        $final_text = $other_used + $new_text_option;
+        $final_text['_multiwidget'] = 1;
+        update_option('widget_text', $final_text);
+        $sidebars_widgets[$area_id] = $new_widget_ids;
+        wp_set_sidebars_widgets($sidebars_widgets);
+        return rest_ensure_response([
+            'area_id' => $area_id,
+            'kind'    => 'legacy',
+            'count'   => count($new_widget_ids),
+        ]);
+    }
+
+    /**
+     * POST /airano-mcp/v1/admin/customizer/changeset
+     * Body: { action: get|apply|discard }
+     *
+     * S-24: ``apply`` requires the ``customize`` cap (not just
+     * ``manage_options`` — same bar as /wp-admin/customize.php).
+     * Empty changeset returns ``status: empty`` 200, not 404 — easier
+     * for callers that poll without first probing existence.
+     */
+    public function handle_admin_customizer_changeset(WP_REST_Request $request) {
+        $params = $request->get_json_params();
+        $action = isset($params['action']) ? (string) $params['action'] : '';
+        if (!in_array($action, ['get', 'apply', 'discard'], true)) {
+            return new WP_Error('invalid_action', __( 'action must be one of get|apply|discard.', 'airano-mcp-bridge' ), ['status' => 400]);
+        }
+        if ($action === 'apply' && !current_user_can('customize')) {
+            return new WP_Error('rest_forbidden', __( 'customize capability required to apply a customizer changeset.', 'airano-mcp-bridge' ), ['status' => 403]);
+        }
+        $posts = get_posts([
+            'post_type'   => 'customize_changeset',
+            'post_status' => ['draft', 'auto-draft', 'pending', 'future'],
+            'numberposts' => 1,
+            'orderby'     => 'modified',
+            'order'       => 'DESC',
+        ]);
+        if (empty($posts)) {
+            return rest_ensure_response(['status' => 'empty', 'changeset' => null]);
+        }
+        $changeset = $posts[0];
+        if ($action === 'get') {
+            $data = json_decode($changeset->post_content, true);
+            if (!is_array($data)) {
+                $data = [];
+            }
+            return rest_ensure_response([
+                'status'   => 'pending',
+                'id'       => (int) $changeset->ID,
+                'uuid'     => (string) $changeset->post_name,
+                'modified' => (string) $changeset->post_modified_gmt,
+                'data'     => $data,
+            ]);
+        }
+        if ($action === 'discard') {
+            $deleted = wp_delete_post($changeset->ID, true);
+            if (!$deleted) {
+                return new WP_Error('discard_failed', __( 'Failed to delete changeset.', 'airano-mcp-bridge' ), ['status' => 500]);
+            }
+            return rest_ensure_response([
+                'status' => 'discarded',
+                'id'     => (int) $changeset->ID,
+            ]);
+        }
+        // action === 'apply'
+        require_once ABSPATH . WPINC . '/class-wp-customize-manager.php';
+        $manager = new WP_Customize_Manager(['changeset_uuid' => $changeset->post_name]);
+        $result = $manager->save_changeset_post(['status' => 'publish']);
+        if (is_wp_error($result)) {
+            return $result;
+        }
+        return rest_ensure_response([
+            'status' => 'applied',
+            'id'     => (int) $changeset->ID,
+        ]);
+    }
+
+    /**
+     * GET /airano-mcp/v1/admin/db/size
+     *
+     * Single ``information_schema.TABLES`` aggregation scoped to the
+     * current WP database + the WP table prefix. Returns
+     * ``{database_bytes, table_count, row_count_estimate}`` — caller
+     * never picks the SQL, so there is no injection surface (S-25).
+     * ``row_count_estimate`` mirrors MySQL's own caveat: InnoDB row
+     * counts are estimates, not exact. F.19.3.2.
+     */
+    public function handle_admin_db_size(WP_REST_Request $request) {
+        global $wpdb;
+        $like = $wpdb->esc_like($wpdb->prefix) . '%';
+        $row = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT
+                    COALESCE(SUM(data_length + index_length), 0) AS total_bytes,
+                    COUNT(*)                                     AS table_count,
+                    COALESCE(SUM(table_rows), 0)                 AS row_count
+                 FROM information_schema.TABLES
+                 WHERE table_schema = %s
+                   AND table_name LIKE %s",
+                DB_NAME,
+                $like
+            ),
+            ARRAY_A
+        );
+        if (!is_array($row)) {
+            return new WP_Error(
+                'db_size_query_failed',
+                __( 'Failed to read information_schema.TABLES.', 'airano-mcp-bridge' ),
+                ['status' => 500]
+            );
+        }
+        return rest_ensure_response([
+            'database_bytes'      => (int) $row['total_bytes'],
+            'table_count'         => (int) $row['table_count'],
+            'row_count_estimate'  => (int) $row['row_count'],
+            'database_name'       => DB_NAME,
+            'table_prefix'        => $wpdb->prefix,
+        ]);
+    }
+
+    /**
+     * GET /airano-mcp/v1/admin/db/tables
+     *
+     * Per-WP-table breakdown from ``information_schema.TABLES``. Same
+     * source as ``/admin/db/size`` but one row per table. Useful for
+     * "which table is the bloat?" debugging. ``rows`` is an estimate
+     * for InnoDB. F.19.3.2.
+     */
+    public function handle_admin_db_tables(WP_REST_Request $request) {
+        global $wpdb;
+        $like = $wpdb->esc_like($wpdb->prefix) . '%';
+        $rows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT
+                    table_name,
+                    engine,
+                    table_rows,
+                    data_length,
+                    index_length,
+                    (data_length + index_length) AS total_bytes,
+                    table_collation
+                 FROM information_schema.TABLES
+                 WHERE table_schema = %s
+                   AND table_name LIKE %s
+                 ORDER BY (data_length + index_length) DESC",
+                DB_NAME,
+                $like
+            ),
+            ARRAY_A
+        );
+        if (!is_array($rows)) {
+            return new WP_Error(
+                'db_tables_query_failed',
+                __( 'Failed to read information_schema.TABLES.', 'airano-mcp-bridge' ),
+                ['status' => 500]
+            );
+        }
+        $out = [];
+        foreach ($rows as $r) {
+            $out[] = [
+                'name'        => (string) $r['table_name'],
+                'engine'      => $r['engine'] !== null ? (string) $r['engine'] : null,
+                'rows'        => (int) $r['table_rows'],
+                'data_bytes'  => (int) $r['data_length'],
+                'index_bytes' => (int) $r['index_length'],
+                'total_bytes' => (int) $r['total_bytes'],
+                'collation'   => $r['table_collation'] !== null ? (string) $r['table_collation'] : null,
+            ];
+        }
+        return rest_ensure_response([
+            'database_name' => DB_NAME,
+            'table_prefix'  => $wpdb->prefix,
+            'tables'        => $out,
+        ]);
+    }
+
+    /**
+     * POST /airano-mcp/v1/admin/db/search
+     * Body: { query, post_type?, status?, limit? }
+     *
+     * Wraps ``WP_Query`` with ``s=$query`` — never raw SQL (S-25).
+     * ``query`` is sanitised via ``sanitize_text_field`` and capped at
+     * 200 chars; ``limit`` is capped at 100. ``WP_Query``'s own
+     * ``posts_clauses`` filter (the same one the WP search page uses)
+     * keeps non-readable posts (private/draft from other authors) out
+     * of the result set. F.19.3.3.
+     */
+    public function handle_admin_db_search(WP_REST_Request $request) {
+        $params = $request->get_json_params();
+        if (!is_array($params)) {
+            $params = [];
+        }
+        $query_raw = isset($params['query']) ? (string) $params['query'] : '';
+        $query     = sanitize_text_field(wp_unslash($query_raw));
+        if (strlen($query) > 200) {
+            $query = substr($query, 0, 200);
+        }
+        if ($query === '') {
+            return new WP_Error(
+                'invalid_query',
+                __( 'query is required and must be a non-empty string after sanitisation.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+
+        $limit = isset($params['limit']) ? (int) $params['limit'] : 20;
+        if ($limit < 1) {
+            $limit = 1;
+        }
+        if ($limit > 100) {
+            $limit = 100;
+        }
+
+        $args = [
+            's'              => $query,
+            'posts_per_page' => $limit,
+            'post_status'    => 'any',
+            'no_found_rows'  => true,
+        ];
+        if (isset($params['post_type']) && $params['post_type'] !== '') {
+            $pt_in = $params['post_type'];
+            if (is_array($pt_in)) {
+                $pt = array_values(array_filter(array_map('sanitize_key', $pt_in)));
+            } else {
+                $pt = sanitize_key((string) $pt_in);
+            }
+            $args['post_type'] = $pt;
+        } else {
+            $args['post_type'] = 'any';
+        }
+        if (isset($params['status']) && $params['status'] !== '') {
+            $st_in = $params['status'];
+            if (is_array($st_in)) {
+                $args['post_status'] = array_values(array_filter(array_map('sanitize_key', $st_in)));
+            } else {
+                $args['post_status'] = sanitize_key((string) $st_in);
+            }
+        }
+
+        $q = new WP_Query($args);
+        $hits = [];
+        foreach ($q->posts as $p) {
+            $excerpt = has_excerpt($p) ? $p->post_excerpt : wp_trim_words(wp_strip_all_tags($p->post_content), 30, '…');
+            $hits[] = [
+                'id'        => (int) $p->ID,
+                'post_type' => (string) $p->post_type,
+                'status'    => (string) $p->post_status,
+                'title'     => (string) $p->post_title,
+                'snippet'   => (string) $excerpt,
+                'url'       => (string) get_permalink($p),
+                'modified'  => (string) $p->post_modified_gmt,
+            ];
+        }
+        return rest_ensure_response([
+            'query' => $query,
+            'limit' => $limit,
+            'count' => count($hits),
+            'hits'  => $hits,
+        ]);
     }
 }
 

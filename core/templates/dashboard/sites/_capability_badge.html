@@ -19,7 +19,7 @@ Required context:
   companion_download_url — string, may be empty
 #}
 {% set fit_status = capability_probe.fit.status %}
-{% set is_wp = site.plugin_type in ['wordpress', 'wordpress_advanced'] %}
+{% set is_wp = site.plugin_type == 'wordpress' %}
 {% set is_wc = site.plugin_type == 'woocommerce' %}
 {% set is_wp_like = is_wp or is_wc %}
 {% set ai_providers = capability_probe.ai_providers_configured or [] %}

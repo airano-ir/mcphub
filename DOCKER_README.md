@@ -94,7 +94,7 @@ Use the most specific endpoint for your use case:
 | `/{plugin}/mcp` | 23-101 | Yes | Multi-site management |
 | `/mcp` | 633 | Yes | Admin & discovery only |
 
-Available plugin endpoints: `/wordpress/mcp`, `/woocommerce/mcp`, `/wordpress-advanced/mcp`, `/gitea/mcp`, `/n8n/mcp`, `/supabase/mcp`, `/openpanel/mcp`, `/appwrite/mcp`, `/directus/mcp`, `/system/mcp`
+Available plugin endpoints: `/wordpress/mcp`, `/woocommerce/mcp`, `/wordpress-specialist/mcp`, `/gitea/mcp`, `/n8n/mcp`, `/supabase/mcp`, `/openpanel/mcp`, `/appwrite/mcp`, `/directus/mcp`, `/system/mcp`
 
 ## Using Docker Compose
 
@@ -166,7 +166,7 @@ Add more sites with `SITE2`, `SITE3`, etc. See [full configuration guide](https:
 |--------|-------|------------|
 | WordPress | 67 | `WORDPRESS_` |
 | WooCommerce | 28 | `WOOCOMMERCE_` |
-| WordPress Advanced | 22 | `WORDPRESS_ADVANCED_` |
+| WordPress Specialist | 51 | (DB-managed via dashboard) |
 | Gitea | 56 | `GITEA_` |
 | n8n | 56 | `N8N_` |
 | Supabase | 70 | `SUPABASE_` |

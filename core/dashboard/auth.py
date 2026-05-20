@@ -316,7 +316,7 @@ class DashboardAuth:
             if request.url.query:
                 next_url += f"?{request.url.query}"
             return RedirectResponse(
-                url=f"/auth/login?next={next_url}",
+                url=f"/dashboard/login?next={next_url}",
                 status_code=303,
             )
         return None

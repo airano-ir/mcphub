@@ -13,6 +13,8 @@ from .routes import (
     # K.3: API Keys routes
     dashboard_api_keys_list,
     dashboard_api_keys_revoke,
+    # K.1: Core routes
+    dashboard_api_login,
     dashboard_api_project_detail,
     dashboard_api_projects,
     dashboard_api_stats,
@@ -22,7 +24,6 @@ from .routes import (
     dashboard_health_page,
     dashboard_health_projects_partial,
     dashboard_home,
-    # K.1: Core routes
     dashboard_login_page,
     dashboard_login_submit,
     dashboard_logout,
@@ -44,6 +45,7 @@ __all__ = [
     "get_dashboard_auth",
     "register_dashboard_routes",
     # K.1
+    "dashboard_api_login",
     "dashboard_login_page",
     "dashboard_login_submit",
     "dashboard_logout",

@@ -2,36 +2,152 @@
 
 {% block title %}{{ t.page_title }}{% endblock %}
 
+{% block extra_head %}
+<style>
+    .oauth-consent-shell {
+        min-height: calc(100vh - 96px);
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background:
+            radial-gradient(circle at 20% 0%, rgba(34, 197, 94, 0.10), transparent 30%),
+            linear-gradient(180deg, rgba(15, 23, 42, 0.04), transparent 48%);
+    }
+    html[data-theme="dark"] .oauth-consent-shell {
+        background:
+            radial-gradient(circle at 20% 0%, rgba(34, 197, 94, 0.12), transparent 30%),
+            linear-gradient(180deg, rgba(148, 163, 184, 0.08), transparent 48%);
+    }
+    .oauth-consent-card {
+        width: min(760px, 100%);
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.96);
+        box-shadow: 0 24px 80px rgba(15, 23, 42, 0.14);
+        overflow: hidden;
+    }
+    .dark .oauth-consent-card {
+        background: rgba(15, 23, 42, 0.96);
+        border-color: rgba(71, 85, 105, 0.55);
+    }
+    .oauth-consent-header {
+        display: flex;
+        gap: 16px;
+        align-items: flex-start;
+        padding: 28px;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+    }
+    html[dir="rtl"] .oauth-consent-header { flex-direction: row-reverse; text-align: right; }
+    .oauth-consent-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        background: rgba(59, 130, 246, 0.10);
+        color: rgb(37, 99, 235);
+        border: 1px solid rgba(59, 130, 246, 0.22);
+        flex-shrink: 0;
+    }
+    .oauth-consent-body {
+        padding: 24px 28px 28px;
+        display: grid;
+        gap: 18px;
+    }
+    .oauth-info-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 10px;
+        padding: 14px;
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        border-radius: 12px;
+        background: rgba(248, 250, 252, 0.82);
+    }
+    .dark .oauth-info-grid { background: rgba(30, 41, 59, 0.64); }
+    .oauth-row {
+        display: grid;
+        grid-template-columns: 140px minmax(0, 1fr);
+        gap: 12px;
+        align-items: center;
+        font-size: 13px;
+    }
+    .oauth-label { color: rgb(100, 116, 139); font-weight: 600; }
+    .dark .oauth-label { color: rgb(148, 163, 184); }
+    .oauth-value {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 12px;
+        word-break: break-all;
+        color: rgb(15, 23, 42);
+    }
+    .dark .oauth-value { color: rgb(226, 232, 240); }
+    html[dir="rtl"] .oauth-value { direction: ltr; text-align: left; }
+    .oauth-scope-list { display: flex; flex-wrap: wrap; gap: 8px; }
+    .oauth-scope {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border-radius: 999px;
+        border: 1px solid rgba(59, 130, 246, 0.22);
+        background: rgba(59, 130, 246, 0.09);
+        padding: 7px 10px;
+        font-size: 12px;
+        font-weight: 600;
+        color: rgb(30, 64, 175);
+    }
+    .dark .oauth-scope { color: rgb(147, 197, 253); }
+    .oauth-panel {
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        border-radius: 12px;
+        padding: 14px;
+        background: rgba(248, 250, 252, 0.72);
+    }
+    .dark .oauth-panel { background: rgba(30, 41, 59, 0.48); }
+    .oauth-actions { display: flex; gap: 10px; padding-top: 4px; }
+    html[dir="rtl"] .oauth-actions { flex-direction: row-reverse; }
+    .oauth-actions button { min-height: 44px; border-radius: 10px; }
+    @media (max-width: 640px) {
+        .oauth-consent-shell { padding: 12px; align-items: start; }
+        .oauth-consent-header { padding: 20px; }
+        .oauth-consent-body { padding: 18px 20px 22px; }
+        .oauth-row { grid-template-columns: 1fr; gap: 2px; }
+        .oauth-actions { flex-direction: column; }
+        html[dir="rtl"] .oauth-actions { flex-direction: column; }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="auth-container px-4">
-    <div class="auth-card w-full max-w-md bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8">
+<div class="oauth-consent-shell" {% if lang == 'fa' %}dir="rtl"{% endif %}>
+    <div class="oauth-consent-card">
         <!-- Header with Icon -->
-        <div class="text-center mb-6">
-            <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-purple-100 dark:bg-purple-900 mb-4">
-                <svg class="h-10 w-10 text-purple-600 dark:text-purple-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="oauth-consent-header">
+            <div class="oauth-consent-icon">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
                 </svg>
             </div>
-            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ t.auth_required }}</h1>
-            <p class="text-gray-600 dark:text-gray-400 mt-2" {% if lang == 'fa' %}dir="rtl"{% endif %}>
-                <span class="font-semibold text-purple-600 dark:text-purple-400">{{ client_name }}</span>
-                {{ t.wants_access.replace('{client_name}', '') }}
-            </p>
+            <div>
+                <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">MCP Hub OAuth</div>
+                <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ t.auth_required }}</h1>
+                <p class="text-gray-600 dark:text-gray-400 mt-2">
+                    <span class="font-semibold text-blue-700 dark:text-blue-300">{{ client_name }}</span>
+                    {{ t.wants_access.replace('{client_name}', '') }}
+                </p>
+            </div>
         </div>
 
+        <div class="oauth-consent-body">
         <!-- Client Information -->
-        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-6">
-            <div class="space-y-2 text-sm" {% if lang == 'fa' %}dir="rtl"{% endif %}>
-                <div class="flex justify-between">
-                    <span class="text-gray-600 dark:text-gray-400">{{ t.client_id_label }}</span>
-                    <span class="font-mono text-gray-900 dark:text-white text-xs">{{ client_id }}</span>
+        <div class="oauth-info-grid">
+            <div class="space-y-2 text-sm">
+                <div class="oauth-row">
+                    <span class="oauth-label">{{ t.client_id_label }}</span>
+                    <span class="oauth-value">{{ client_id }}</span>
                 </div>
                 {% if redirect_uri %}
-                <div class="flex justify-between">
-                    <span class="text-gray-600 dark:text-gray-400">{{ t.redirect_uri_label }}</span>
-                    <span class="font-mono text-xs text-gray-900 dark:text-white truncate ml-2" title="{{ redirect_uri }}">
-                        {{ redirect_uri[:40] }}...
-                    </span>
+                <div class="oauth-row">
+                    <span class="oauth-label">{{ t.redirect_uri_label }}</span>
+                    <span class="oauth-value" title="{{ redirect_uri }}">{{ redirect_uri }}</span>
                 </div>
                 {% endif %}
             </div>
@@ -39,15 +155,15 @@
 
         <!-- Requested Permissions -->
         {% if scopes %}
-        <div class="mb-6" {% if lang == 'fa' %}dir="rtl"{% endif %}>
+        <div>
             <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">{{ t.requested_permissions }}</h3>
-            <div class="space-y-2">
+            <div class="oauth-scope-list">
                 {% for scope in scopes %}
-                <div class="permission-badge flex items-center p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg" {% if lang == 'fa' %}dir="rtl"{% endif %}>
-                    <svg class="h-5 w-5 text-purple-600 dark:text-purple-400 {% if lang == 'fa' %}ml-3{% else %}mr-3{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="oauth-scope">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
-                    <span class="text-sm font-medium text-gray-900 dark:text-white">{{ scope }}</span>
+                    <span>{{ scope }}</span>
                 </div>
                 {% endfor %}
             </div>
@@ -71,14 +187,15 @@
             {% if resource %}
             <input type="hidden" name="resource" value="{{ resource }}">
             {% endif %}
+            <input type="hidden" name="lang" value="{{ lang }}" id="oauth_lang">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
             <!-- Authentication -->
             {% if session_user %}
             <!-- Session-based consent (user already logged in) -->
-            <div {% if lang == 'fa' %}dir="rtl"{% endif %}>
-                <div class="bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30 rounded-lg p-4 mb-4">
-                    <div class="flex items-center gap-3">
+            <div>
+                <div class="oauth-panel mb-4">
+                    <div class="flex items-center gap-3 {% if lang == 'fa' %}flex-row-reverse text-right{% endif %}">
                         <svg class="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                         </svg>
@@ -106,20 +223,20 @@
             </div>
 
             <!-- Hidden API key input (shown when user clicks "enter an API key instead") -->
-            <div id="api-key-section" class="hidden" {% if lang == 'fa' %}dir="rtl"{% endif %}>
+            <div id="api-key-section" class="hidden oauth-panel">
                 <label for="api_key_input" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {{ t.enter_api_key }}
                 </label>
                 <input type="password" id="api_key_input" name="api_key_manual"
                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition"
                        placeholder="{{ t.api_key_placeholder }}" autocomplete="off"
-                       {% if lang == 'fa' %}dir="ltr" style="text-align: right;"{% endif %}>
+                       dir="ltr" {% if lang == 'fa' %}style="text-align: right;"{% endif %}>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">{{ t.api_key_note }}</p>
             </div>
 
             {% else %}
             <!-- API key mode (no active session) -->
-            <div {% if lang == 'fa' %}dir="rtl"{% endif %}>
+            <div class="oauth-panel">
                 <label for="api_key" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {{ t.enter_api_key }}
                 </label>
@@ -131,9 +248,9 @@
                     placeholder="{{ t.api_key_placeholder }}"
                     class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition"
                     autocomplete="off"
-                    {% if lang == 'fa' %}dir="ltr" style="text-align: right;"{% endif %}
+                    dir="ltr" {% if lang == 'fa' %}style="text-align: right;"{% endif %}
                 />
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2" {% if lang == 'fa' %}dir="rtl"{% endif %}>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
                     {{ t.api_key_note }}
                 </p>
 
@@ -147,7 +264,7 @@
                         Or log in with your account:
                         {% endif %}
                     </p>
-                    <div class="flex gap-2 mt-2">
+                    <div class="flex gap-2 mt-2 {% if lang == 'fa' %}flex-row-reverse{% endif %}">
                         <a href="/auth/github?next={{ return_url | urlencode }}"
                            class="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-white text-sm rounded-lg transition-colors">
                             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
@@ -165,7 +282,7 @@
             {% endif %}
 
             <!-- Action Buttons -->
-            <div class="flex gap-3 pt-4" {% if lang == 'fa' %}dir="rtl"{% endif %}>
+            <div class="oauth-actions">
                 <button
                     type="submit"
                     name="action"
@@ -186,15 +303,16 @@
         </form>
 
         <!-- Security Notice -->
-        <div class="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg" {% if lang == 'fa' %}dir="rtl"{% endif %}>
-            <div class="flex {% if lang == 'fa' %}flex-row-reverse{% endif %}">
-                <svg class="h-5 w-5 text-blue-600 dark:text-blue-400 {% if lang == 'fa' %}mr-2{% else %}mr-2{% endif %} flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="oauth-panel">
+            <div class="flex gap-2 {% if lang == 'fa' %}flex-row-reverse text-right{% endif %}">
+                <svg class="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
                 <p class="text-xs text-blue-800 dark:text-blue-300">
                     <strong>{{ t.security_note }}</strong> {{ t.security_message }}
                 </p>
             </div>
+        </div>
         </div>
     </div>
 </div>

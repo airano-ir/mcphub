@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from plugins.ai_image.providers.base import GenerationRequest, ProviderError
+from plugins.ai_image.providers.base import GenerationRequest
 from plugins.ai_image.providers.openrouter import (
     _MODEL_PRICING,
     OpenRouterProvider,
@@ -145,13 +145,35 @@ class TestGenerateAttributesCost:
 
 class TestDeprecatedModelGuard:
     @pytest.mark.asyncio
-    async def test_preview_model_raises_model_deprecated(self):
+    async def test_preview_model_silently_substitutes_to_ga(self, caplog):
+        """Issue #90 — deprecated model id is auto-rewritten to the GA alias."""
         provider = OpenRouterProvider()
-        with pytest.raises(ProviderError) as e:
-            await provider.generate(
-                "k",
-                GenerationRequest(prompt="x", model="google/gemini-2.5-flash-image-preview"),
+        b64 = base64.b64encode(_PNG_1x1).decode()
+        ok = _fake_resp(
+            status=200,
+            json_data={
+                "choices": [
+                    {
+                        "message": {
+                            "images": [{"image_url": {"url": f"data:image/png;base64,{b64}"}}]
+                        }
+                    }
+                ]
+            },
+        )
+        sess = _mock_session([ok])
+        with patch("plugins.ai_image.providers.openrouter.aiohttp.ClientSession") as cls:
+            cls.return_value = AsyncMock(
+                __aenter__=AsyncMock(return_value=sess),
+                __aexit__=AsyncMock(return_value=False),
             )
-        assert e.value.code == "PROVIDER_MODEL_DEPRECATED"
-        assert "google/gemini-2.5-flash-image" in str(e.value.message)
-        assert e.value.details.get("replacement_model") == "google/gemini-2.5-flash-image"
+            with caplog.at_level("WARNING", logger="mcphub.ai_image.openrouter"):
+                result = await provider.generate(
+                    "k",
+                    GenerationRequest(prompt="x", model="google/gemini-2.5-flash-image-preview"),
+                )
+        assert result.meta["model"] == "google/gemini-2.5-flash-image"
+        assert any(
+            "is deprecated" in rec.message and "google/gemini-2.5-flash-image" in rec.message
+            for rec in caplog.records
+        )

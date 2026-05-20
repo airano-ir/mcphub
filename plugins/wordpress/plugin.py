@@ -119,7 +119,9 @@ class WordPressPlugin(BasePlugin):
         else:
             self.wp_cli = None
 
-        # Note: Database, Bulk, and System operations moved to wordpress_advanced plugin
+        # Database, bulk, and system operations live on
+        # ``wordpress_specialist`` (companion-backed; no Docker socket).
+        # The legacy ``wordpress_advanced`` plugin was sunset 2026-05-04.
 
     @staticmethod
     def get_tool_specifications() -> list[dict[str, Any]]:
@@ -156,11 +158,12 @@ class WordPressPlugin(BasePlugin):
 
         # Advanced content handlers
         specs.extend(handlers.get_seo_specs())  # 4 tools
-        specs.extend(handlers.get_menus_specs())  # 5 tools
+        specs.extend(handlers.get_menus_specs())  # 9 tools (incl. wp_navigation CRUD)
         specs.extend(handlers.get_wp_cli_specs())  # 15 tools
 
         # Note: WooCommerce specs moved to woocommerce plugin (Phase D.1)
-        # Note: Database, Bulk, and System specs in wordpress_advanced plugin
+        # Database / bulk / system specs live on wordpress_specialist
+        # (companion-backed; legacy wordpress_advanced was sunset 2026-05-04).
 
         return specs
 
@@ -479,6 +482,15 @@ class WordPressPlugin(BasePlugin):
     async def update_menu_item(self, **kwargs):
         return await self.menus.update_menu_item(**kwargs)
 
+    async def list_navigations(self, **kwargs):
+        return await self.menus.list_navigations(**kwargs)
+
+    async def get_navigation(self, **kwargs):
+        return await self.menus.get_navigation(**kwargs)
+
+    async def update_navigation(self, **kwargs):
+        return await self.menus.update_navigation(**kwargs)
+
     # === WP-CLI Operations ===
     async def wp_cache_flush(self, **kwargs):
         if self.wp_cli:
@@ -555,7 +567,8 @@ class WordPressPlugin(BasePlugin):
             return await self.wp_cli.wp_core_update(**kwargs)
         return '{"error": "WP-CLI not available. Container not configured."}'
 
-    # Note: Database, Bulk, and System operations moved to wordpress_advanced plugin
+    # Database, bulk, and system operations live on wordpress_specialist
+    # (companion-backed; legacy wordpress_advanced was sunset 2026-05-04).
 
     # === Legacy compatibility methods ===
     # These methods are kept for potential backward compatibility

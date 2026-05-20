@@ -112,6 +112,14 @@ class TestListSiteTools:
         assert body["site_id"] == coolify_site["id"]
         assert body["plugin_type"] == "coolify"
         assert body["tool_scope"] == "admin"
+        assert [p["value"] for p in body["scope_presets"]] == [
+            "read",
+            "read:sensitive",
+            "deploy",
+            "write",
+            "admin",
+            "custom",
+        ]
         tools = body["tools"]
         by_name = {t["name"]: t for t in tools}
         assert "coolify_list_applications" in by_name

@@ -59,6 +59,13 @@ services:
       - USER_RATE_LIMIT_PER_MIN=${USER_RATE_LIMIT_PER_MIN:-30}
       - USER_RATE_LIMIT_PER_HR=${USER_RATE_LIMIT_PER_HR:-500}
 
+      # === ANALYTICS (dashboard SPA) ===
+      # All four are optional — leave unset to disable that provider's tag.
+      - UMAMI_WEBSITE_ID=${UMAMI_WEBSITE_ID:-}
+      - UMAMI_URL=${UMAMI_URL:-}
+      - OPENPANEL_API_URL=${OPENPANEL_API_URL:-}
+      - OPENPANEL_CLIENT_ID=${OPENPANEL_CLIENT_ID:-}
+
       # === SITES ===
       # Sites are managed via the web dashboard (DB-based).
       # After deployment, open the dashboard to add sites.

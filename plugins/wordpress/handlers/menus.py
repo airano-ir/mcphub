@@ -147,6 +147,109 @@ def get_tool_specifications() -> list[dict[str, Any]]:
             },
             "scope": "write",
         },
+        {
+            "name": "list_navigations",
+            "method_name": "list_navigations",
+            "description": (
+                "List wp_navigation posts (block-theme navigation menus). "
+                "These power the <!-- wp:navigation --> block in Site Editor. "
+                "Distinct from classic menus (use list_menus for those)."
+            ),
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "per_page": {
+                        "type": "integer",
+                        "description": "Results per page (1-100)",
+                        "default": 20,
+                        "minimum": 1,
+                        "maximum": 100,
+                    },
+                    "page": {
+                        "type": "integer",
+                        "description": "Page number",
+                        "default": 1,
+                        "minimum": 1,
+                    },
+                    "status": {
+                        "type": "string",
+                        "description": "Status filter",
+                        "enum": ["publish", "draft", "pending", "private", "any"],
+                        "default": "any",
+                    },
+                },
+            },
+            "scope": "read",
+        },
+        {
+            "name": "get_navigation",
+            "method_name": "get_navigation",
+            "description": (
+                "Get a single wp_navigation post by ID, including its raw "
+                "block-markup content. Use the returned content to plan an "
+                "update_navigation call (e.g. fix href values inside <!-- "
+                "wp:navigation-link --> blocks)."
+            ),
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "navigation_id": {
+                        "type": "integer",
+                        "description": "wp_navigation post ID",
+                        "minimum": 1,
+                    },
+                },
+                "required": ["navigation_id"],
+            },
+            "scope": "read",
+        },
+        {
+            "name": "update_navigation",
+            "method_name": "update_navigation",
+            "description": (
+                "Update a wp_navigation post (block-theme menu). Writes "
+                "post_content (block markup) and/or title/status/slug/meta. "
+                "Use this to fix navigation-link hrefs that the agent set "
+                "up in Site Editor without leaving the MCP loop."
+            ),
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "navigation_id": {
+                        "type": "integer",
+                        "description": "wp_navigation post ID",
+                        "minimum": 1,
+                    },
+                    "title": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Navigation title",
+                    },
+                    "content": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": (
+                            "Block markup (e.g. <!-- wp:navigation-link "
+                            '{"label":"About","url":"/about/"} /-->). '
+                            "Replaces the entire post_content."
+                        ),
+                    },
+                    "status": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Publication status",
+                        "enum": ["publish", "draft", "pending", "private"],
+                    },
+                    "slug": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Navigation slug",
+                    },
+                    "meta": {
+                        "anyOf": [{"type": "object"}, {"type": "null"}],
+                        "description": "Post meta key/value map (registered keys only).",
+                    },
+                },
+                "required": ["navigation_id"],
+            },
+            "scope": "write",
+        },
     ]
 
 
@@ -399,5 +502,125 @@ class MenusHandler:
         except Exception as e:
             return json.dumps(
                 {"error": str(e), "message": f"Failed to update menu item {item_id}: {str(e)}"},
+                indent=2,
+            )
+
+    async def list_navigations(self, per_page: int = 20, page: int = 1, status: str = "any") -> str:
+        """List wp_navigation posts (block-theme menus)."""
+        try:
+            params = {"per_page": per_page, "page": page, "status": status}
+            items = await self.client.get("navigation", params=params)
+
+            if isinstance(items, list):
+                summary = [
+                    {
+                        "id": n.get("id"),
+                        "title": (n.get("title") or {}).get("rendered", ""),
+                        "slug": n.get("slug"),
+                        "status": n.get("status"),
+                        "modified": n.get("modified"),
+                    }
+                    for n in items
+                ]
+            else:
+                summary = items
+
+            return json.dumps(
+                {"total": len(summary) if isinstance(summary, list) else 0, "navigations": summary},
+                indent=2,
+            )
+        except Exception as e:
+            return json.dumps(
+                {"error": str(e), "message": f"Failed to list navigations: {str(e)}"}, indent=2
+            )
+
+    async def get_navigation(self, navigation_id: int) -> str:
+        """Get a single wp_navigation post (with raw block content)."""
+        try:
+            # context=edit returns content.raw so the agent can round-trip it
+            params = {"context": "edit"}
+            nav = await self.client.get(f"navigation/{navigation_id}", params=params)
+
+            content = nav.get("content") or {}
+            raw_content = content.get("raw") if isinstance(content, dict) else None
+            rendered = content.get("rendered") if isinstance(content, dict) else None
+
+            return json.dumps(
+                {
+                    "id": nav.get("id"),
+                    "title": (nav.get("title") or {}).get("rendered", ""),
+                    "slug": nav.get("slug"),
+                    "status": nav.get("status"),
+                    "content_raw": raw_content,
+                    "content_rendered": rendered,
+                    "modified": nav.get("modified"),
+                    "link": nav.get("link"),
+                },
+                indent=2,
+            )
+        except Exception as e:
+            return json.dumps(
+                {
+                    "error": str(e),
+                    "message": f"Failed to get navigation {navigation_id}: {str(e)}",
+                },
+                indent=2,
+            )
+
+    async def update_navigation(
+        self,
+        navigation_id: int,
+        title: str | None = None,
+        content: str | None = None,
+        status: str | None = None,
+        slug: str | None = None,
+        meta: dict | None = None,
+    ) -> str:
+        """Update a wp_navigation post (block-theme menu)."""
+        try:
+            data: dict[str, Any] = {}
+            if title is not None:
+                data["title"] = title
+            if content is not None:
+                data["content"] = content
+            if status is not None:
+                data["status"] = status
+            if slug is not None:
+                data["slug"] = slug
+            if meta is not None:
+                data["meta"] = meta
+
+            if not data:
+                return json.dumps(
+                    {
+                        "error": "no_fields",
+                        "message": (
+                            "update_navigation requires at least one of "
+                            "title, content, status, slug, meta."
+                        ),
+                    },
+                    indent=2,
+                )
+
+            nav = await self.client.post(f"navigation/{navigation_id}", json_data=data)
+
+            return json.dumps(
+                {
+                    "id": nav.get("id"),
+                    "title": (nav.get("title") or {}).get("rendered", ""),
+                    "slug": nav.get("slug"),
+                    "status": nav.get("status"),
+                    "modified": nav.get("modified"),
+                    "link": nav.get("link"),
+                    "message": f"Navigation {navigation_id} updated successfully",
+                },
+                indent=2,
+            )
+        except Exception as e:
+            return json.dumps(
+                {
+                    "error": str(e),
+                    "message": f"Failed to update navigation {navigation_id}: {str(e)}",
+                },
                 indent=2,
             )

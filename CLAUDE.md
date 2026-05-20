@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**MCP Hub** — a Python MCP (Model Context Protocol) server that manages multiple self-hosted services through a unified plugin architecture. Supports 10 plugin types (WordPress, WooCommerce, WordPress Advanced, Gitea, n8n, Supabase, OpenPanel, Appwrite, Directus, Coolify). Total tool count varies with which plugins are enabled and grows as new plugins are added; per-plugin counts are surfaced in the dashboard. The exposed count for a given user/endpoint stays constant regardless of how many sites of the same type are configured.
+**MCP Hub** — a Python MCP (Model Context Protocol) server that manages multiple self-hosted services through a unified plugin architecture. Supports 8 active plugin types (WordPress, WooCommerce, WordPress Specialist, Gitea, n8n, Supabase, OpenPanel, Coolify). Total tool count varies with which plugins are enabled and grows as new plugins are added; per-plugin counts are surfaced in the dashboard. The exposed count for a given user/endpoint stays constant regardless of how many sites of the same type are configured.
 
 ## Quick Setup
 
@@ -55,13 +55,42 @@ docker build -t mcphub .
 docker-compose up -d
 ```
 
+## Frontend (web/) — Track G
+
+The redesigned dashboard SPA lives in `web/` (Vite + React 18 + TypeScript).
+Build artifacts land in `core/templates/static/dist/` and are served by
+Starlette under `/static/dist/` and routed at `/dashboard-v2/*`. Legacy Jinja
+dashboard at `/dashboard/*` is unchanged during the coexistence window.
+
+```bash
+# Install JS deps (one-time)
+cd web && npm install
+
+# Dev server (proxies /api, /auth, /dashboard, /static to localhost:8000)
+cd web && npm run dev
+
+# Type-check and run unit tests
+cd web && npm run typecheck
+cd web && npm test
+
+# Production build (writes hashed bundles into core/templates/static/dist)
+cd web && npm run build
+
+# SPA-support backend tests
+pytest -m frontend
+```
+
+Logo: `core/templates/static/logo.svg` is the single source of truth and is
+copied verbatim into `web/public/` during build. The React `Logo` component
+inlines the same path data and themes its fills via CSS vars.
+
 ## Code Quality Configuration
 
 All configured in `pyproject.toml`:
 - **Black**: line-length=100, target py311
 - **Ruff**: strict rules (E, W, F, I, N, D, UP, B, C4, SIM, TCH, PTH), Google-style docstrings
 - **mypy**: Python 3.11, strict equality, check_untyped_defs=true
-- **pytest**: asyncio_mode="auto", testpaths=["tests"], markers: slow, integration, unit, security
+- **pytest**: asyncio_mode="auto", testpaths=["tests"], markers: slow, integration, unit, security, frontend
 
 ## Architecture
 
@@ -116,7 +145,7 @@ plugins/{name}/
 └── schemas/        # Pydantic models for validation
 ```
 
-**Registered plugins**: wordpress, woocommerce, wordpress_advanced, gitea, n8n, supabase, openpanel, appwrite, directus, coolify
+**Registered plugins**: wordpress, woocommerce, wordpress_specialist, gitea, n8n, supabase, openpanel, coolify
 
 **Plugin visibility** (Track F.1): Public users only see plugins listed in `ENABLED_PLUGINS` env var (default: `wordpress,woocommerce,supabase`). Admin sees all. Controlled by `core/plugin_visibility.py`.
 
@@ -192,7 +221,7 @@ v4 development cycle with 15 phases. See `docs/ROADMAP.md` (Track F) and `.claud
 - Test files exist in both `tests/` (proper) and root directory (legacy `test_*.py`). Run `pytest tests/` for organized tests only.
 - `wordpress-plugin/` contains companion WP plugins (openpanel, airano-mcp-bridge) — these are PHP, not Python
 - `env.example` has "FUTURE" labels for Supabase/Gitea but both are fully implemented
-- 5 plugins are tested for public use: WordPress, WooCommerce, Supabase, OpenPanel, Gitea. Others are admin-only or disabled.
+- 8 active plugins: WordPress, WooCommerce, WordPress Specialist, Supabase, OpenPanel, Gitea, n8n, Coolify. Appwrite/Directus code is retained in plugins/ but not registered (need review before re-enabling).
 - OAuth Clients (Client ID/Secret) are for MCP endpoint auth, NOT the same as GitHub/Google dashboard login
 - All sites stored in SQLite (`core/database.py`), managed via web dashboard
 - Dashboard templates live in `core/templates/` (included in pip package as `package_data`)

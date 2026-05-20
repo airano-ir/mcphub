@@ -1,4 +1,4 @@
-"""Tests for the unified /dashboard/keys page (F.7b session 2)."""
+"""Tests for the unified legacy /dashboard-legacy/keys page (F.7b session 2)."""
 
 from __future__ import annotations
 
@@ -55,27 +55,27 @@ def user_client(monkeypatch, user_row, patched_db):
 
 class TestUnifiedKeysUserView:
     def test_get_keys_page_returns_200(self, user_client):
-        r = user_client.get("/dashboard/keys")
+        r = user_client.get("/dashboard-legacy/keys")
         assert r.status_code == 200
         assert "API Key" in r.text or "کلید" in r.text
 
     def test_old_connect_redirects_301(self, user_client):
-        r = user_client.get("/dashboard/connect")
+        r = user_client.get("/dashboard-legacy/connect")
         assert r.status_code == 301
-        assert "/dashboard/keys" in r.headers["location"]
+        assert "/dashboard-legacy/keys" in r.headers["location"]
 
     def test_old_api_keys_redirects_301(self, user_client):
-        r = user_client.get("/dashboard/api-keys")
+        r = user_client.get("/dashboard-legacy/api-keys")
         assert r.status_code == 301
-        assert "/dashboard/keys" in r.headers["location"]
+        assert "/dashboard-legacy/keys" in r.headers["location"]
 
     def test_user_view_has_full_access_badge(self, user_client):
-        r = user_client.get("/dashboard/keys")
+        r = user_client.get("/dashboard-legacy/keys")
         assert r.status_code == 200
         # F.7c: No scope selector — shows "Full Access" badge instead
         assert "Full Access" in r.text or "دسترسی کامل" in r.text
 
     def test_user_view_shows_create_button(self, user_client):
-        r = user_client.get("/dashboard/keys")
+        r = user_client.get("/dashboard-legacy/keys")
         assert r.status_code == 200
         assert "Create" in r.text or "ایجاد" in r.text

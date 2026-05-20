@@ -16,7 +16,7 @@ class EndpointType(Enum):
     SYSTEM = "system"  # Phase X.3 - System tools only
     WORDPRESS = "wordpress"
     WOOCOMMERCE = "woocommerce"
-    WORDPRESS_ADVANCED = "wordpress_advanced"
+    WORDPRESS_SPECIALIST = "wordpress_specialist"
     GITEA = "gitea"
     N8N = "n8n"
     SUPABASE = "supabase"  # Phase G
@@ -181,15 +181,28 @@ ENDPOINT_CONFIGS = {
         },
         max_tools=35,
     ),
-    # WordPress Advanced endpoint - advanced operations
-    EndpointType.WORDPRESS_ADVANCED: EndpointConfig(
-        path="/wordpress-advanced",
-        name="WordPress Advanced",
-        description="WordPress advanced operations (database, bulk, system)",
-        endpoint_type=EndpointType.WORDPRESS_ADVANCED,
-        plugin_types=["wordpress_advanced"],
+    # F.19.1 WordPress Specialist endpoint - companion-backed advanced
+    # management (plugins/themes/users/options/cron/maintenance). No
+    # Docker socket; only needs Airano MCP Bridge v2.11.0+ on the WP
+    # side. Currently 6 read-only tools; F.19.2 will expand the surface.
+    EndpointType.WORDPRESS_SPECIALIST: EndpointConfig(
+        path="/wordpress-specialist",
+        name="WordPress Specialist",
+        description="Specialist WordPress management (plugins, themes, users, options, cron) — companion-backed",
+        endpoint_type=EndpointType.WORDPRESS_SPECIALIST,
+        plugin_types=["wordpress_specialist"],
         require_master_key=False,
-        allowed_scopes={"admin"},  # Admin scope required
+        allowed_scopes={"read", "write", "admin"},
+        # Same blacklist as the basic wordpress endpoint — keep system
+        # tools off the per-plugin endpoint regardless of how the tool
+        # registry expands.
+        tool_blacklist={
+            "manage_api_keys_create",
+            "manage_api_keys_delete",
+            "manage_api_keys_rotate",
+            "oauth_register_client",
+            "oauth_revoke_client",
+        },
         max_tools=30,
     ),
     # Gitea endpoint - Git repository management

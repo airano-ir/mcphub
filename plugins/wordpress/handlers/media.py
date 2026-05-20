@@ -370,14 +370,84 @@ async def _apply_metadata_and_attach(
             except Exception as exc:  # noqa: BLE001
                 status["warnings"].append(f"featured_set_failed (product): {exc}")
         else:
-            try:
-                await wp_set_featured_media(client, attach_to_post, media["id"])
+            # Issue #90 — set_featured used to hit /wp/v2/posts/{id}
+            # only, which 404s for pages and other CPTs. Now: try
+            # `posts` first (the common case), and on miss, walk the
+            # thumbnail-supporting rest_bases (pages, then any other
+            # CPT that opted in via add_theme_support('post-thumbnails')
+            # / declares ``thumbnail`` in its supports list).
+            ctx = await _set_featured_with_fallback(client, attach_to_post, media["id"])
+            if ctx is not None:
                 status["featured_set"] = True
-                status["featured_context"] = "post"
-            except Exception as exc:  # noqa: BLE001
-                status["warnings"].append(f"featured_set_failed (post): {exc}")
+                status["featured_context"] = ctx
+            else:
+                status["warnings"].append(
+                    f"featured_set_failed: post {attach_to_post} not found "
+                    "in any thumbnail-supporting post type"
+                )
 
     return status
+
+
+async def _set_featured_with_fallback(
+    client: WordPressClient,
+    target_id: int,
+    media_id: int,
+) -> str | None:
+    """Set featured image on ``target_id`` across post / page / CPT.
+
+    Tries ``posts`` first (the 99% case — and the path covered by
+    ``wp_set_featured_media`` to keep existing test seams stable),
+    then falls back to ``pages`` and any other rest_base that declares
+    ``thumbnail`` support via ``/wp/v2/types``. Returns the rest_base on
+    success, ``None`` when nothing accepted the write.
+    """
+    try:
+        await wp_set_featured_media(client, target_id, media_id)
+        return "post"
+    except Exception:
+        pass
+
+    body = {"featured_media": media_id}
+
+    try:
+        await client.post(f"pages/{target_id}", json_data=body)
+        return "page"
+    except Exception:
+        pass
+
+    try:
+        types_data = await client.get("types")
+    except Exception:
+        return None
+    if not isinstance(types_data, dict):
+        return None
+
+    for slug, data in types_data.items():
+        if not isinstance(data, dict):
+            continue
+        rest_base = data.get("rest_base") or slug
+        if rest_base in ("posts", "pages", "media", "attachment"):
+            continue
+        supports = data.get("supports") or {}
+        # `supports` is sometimes a list (older WP / some plugins) and
+        # sometimes a dict keyed by feature. Treat both as truthy when
+        # ``thumbnail`` is present.
+        if isinstance(supports, dict):
+            if not supports.get("thumbnail"):
+                continue
+        elif isinstance(supports, list):
+            if "thumbnail" not in supports:
+                continue
+        else:
+            continue
+        try:
+            await client.post(f"{rest_base}/{target_id}", json_data=body)
+            return rest_base
+        except Exception:
+            continue
+
+    return None
 
 
 def _format_upload_result(media: dict[str, Any], *, source: str) -> dict[str, Any]:

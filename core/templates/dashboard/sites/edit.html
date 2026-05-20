@@ -5,8 +5,10 @@
 
 {% block content %}
 <div class="max-w-2xl mx-auto space-y-6">
+    {% set _qs = request.query_params if request else None %}
+    {% set _from_v2 = _qs and _qs.get('from') == 'dashboard-v2' %}
     <div class="flex items-center gap-4 mb-6">
-        <a href="/dashboard/sites{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}"
+        <a href="{% if _from_v2 %}/dashboard-v2/sites{% else %}/dashboard/sites{% if lang and lang != 'en' %}?lang={{ lang }}{% endif %}{% endif %}"
             class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
@@ -195,7 +197,12 @@
             });
             const data = await resp.json();
             if (resp.ok) {
-                window.location.href = '/dashboard/sites?msg={{ t.site_updated }}{% if lang and lang != "en" %}&lang={{ lang }}{% endif %}';
+                const fromV2 = new URLSearchParams(window.location.search).get('from') === 'dashboard-v2';
+                if (fromV2) {
+                    window.location.href = '/dashboard-v2/sites?msg={{ t.site_updated }}';
+                } else {
+                    window.location.href = '/dashboard/sites?msg={{ t.site_updated }}{% if lang and lang != "en" %}&lang={{ lang }}{% endif %}';
+                }
             } else {
                 errorEl.textContent = data.error || 'Failed to update site';
                 errorEl.classList.remove('hidden');
