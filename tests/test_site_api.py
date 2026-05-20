@@ -4,8 +4,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from core.settings import get_cached_max_sites
 from core.site_api import (
-    MAX_SITES_PER_USER,
     create_user_site,
     delete_user_site,
     get_credential_fields,
@@ -225,7 +225,7 @@ class TestSiteCreation:
     @pytest.mark.unit
     async def test_create_site_max_limit(self, mock_db, mock_encryption):
         """Exceeding MAX_SITES_PER_USER should raise ValueError."""
-        mock_db.count_sites_by_user.return_value = MAX_SITES_PER_USER
+        mock_db.count_sites_by_user.return_value = get_cached_max_sites()
         with pytest.raises(ValueError, match="Site limit reached"):
             await create_user_site(
                 user_id="user-uuid-001",

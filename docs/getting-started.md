@@ -310,21 +310,6 @@ OPENPANEL_SITE1_CLIENT_SECRET=your-client-secret   # Required
 OPENPANEL_SITE1_ALIAS=my-analytics                 # Recommended
 ```
 
-#### Appwrite
-```env
-APPWRITE_SITE1_URL=https://appwrite.example.com   # Required
-APPWRITE_SITE1_API_KEY=your-api-key                # Required
-APPWRITE_SITE1_PROJECT_ID=your-project-id          # Required
-APPWRITE_SITE1_ALIAS=my-appwrite                   # Recommended
-```
-
-#### Directus
-```env
-DIRECTUS_SITE1_URL=https://directus.example.com   # Required
-DIRECTUS_SITE1_TOKEN=your-admin-token              # Required
-DIRECTUS_SITE1_ALIAS=my-directus                   # Recommended
-```
-
 > **Note:** Use `APP_PASSWORD` (WordPress Application Password), not `PASSWORD`.
 
 ### Configuration Tips
@@ -534,8 +519,7 @@ Use the most specific endpoint for your use case to minimize token usage:
 | `/n8n/mcp` | n8n | 56 |
 | `/supabase/mcp` | Supabase | 70 |
 | `/openpanel/mcp` | OpenPanel | 42 |
-| `/appwrite/mcp` | Appwrite | 100 |
-| `/directus/mcp` | Directus | 100 |
+| `/coolify/mcp` | Coolify | ~65 |
 | `/system/mcp` | System Management | 24 |
 
 **Plugin endpoint vs Project endpoint:**

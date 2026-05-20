@@ -6,6 +6,7 @@ import { useDashboardStats, useSession, useSites, useUserKeys } from "../lib/que
 import type { DashboardStats } from "../lib/types";
 import { useT } from "../lib/i18n";
 import { useUiStore } from "../lib/store";
+import type { Lang } from "../lib/store";
 import { fmtNumber, fmtInt, fmtDateTime, normalizeSiteStatus } from "../lib/format";
 
 export function OverviewPage() {
@@ -263,7 +264,7 @@ function AdminStatsPanel({
   t,
 }: {
   stats: DashboardStats | undefined;
-  lang: string;
+  lang: Lang;
   t: (key: string, fallback: string) => string;
 }) {
   if (!stats) return null;

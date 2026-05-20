@@ -2,7 +2,7 @@
 
 **The AI-native management hub for WordPress, WooCommerce, and self-hosted services.**
 
-633 tools across 10 plugins (incl. Coolify). Connect your sites, stores, repos, and databases — manage them all through Claude, ChatGPT, Cursor, or any MCP client.
+8 plugins, hundreds of tools. Connect your sites, stores, repos, and databases — manage them all through Claude, ChatGPT, Cursor, or any MCP client.
 
 > **Don't want to self-host?** Try the hosted instance at **[mcp.palebluedot.live](https://mcp.palebluedot.live)** — log in with GitHub or Google, add your sites, and connect your AI client in minutes.
 
@@ -37,6 +37,8 @@ curl http://localhost:8000/health
 # http://localhost:8000/dashboard
 ```
 
+Log in with your `MASTER_API_KEY`, then add sites via **My Sites → Add Service**.
+
 ### 4. Connect your AI client
 
 **Claude Desktop** (`claude_desktop_config.json`):
@@ -55,7 +57,7 @@ curl http://localhost:8000/health
 }
 ```
 
-**VS Code** (`.vscode/mcp.json`):
+**VS Code / Claude Code** (`.vscode/mcp.json` or `.mcp.json`):
 
 ```json
 {
@@ -71,7 +73,7 @@ curl http://localhost:8000/health
 }
 ```
 
-> Use a plugin-specific endpoint (e.g., `/wordpress/mcp`) instead of `/mcp` to reduce tool count and save tokens. See [Endpoints](#endpoints) below.
+> Use a plugin-specific endpoint (e.g., `/wordpress/mcp`) instead of `/mcp` to keep the tool list focused and save tokens. See [Endpoints](#endpoints) below.
 
 ## Authentication
 
@@ -81,20 +83,18 @@ MCP Hub uses **Bearer token** authentication:
 Authorization: Bearer YOUR_API_KEY
 ```
 
-> `X-API-Key` header and query parameter auth are **not** supported.
-
 ## Endpoints
 
 Use the most specific endpoint for your use case:
 
-| Endpoint | Tools | `site` param? | Best for |
-|----------|------:|:-------------:|----------|
-| `/u/{user_id}/{alias}/mcp` | 22-100 | No (pre-scoped) | Hosted/OAuth users |
-| `/project/{alias}/mcp` | 22-100 | No (pre-scoped) | Single-site workflow |
-| `/{plugin}/mcp` | 23-101 | Yes | Multi-site management |
-| `/mcp` | 633 | Yes | Admin & discovery only |
+| Endpoint | Use case |
+|----------|----------|
+| `/u/{user_id}/{alias}/mcp` | Hosted/OAuth users — single pre-scoped service |
+| `/project/{alias}/mcp` | Single-site workflow (recommended) |
+| `/{plugin}/mcp` | Multi-site management for one service type |
+| `/mcp` | Admin & discovery — all enabled tools |
 
-Available plugin endpoints: `/wordpress/mcp`, `/woocommerce/mcp`, `/wordpress-specialist/mcp`, `/gitea/mcp`, `/n8n/mcp`, `/supabase/mcp`, `/openpanel/mcp`, `/appwrite/mcp`, `/directus/mcp`, `/system/mcp`
+Available plugin endpoints: `/wordpress/mcp`, `/woocommerce/mcp`, `/wordpress-specialist/mcp`, `/gitea/mcp`, `/n8n/mcp`, `/supabase/mcp`, `/openpanel/mcp`, `/coolify/mcp`, `/system/mcp`
 
 ## Using Docker Compose
 
@@ -118,61 +118,71 @@ volumes:
   mcphub-logs:
 ```
 
-> **WP-CLI tools** (cache flush, database export, plugin updates via CLI) require Docker socket access.
-> Add `WORDPRESS_SITE1_CONTAINER=your-wp-container-name` to your `.env` and uncomment the Docker socket volume above.
-
 ```bash
 docker compose up -d
 ```
+
+> **WP-CLI tools** (cache flush, database export, plugin management via CLI) require Docker socket access. Uncomment the socket volume and set the `container` field when adding the WordPress site in the dashboard.
 
 ## After Starting
 
 | URL | Description |
 |-----|-------------|
 | `http://localhost:8000/health` | Health check & status |
-| `http://localhost:8000/dashboard` | Web dashboard (manage sites, API keys, OAuth clients, health monitoring). Login via MASTER_API_KEY or GitHub/Google OAuth |
-| `http://localhost:8000/mcp` | MCP endpoint (connect AI clients here) |
+| `http://localhost:8000/dashboard` | Web dashboard — manage sites, API keys, OAuth clients, health |
+| `http://localhost:8000/mcp` | MCP endpoint (connect your AI client here) |
 
 ## Environment Variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `MASTER_API_KEY` | Recommended | API key for authentication. If omitted, a temporary key is auto-generated and printed to logs |
-| `WORDPRESS_SITE1_URL` | For WP | WordPress site URL |
-| `WORDPRESS_SITE1_USERNAME` | For WP | WordPress admin username |
-| `WORDPRESS_SITE1_APP_PASSWORD` | For WP | WordPress Application Password |
-| `WORDPRESS_SITE1_ALIAS` | Recommended | Friendly name (e.g., `myblog`) |
-| `WORDPRESS_SITE1_CONTAINER` | For WP-CLI | Docker container name of your WordPress site (enables cache/db/system tools) |
-| `OAUTH_JWT_SECRET_KEY` | For OAuth | JWT secret for ChatGPT auto-registration (not needed for Claude/Cursor) |
-| `OAUTH_BASE_URL` | For OAuth | Public URL of your server (not needed for Claude/Cursor) |
-| `GITHUB_CLIENT_ID` | For Social Login | GitHub OAuth App client ID |
-| `GITHUB_CLIENT_SECRET` | For Social Login | GitHub OAuth App client secret |
-| `GOOGLE_CLIENT_ID` | For Social Login | Google OAuth client ID |
-| `GOOGLE_CLIENT_SECRET` | For Social Login | Google OAuth client secret |
-| `PUBLIC_URL` | For Social Login | Public URL for OAuth callbacks (e.g., `https://mcp.example.com`) |
-| `ENCRYPTION_KEY` | For Multi-user | AES-256 key for encrypting user site credentials. Generate: `python -c "import os, base64; print(base64.b64encode(os.urandom(32)).decode())"` |
+### Required
 
-> **CONTAINER**: Required for WP-CLI tools (cache flush, database export, system info) and **all** WordPress Advanced tools. Find your container name: `docker ps --filter name=wordpress`. Also requires Docker socket mount.
+| Variable | Description |
+|----------|-------------|
+| `MASTER_API_KEY` | API key for admin access. If omitted, a temporary key is auto-generated and printed to logs. |
 
-> **OAuth**: Only needed for ChatGPT Remote MCP auto-registration. For Claude Desktop, Claude Code, Cursor, and VS Code — just use `MASTER_API_KEY` with Bearer token auth.
+### Optional — OAuth & Social Login
 
-> **Social Login**: Enable GitHub/Google login for multi-user mode. Users can add sites via the dashboard and get personal MCP endpoints (`/u/{user_id}/{alias}/mcp`).
+| Variable | Description |
+|----------|-------------|
+| `OAUTH_JWT_SECRET_KEY` | JWT secret for ChatGPT Remote MCP auto-registration. Not needed for Claude/Cursor/VS Code. |
+| `OAUTH_BASE_URL` | Public URL of your server. Required for OAuth flows. |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | Enable GitHub social login for multi-user mode. |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Enable Google social login for multi-user mode. |
+| `PUBLIC_URL` | Public URL for OAuth callbacks (e.g., `https://mcp.example.com`). |
 
-Add more sites with `SITE2`, `SITE3`, etc. See [full configuration guide](https://github.com/airano-ir/mcphub/blob/main/docs/getting-started.md).
+### Optional — Multi-user & Encryption
 
-## Supported Plugins
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ENCRYPTION_KEY` | — | AES-256-GCM key for encrypting user site credentials. Generate: `python -c "import os, base64; print(base64.b64encode(os.urandom(32)).decode())"` |
+| `MAX_SITES_PER_USER` | `10` | Maximum sites per user account (also configurable via the dashboard Settings page). |
+| `USER_RATE_LIMIT_PER_MIN` | `30` | Per-user rate limit (requests/minute). Configurable via dashboard. |
+| `USER_RATE_LIMIT_PER_HR` | `500` | Per-user rate limit (requests/hour). Configurable via dashboard. |
+| `ENABLED_PLUGINS` | `wordpress,woocommerce,supabase,openpanel,gitea` | Comma-separated list of plugins visible to public/OAuth users. Admin always sees all plugins. |
 
-| Plugin | Tools | Env Prefix |
-|--------|-------|------------|
-| WordPress | 67 | `WORDPRESS_` |
-| WooCommerce | 28 | `WOOCOMMERCE_` |
-| WordPress Specialist | 51 | (DB-managed via dashboard) |
-| Gitea | 56 | `GITEA_` |
-| n8n | 56 | `N8N_` |
-| Supabase | 70 | `SUPABASE_` |
-| OpenPanel | 73 | `OPENPANEL_` |
-| Appwrite | 100 | `APPWRITE_` |
-| Directus | 100 | `DIRECTUS_` |
+### Optional — Logging
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LOG_LEVEL` | `INFO` | Logging verbosity: `DEBUG`, `INFO`, `WARNING`, `ERROR` |
+
+> **Site configuration** (URLs, credentials) is managed via the web dashboard — not environment variables. Log in and go to **My Sites → Add Service**.
+
+## 8 Plugins, Hundreds of Tools
+
+| Plugin | Approx. Tools | What you can do |
+|--------|------:|-----------------|
+| WordPress | ~70 | Posts, pages, media (incl. AI image gen), users, menus, taxonomies, SEO |
+| WooCommerce | ~30 | Products, orders, customers, coupons, reports, shipping |
+| WordPress Specialist | ~50 | Plugins, themes, options, cron, page editing, DB inspection, bulk fan-out |
+| Gitea | ~65 | Repos, issues, PRs, releases, webhooks, orgs, batch file ops |
+| n8n | ~55 | Workflows, executions, credentials, variables, audit |
+| Supabase | ~70 | Database, auth, storage, edge functions, realtime |
+| OpenPanel | ~40 | Events, export, insights, profiles, projects |
+| Coolify | ~65 | Apps, deployments, servers, projects, databases, services |
+| System | ~25 | Health monitoring, API keys, OAuth management, audit logs |
+
+> **WordPress Specialist** requires [Airano MCP Bridge](https://wordpress.org/plugins/airano-mcp-bridge/) (v2.18.0+) installed on your WordPress site.
 
 ## Links
 

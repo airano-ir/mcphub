@@ -65,7 +65,7 @@ def test_client(oauth_components):
         client_name="Test Client",
         redirect_uris=["http://localhost:3000/callback"],
         grant_types=["authorization_code", "refresh_token", "client_credentials"],
-        allowed_scopes=["read", "write", "admin"],
+        allowed_scopes=["read", "editor", "settings", "install", "write", "admin"],
     )
 
     return {

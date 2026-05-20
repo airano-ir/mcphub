@@ -775,6 +775,152 @@ DASHBOARD_TRANSLATIONS = {
             "uploads to /wp/v2/media; Consumer Key/Secret do not work for that. Optional."
         ),
         "api_keys.user_intro": "Use these to authenticate MCP clients to your hub.",
+        "api_keys.admin_intro": "Personal and machine keys for MCP clients. Each key has separate access and an independent log.",
+        "api_keys.admin_empty_cta": "Create one to authenticate MCP clients.",
+        "api_keys.admin_warning": (
+            "Admin access grants full system control including destructive operations "
+            "(delete, write env, system tools). Anyone with this key can act on all your "
+            "sites. Unless the client truly needs it, choose a narrower scope."
+        ),
+        "api_keys.user_empty_cta": "Create one to connect a client.",
+        "api_keys.description": "Description",
+        "api_keys.description_placeholder": "What is this key for?",
+        "api_keys.expiry_label": "Expiry (days, optional)",
+        "api_keys.expiry_placeholder": "Leave blank for no expiry",
+        "api_keys.sensitive_warning": (
+            "Reads backup files and environment variables that often contain sensitive data. "
+            "Treat this key like a credential and do not share it over unencrypted channels."
+        ),
+        "api_keys.confirm_delete": 'Permanently delete "{name}"?\nThis cannot be undone.',
+        "api_keys.confirm_delete_user": 'Delete "{name}"?\nThis key will stop working immediately.',
+        "api_keys.confirm_revoke": 'Revoke "{name}"?\nThis key will stop working immediately.',
+        "api_keys.toast_deleted": "Key deleted",
+        "api_keys.toast_revoked": "Key revoked",
+        # Audit log
+        "audit.intro": (
+            "Every authentication, tool call, and settings change. GDPR-compliant. "
+            "Filters are applied server-side."
+        ),
+        "audit.col.time": "Time",
+        "audit.col.actor": "User",
+        "audit.col.event": "Event",
+        "audit.col.level": "Level",
+        "audit.col.message": "Message",
+        "audit.col.result": "Result",
+        "audit.col.target": "Target",
+        "audit.col.duration": "Duration",
+        "audit.search_placeholder": "Search user / event / target / message…",
+        "audit.event_type_placeholder": "Event type (e.g. tool_call)",
+        "audit.date_filter_title": "Filter by a day (YYYY-MM-DD)",
+        "audit.level.info": "Info",
+        "audit.level.warn": "Warning",
+        "audit.no_entries": "No entries found.",
+        "audit.zero_entries": "No entries",
+        "audit.clear_filters": "Clear filters",
+        "audit.page_label": "Page",
+        "audit.page_size": "Page size",
+        "audit.per_page": "{n} per page",
+        "audit.range_of": "{from}–{to} of {total}",
+        # Badges
+        "badge.admin": "Admin",
+        "badge.elevated": "Elevated",
+        "badge.sensitive": "Sensitive",
+        # Connect page
+        "connect.connect_x": "Connect {name}",
+        "connect.client.claude-code.desc": "CLI · Developer",
+        "connect.client.vscode.desc": "Extension · Preview",
+        "connect.client.cursor.desc": "JSON config",
+        "connect.client.chatgpt.desc": "OAuth · Apps SDK",
+        "connect.client.gemini.desc": "CLI · Token",
+        "connect.client.custom.name": "Custom client",
+        "connect.client.custom.desc": "Any MCP client",
+        "connect.json.paste_into": "Paste this into your {name} MCP config",
+        "connect.json.location_hint": "Settings → MCP Servers · File path differs by client",
+        "connect.json.compatible": "Compatible:",
+        "connect.json.custom_mcp": "Custom MCP",
+        "connect.json.token_once": "Token shown only once",
+        "connect.json.token_once_body": "Save it somewhere safe. You can rotate it anytime from API Keys.",
+        "connect.claude.step1": "Use this connector URL",
+        "connect.claude.step1_body": "Enter this URL in Claude.ai Connectors in your browser when it asks for the MCP endpoint.",
+        "connect.claude.step2": "Confirm in Claude.ai",
+        "connect.claude.step2_body_prefix": "Claude will show:",
+        "connect.claude.step2_body_suffix": "Confirm to continue.",
+        "connect.claude.step3": "You're connected",
+        "connect.claude.step3_body": "You'll see the new client in your overview. Ask Claude to list your sites.",
+        "connect.claude.prompt_text": "MCP Hub wants access to N tools",
+        "connect.claude.open_desktop": "Open Claude Desktop",
+        "connect.claude.link_lifetime": "Link valid for 10 minutes · One-time use",
+        "connect.cli.step1": "Run this in your terminal",
+        "connect.cli.step2": "Confirm",
+        "connect.oauth.register_btn": "Register OAuth client",
+        "connect.oauth.step1": "Register the OAuth app (once)",
+        "connect.oauth.step1_body": "The hub creates an OAuth client and gives you a Redirect URL to paste into your AI tool manifest.",
+        "connect.oauth.step2": "Sign in via the AI client",
+        "connect.oauth.step2_body": 'Users see a "Sign in with MCP Hub" button. You confirm access once; the token refreshes automatically.',
+        "connect.tier.admin_warning": (
+            "Admin exposes destructive operations (delete posts, set options, install plugins, "
+            "write env) on this site. Anyone with this site's token can act with full access. "
+            "Unless the agent needs everything, choose a narrower scope."
+        ),
+        "connect.tier.install_warning": (
+            "Installer is an elevated scope — installs run code from the WordPress/theme "
+            "repository on your site. Only use when the client needs this access."
+        ),
+        "connect.tier.sensitive_warning": (
+            "Sensitive reads is an elevated scope — includes backups and environment variables. "
+            "Only use when the client needs this access."
+        ),
+        "connect.toast.scope_updated": "Tool access updated to {scope}",
+        "connect.toast.scope_failed": "Update failed: {error}",
+        # OAuth clients
+        "oauth.empty": "You have no OAuth clients yet.",
+        "oauth.register_first": "Register your first client",
+        "oauth.none": "— None —",
+        "oauth.allowed_scope": "Allowed scope",
+        "oauth.confirm_delete": 'Delete OAuth client "{name}"?\nUsers signed in via this client will be disconnected.',
+        "oauth.admin_warning": (
+            "Admin scope on a third-party OAuth client allows that app to act on all your "
+            "sites on behalf of users. Only use for trusted applications you control."
+        ),
+        "oauth.sensitive_warning": "Sensitive reads exposes backups and environment variables to the OAuth client.",
+        "oauth.invalid_uris": "{n} URI is not a valid http(s) address:",
+        "oauth.valid_uris": "{n} valid URI.",
+        "oauth.toast_created": "Client created",
+        "oauth.toast_deleted": "Client deleted",
+        "oauth.toast_delete_failed": "Delete failed: {error}",
+        "oauth.toast_create_failed": "Create failed: {error}",
+        # Sites
+        "sites.dialog_add_title": "Add site",
+        "sites.dialog_add_submit": "Add site",
+        "sites.dialog_edit_title": "Edit site",
+        "sites.dialog_edit_submit": "Save changes",
+        "sites.field_plugin_type": "Plugin",
+        "sites.field_url": "URL",
+        "sites.field_alias": "Alias",
+        "sites.alias_placeholder": "short-site-id",
+        "sites.alias_hint": "Short ID the AI sees as `site=…`. Lowercase letters, digits and hyphens only.",
+        "sites.credentials": "Credentials",
+        "sites.cred_unchanged": "Leave blank to keep the current value",
+        "sites.show_advanced": "Show advanced fields",
+        "sites.hide_advanced": "Hide advanced fields",
+        "sites.manage_tools": "Manage tools",
+        "sites.toast_created": "Site created",
+        "sites.toast_updated": "Site updated",
+        # Tier hints (used on the Connect page scope selector)
+        "tier.read.hint": "List and inspect resources — read-only.",
+        "tier.read_sensitive.hint": "Includes backups, environment variables, and other sensitive reads.",
+        "tier.write.hint": "Create / update / delete resources and configuration.",
+        "tier.editor.hint": "Pages, posts, content editing (wordpress_specialist F.19.5).",
+        "tier.settings.hint": "Options, databases, identity, cron (wordpress_specialist F.19.6).",
+        "tier.install.hint": "Install plugins/themes from the repository. Treat as elevated access.",
+        "tier.deploy.hint": "Run deployments and lifecycle, without editing.",
+        "tier.admin.hint": "Full system control including destructive operations.",
+        "tier.custom.hint": "After selecting this, enable/disable tools manually.",
+        # Pagination
+        "previous": "Previous",
+        "next": "Next",
+        # Status labels
+        "status.revoked": "Revoked",
         # Audit / generic
         "event_type": "Event type",
         "level": "Level",

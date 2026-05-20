@@ -135,7 +135,7 @@ def user_client(monkeypatch, user_row, patched_db):
 
 class TestRenderedCsrfMeta:
     def test_keys_page_has_non_empty_csrf_meta(self, user_client):
-        r = user_client.get("/dashboard/keys")
+        r = user_client.get("/dashboard-legacy/keys")
         assert r.status_code == 200
         # The meta tag must be present *and* populated with a real token.
         assert '<meta name="csrf-token"' in r.text
