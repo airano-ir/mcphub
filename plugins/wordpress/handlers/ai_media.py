@@ -281,7 +281,9 @@ class AIMediaHandler:
             try:
                 input_images = [_decode_input_image(item) for item in (input_images_b64 or [])]
             except ValueError as exc:
-                return json.dumps({"error_code": "PROVIDER_BAD_REQUEST", "message": str(exc)}, indent=2)
+                return json.dumps(
+                    {"error_code": "PROVIDER_BAD_REQUEST", "message": str(exc)}, indent=2
+                )
             request = GenerationRequest(
                 prompt=prompt,
                 size=size,

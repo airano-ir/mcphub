@@ -178,9 +178,17 @@ class OpenAIProvider(BaseImageProvider):
                         text = await resp.text()
                         last_error = text[:500]
                         if resp.status == 401:
-                            raise ProviderError("PROVIDER_AUTH", "OpenAI rejected the API key (401).", {"body": last_error})
+                            raise ProviderError(
+                                "PROVIDER_AUTH",
+                                "OpenAI rejected the API key (401).",
+                                {"body": last_error},
+                            )
                         if resp.status == 400:
-                            raise ProviderError("PROVIDER_BAD_REQUEST", f"OpenAI rejected request (400): {last_error}", {"body": last_error})
+                            raise ProviderError(
+                                "PROVIDER_BAD_REQUEST",
+                                f"OpenAI rejected request (400): {last_error}",
+                                {"body": last_error},
+                            )
                         if resp.status == 429 and attempt < _MAX_RETRIES:
                             _logger.warning("OpenAI 429, retry %d", attempt)
                             await asyncio.sleep(delay)
@@ -192,16 +200,29 @@ class OpenAIProvider(BaseImageProvider):
                             delay *= 2
                             continue
                         if resp.status == 429:
-                            raise ProviderError("PROVIDER_QUOTA", "OpenAI quota/rate-limit hit after retries.", {"status": 429, "body": last_error})
-                        raise ProviderError("PROVIDER_UNAVAILABLE", f"OpenAI upstream error HTTP {resp.status}.", {"status": resp.status, "body": last_error})
+                            raise ProviderError(
+                                "PROVIDER_QUOTA",
+                                "OpenAI quota/rate-limit hit after retries.",
+                                {"status": 429, "body": last_error},
+                            )
+                        raise ProviderError(
+                            "PROVIDER_UNAVAILABLE",
+                            f"OpenAI upstream error HTTP {resp.status}.",
+                            {"status": resp.status, "body": last_error},
+                        )
                 except TimeoutError as exc:
                     last_error = f"timeout: {exc}"
                     if attempt < _MAX_RETRIES:
                         await asyncio.sleep(delay)
                         delay *= 2
                         continue
-                    raise ProviderError("PROVIDER_TIMEOUT", "OpenAI request timed out after retries.") from exc
-        raise ProviderError("PROVIDER_UNAVAILABLE", f"OpenAI call failed after {_MAX_RETRIES} attempts: {last_error}")
+                    raise ProviderError(
+                        "PROVIDER_TIMEOUT", "OpenAI request timed out after retries."
+                    ) from exc
+        raise ProviderError(
+            "PROVIDER_UNAVAILABLE",
+            f"OpenAI call failed after {_MAX_RETRIES} attempts: {last_error}",
+        )
 
 
 async def _fetch_url(url: str) -> bytes:
