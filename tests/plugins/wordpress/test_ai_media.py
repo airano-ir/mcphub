@@ -182,6 +182,81 @@ class TestOpenAIProvider:
 # --- AIMediaHandler ---------------------------------------------------------
 
 
+class TestCustomOpenAIProvider:
+    @pytest.mark.asyncio
+    async def test_custom_base_url_and_input_image_use_edits(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_BASE_URL", "https://custom.example/v1/")
+        provider = OpenAIProvider()
+        response = _fake_resp(
+            status=200,
+            json_data={"data": [{"b64_json": base64.b64encode(_PNG_1x1).decode()}]},
+        )
+        calls = []
+        sess = _mock_session_post([response])
+        original_post = sess.post
+
+        def recording_post(*args, **kwargs):
+            calls.append((args, kwargs))
+            return original_post(*args, **kwargs)
+
+        sess.post = recording_post
+        with patch("plugins.ai_image.providers.openai.aiohttp.ClientSession") as cls:
+            cls.return_value = AsyncMock(
+                __aenter__=AsyncMock(return_value=sess),
+                __aexit__=AsyncMock(return_value=False),
+            )
+            result = await provider.generate(
+                "sk-test",
+                GenerationRequest(
+                    prompt="edit this",
+                    model="gpt-image-1",
+                    input_images=[_PNG_1x1],
+                    input_image_mimes=["image/png"],
+                ),
+            )
+
+        assert result.data == _PNG_1x1
+        assert calls[0][0][0] == "https://custom.example/v1/images/edits"
+        assert "data" in calls[0][1]
+        assert "json" not in calls[0][1]
+
+
+class TestAIMediaInputHandler:
+    @pytest.mark.asyncio
+    async def test_input_image_is_decoded_and_passed_to_provider(self, wp_client, monkeypatch):
+        handler = AIMediaHandler(wp_client, user_id="u1")
+        monkeypatch.setattr(handler, "_resolve_api_key", AsyncMock(return_value="sk"))
+        seen = {}
+
+        class CapturingProvider:
+            async def generate(self, _key, request):
+                seen["request"] = request
+                raise ProviderError("PROVIDER_BAD_REQUEST", "stop")
+
+        monkeypatch.setattr(
+            "plugins.wordpress.handlers.ai_media.get_provider",
+            lambda _name: CapturingProvider(),
+        )
+        out = await handler.generate_and_upload_image(
+            provider="openai",
+            prompt="edit",
+            input_images_b64=["data:image/png;base64," + base64.b64encode(_PNG_1x1).decode()],
+            input_image_mimes=["image/png"],
+        )
+        assert json.loads(out)["error_code"] == "PROVIDER_BAD_REQUEST"
+        assert seen["request"].input_images == [_PNG_1x1]
+        assert seen["request"].input_image_mimes == ["image/png"]
+
+    @pytest.mark.asyncio
+    async def test_invalid_input_image_returns_typed_error(self, wp_client, monkeypatch):
+        handler = AIMediaHandler(wp_client, user_id="u1")
+        monkeypatch.setattr(handler, "_resolve_api_key", AsyncMock(return_value="sk"))
+        out = await handler.generate_and_upload_image(
+            provider="openai", prompt="edit", input_images_b64=["not-base64"]
+        )
+        assert json.loads(out)["error_code"] == "PROVIDER_BAD_REQUEST"
+
+
 class TestAIMediaHandler:
     @pytest.mark.asyncio
     async def test_missing_api_key_returns_typed_error(self, wp_client, monkeypatch):

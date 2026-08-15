@@ -15,6 +15,8 @@ library, not an MCP plugin with its own endpoints.
 
 from __future__ import annotations
 
+import base64
+import binascii
 import hashlib
 import json
 import logging
@@ -34,6 +36,20 @@ from plugins.wordpress.handlers.media import (
 )
 
 _logger = logging.getLogger("mcphub.wordpress.ai_media")
+
+
+def _decode_input_image(value: str) -> bytes:
+    """Decode a base64 or data-URL image without logging its contents."""
+    encoded = (value or "").strip()
+    if encoded.startswith("data:") and "," in encoded:
+        encoded = encoded.split(",", 1)[1]
+    try:
+        data = base64.b64decode(encoded, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise ValueError("input_images_b64 contains invalid base64") from exc
+    if not data:
+        raise ValueError("input_images_b64 contains an empty image")
+    return data
 
 
 def _content_sha(data: bytes) -> str:
@@ -123,6 +139,16 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                     "negative_prompt": {
                         "anyOf": [{"type": "string"}, {"type": "null"}],
                     },
+                    "input_images_b64": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Optional base64/data-URL reference images for providers that support image editing.",
+                    },
+                    "input_image_mimes": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Optional MIME types matching input_images_b64; defaults to image/png.",
+                    },
                     "filename": {
                         "anyOf": [{"type": "string"}, {"type": "null"}],
                         "description": "Optional filename hint for the WP library.",
@@ -190,6 +216,8 @@ class AIMediaHandler:
         quality: str = "standard",
         model: str | None = None,
         negative_prompt: str | None = None,
+        input_images_b64: list[str] | None = None,
+        input_image_mimes: list[str] | None = None,
         filename: str | None = None,
         title: str | None = None,
         alt_text: str | None = None,
@@ -250,12 +278,18 @@ class AIMediaHandler:
                     payload["dashboard_url"] = dashboard_url
                 return json.dumps(payload, indent=2)
 
+            try:
+                input_images = [_decode_input_image(item) for item in (input_images_b64 or [])]
+            except ValueError as exc:
+                return json.dumps({"error_code": "PROVIDER_BAD_REQUEST", "message": str(exc)}, indent=2)
             request = GenerationRequest(
                 prompt=prompt,
                 size=size,
                 quality=quality,
                 model=model,
                 negative_prompt=negative_prompt,
+                input_images=input_images,
+                input_image_mimes=input_image_mimes or [],
             )
             result = await provider_impl.generate(api_key, request)
 

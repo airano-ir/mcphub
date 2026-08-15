@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
+import os
 from typing import Any
 
 import aiohttp
@@ -23,7 +24,9 @@ from plugins.ai_image.providers.base import (
 
 _logger = logging.getLogger("mcphub.ai_image.openai")
 
-_API_URL = "https://api.openai.com/v1/images/generations"
+_DEFAULT_BASE_URL = "https://api.openai.com/v1"
+_GENERATIONS_PATH = "/images/generations"
+_EDITS_PATH = "/images/edits"
 _DEFAULT_MODEL = "dall-e-3"
 _RETRY_STATUS = {429, 500, 502, 503, 504}
 _MAX_RETRIES = 3
@@ -71,7 +74,10 @@ class OpenAIProvider(BaseImageProvider):
             if request.quality:
                 payload["quality"] = request.quality
 
-        data, meta = await self._post_with_retry(api_key, payload)
+        if request.input_images:
+            data, meta = await self._post_edits_with_retry(api_key, payload, request)
+        else:
+            data, meta = await self._post_with_retry(api_key, payload)
 
         items = data.get("data") or []
         if not items:
@@ -102,37 +108,79 @@ class OpenAIProvider(BaseImageProvider):
             cost_usd=_estimate_cost(model, request.size, request.quality or "standard"),
         )
 
+    def _base_url(self) -> str:
+        return os.environ.get("OPENAI_BASE_URL", _DEFAULT_BASE_URL).strip().rstrip("/")
+
     async def _post_with_retry(
         self, api_key: str, payload: dict[str, Any]
     ) -> tuple[dict[str, Any], dict[str, Any]]:
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        }
+        return await self._request_with_retry(
+            api_key,
+            url=f"{self._base_url()}{_GENERATIONS_PATH}",
+            json_payload=payload,
+        )
+
+    async def _post_edits_with_retry(
+        self,
+        api_key: str,
+        payload: dict[str, Any],
+        request: GenerationRequest,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        def make_form() -> aiohttp.FormData:
+            form = aiohttp.FormData()
+            for key, value in payload.items():
+                if value is not None:
+                    form.add_field(key, str(value))
+            for index, image in enumerate(request.input_images):
+                mime = (
+                    request.input_image_mimes[index]
+                    if index < len(request.input_image_mimes)
+                    else "image/png"
+                )
+                form.add_field(
+                    "image",
+                    image,
+                    filename=f"input-{index}.png",
+                    content_type=mime,
+                )
+            return form
+
+        return await self._request_with_retry(
+            api_key,
+            url=f"{self._base_url()}{_EDITS_PATH}",
+            form_factory=make_form,
+        )
+
+    async def _request_with_retry(
+        self,
+        api_key: str,
+        *,
+        url: str,
+        json_payload: dict[str, Any] | None = None,
+        form_factory: Any | None = None,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        headers = {"Authorization": f"Bearer {api_key}"}
         last_error: str = ""
         delay = 1.0
         timeout = aiohttp.ClientTimeout(total=_REQUEST_TIMEOUT)
         async with aiohttp.ClientSession(timeout=timeout) as session:
             for attempt in range(1, _MAX_RETRIES + 1):
                 try:
-                    async with session.post(_API_URL, json=payload, headers=headers) as resp:
+                    request_kwargs: dict[str, Any] = {"headers": headers}
+                    if json_payload is not None:
+                        request_kwargs["json"] = json_payload
+                    elif form_factory is not None:
+                        request_kwargs["data"] = form_factory()
+                    async with session.post(url, **request_kwargs) as resp:
                         if resp.status == 200:
                             body = await resp.json()
-                            return body, {"attempt": attempt, "status": 200}
+                            return body, {"attempt": attempt, "status": 200, "url": url}
                         text = await resp.text()
                         last_error = text[:500]
                         if resp.status == 401:
-                            raise ProviderError(
-                                "PROVIDER_AUTH",
-                                "OpenAI rejected the API key (401).",
-                                {"body": last_error},
-                            )
+                            raise ProviderError("PROVIDER_AUTH", "OpenAI rejected the API key (401).", {"body": last_error})
                         if resp.status == 400:
-                            raise ProviderError(
-                                "PROVIDER_BAD_REQUEST",
-                                f"OpenAI rejected request (400): {last_error}",
-                                {"body": last_error},
-                            )
+                            raise ProviderError("PROVIDER_BAD_REQUEST", f"OpenAI rejected request (400): {last_error}", {"body": last_error})
                         if resp.status == 429 and attempt < _MAX_RETRIES:
                             _logger.warning("OpenAI 429, retry %d", attempt)
                             await asyncio.sleep(delay)
@@ -144,30 +192,16 @@ class OpenAIProvider(BaseImageProvider):
                             delay *= 2
                             continue
                         if resp.status == 429:
-                            raise ProviderError(
-                                "PROVIDER_QUOTA",
-                                "OpenAI quota/rate-limit hit after retries.",
-                                {"status": 429, "body": last_error},
-                            )
-                        raise ProviderError(
-                            "PROVIDER_UNAVAILABLE",
-                            f"OpenAI upstream error HTTP {resp.status}.",
-                            {"status": resp.status, "body": last_error},
-                        )
+                            raise ProviderError("PROVIDER_QUOTA", "OpenAI quota/rate-limit hit after retries.", {"status": 429, "body": last_error})
+                        raise ProviderError("PROVIDER_UNAVAILABLE", f"OpenAI upstream error HTTP {resp.status}.", {"status": resp.status, "body": last_error})
                 except TimeoutError as exc:
                     last_error = f"timeout: {exc}"
                     if attempt < _MAX_RETRIES:
                         await asyncio.sleep(delay)
                         delay *= 2
                         continue
-                    raise ProviderError(
-                        "PROVIDER_TIMEOUT",
-                        "OpenAI request timed out after retries.",
-                    ) from exc
-        raise ProviderError(
-            "PROVIDER_UNAVAILABLE",
-            f"OpenAI call failed after {_MAX_RETRIES} attempts: {last_error}",
-        )
+                    raise ProviderError("PROVIDER_TIMEOUT", "OpenAI request timed out after retries.") from exc
+        raise ProviderError("PROVIDER_UNAVAILABLE", f"OpenAI call failed after {_MAX_RETRIES} attempts: {last_error}")
 
 
 async def _fetch_url(url: str) -> bytes:
