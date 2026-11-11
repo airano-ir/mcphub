@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.14.0] — 2026-11-11
+
+### Cloudflare / Gmail / Search Console plugins, connect-time SSRF guard, registry-driven tools, MCP 2026-07-28
+
 ### Security
 - **SSRF on user-supplied site URLs — fixed end to end** (PR #138 + follow-up). Site URLs come from any signed-up user, and the connection test reflected upstream bodies. A pre-flight check alone was bypassable (HTTP redirect, DNS rebinding, and every tool call had no guard). `core/net_guard.py` now enforces the policy where the socket opens — a resolver that drops non-public answers plus trace hooks for IP-literal hops, including every redirect — for the connection test, all site-facing plugin clients, the capability probe, media sideload and OpenAI-compatible providers. Admin-owned sites (role=admin / `ADMIN_EMAILS`) keep private access; `ALLOW_PRIVATE_SITE_URLS=true` is the operator-wide escape hatch. CGNAT/Tailscale `100.64.0.0/10` is now denied too.
 - **Audit-log redaction** recurses into lists/tuples, covers `service_role_key` / `consumer_key`, and scrubs token-shaped strings (Bearer/Basic, `mhu_`, `ck_`/`cs_`, GitHub tokens, JWTs) anywhere.
@@ -31,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Companion 2.21.1 — the internal build's declared WordPress floor was wrong.** `Requires at least` said 5.0, but `/site-health` has always called `wp_timezone_string()` (WP 5.3) and `wp_is_application_passwords_available()` (WP 5.6), so installs on 5.0–5.5 were promised routes that would fatal. Corrected to 5.6. Also: seven `unlink()` calls are now `wp_delete_file()` so the `wp_delete_file` filter is honoured — the theme-file DELETE route used `unlink()`'s return value, and since `wp_delete_file()` returns nothing, it now confirms removal with `clearstatcache()` + `file_exists()` rather than reporting failure on every success.
 - **`.communityignore` was about to publish a private document.** `docs/reviews/` was not excluded, so the next community sync would have pushed `docs/reviews/2026-11-09-deep-review-fa.md` — which quotes an authenticated SSRF PoC and internal infrastructure detail — to the public repo. Added, along with `wordpress-plugin/*-svn/`: the live SVN working copies were being copied into the community tree (`.svn` metadata and duplicated release tags included), with only `.gitignore` standing between them and a push.
 
-### Added (earlier, unreleased)
+### Added (earlier in this cycle)
 - **Video generation vendor gate (P3-A)**: documented live 9Router/AI-gateway and Replicate research, capability probes, the current no-credential blocker, and the implementation-ready async job design; no end-to-end video generation is claimed.
 - **Large media handoff (P2)**: admin and per-user chunked WordPress media sessions now expose raw HTTP PUT and short-lived, session-scoped browser upload URLs; browser uploads reuse the existing session, checksum, size, expiry, and WordPress intake pipeline.
 - **Verified image-edit capability enforcement (P1)**: image inputs now require both explicit image-input and image-output capability metadata for OpenAI-compatible models; Stability, Replicate, and OpenRouter fail fast with `PROVIDER_EDIT_UNSUPPORTED` when edit input is supplied.
@@ -46,6 +50,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **`coolify_list_backup_executions` now requires `uuid` and `scheduled_backup_uuid`** — the instance-wide "all executions" route it relied on does not exist in Coolify. Get the scheduled backup UUID from `coolify_get_database_backups`.
 - **`coolify_validate_server` moved from read to write scope** (see Added, above) — least-privilege / read-only Coolify agents lose access to this tool entirely.
+
+## [3.13.1] — 2026-05-21
+
+Released to PyPI and Docker Hub without a changelog entry. A hotfix for an `ImportError` in
+`api_list_sites` that broke the My Sites page.
+
+## [3.13.0] — 2026-05-21
+
+Released to PyPI and Docker Hub without a changelog entry; see the git history between `v3.12.0`
+and `v3.13.0` for what it contained.
 
 ## [3.12.0] — 2026-04-25
 
@@ -970,4 +984,5 @@ Initial implementation of WordPress management tools.
 ---
 
 [1.0.0]: https://github.com/airano-ir/mcphub/releases/tag/v1.0.0
-[Unreleased]: https://github.com/airano-ir/mcphub/compare/v1.0.0...HEAD
+[3.14.0]: https://github.com/airano-ir/mcphub/releases/tag/v3.14.0
+[Unreleased]: https://github.com/airano-ir/mcphub/compare/v3.14.0...HEAD
