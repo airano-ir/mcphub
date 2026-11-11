@@ -39,14 +39,6 @@ services:
     volumes:
       - mcp-data:/app/data          # SQLite DB, API keys, OAuth data
       - mcp-logs:/app/logs          # Audit logs, health reports
-      # Docker socket — only needed for WP-CLI tools (WordPress Advanced plugin)
-      # Remove if you don't use wp_cache_flush, wp_transient_*, etc.
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-
-    # Docker socket GID — adjust to match your host's docker group
-    # Check with: getent group docker | cut -d: -f3
-    group_add:
-      - "999"
 
 volumes:
   mcp-data:

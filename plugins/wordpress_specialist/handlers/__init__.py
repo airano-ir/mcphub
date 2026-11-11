@@ -32,6 +32,10 @@ from plugins.wordpress_specialist.handlers.themes import ThemesHandler
 from plugins.wordpress_specialist.handlers.themes import (
     get_tool_specifications as get_themes_specs,
 )
+from plugins.wordpress_specialist.handlers.zip_install_chunked import ZipInstallChunkedHandler
+from plugins.wordpress_specialist.handlers.zip_install_chunked import (
+    get_tool_specifications as get_zip_install_chunked_specs,
+)
 
 __all__ = [
     "BulkHandler",
@@ -50,4 +54,6 @@ __all__ = [
     "get_site_layout_specs",
     "ThemesHandler",
     "get_themes_specs",
+    "ZipInstallChunkedHandler",
+    "get_zip_install_chunked_specs",
 ]

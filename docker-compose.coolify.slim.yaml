@@ -24,7 +24,7 @@
 #   Used only inside RUN (apt + pip), never baked into the runtime image.
 #
 # Source mirror note (2026-04-16):
-#   Primary repo:  github.com/airano-ir/coolify-mcp-hub  (public)
+#   Primary repo:  github.com/airano-ir/mcphub  (public)
 #   Gitea mirror:  gitea.palebluedot.live/atlatl/mcphub-internal  (private)
 #
 # ===================================
@@ -81,11 +81,6 @@ services:
     volumes:
       - mcp-data:/app/data          # SQLite DB, API keys, OAuth data
       - mcp-logs:/app/logs          # Audit logs, health reports
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-
-    # Coolify uses GID 988 for Docker socket
-    group_add:
-      - "988"
 
 volumes:
   mcp-data:

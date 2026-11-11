@@ -19,6 +19,7 @@ Usage:
 
 import json
 import logging
+import os
 import time
 from copy import deepcopy
 from typing import Any
@@ -26,12 +27,32 @@ from typing import Any
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+from core.tool_annotations import humanize_title, tool_annotations
 from core.tool_registry import ToolDefinition
 
 logger = logging.getLogger(__name__)
 
 # In-memory rate limit tracking: user_id -> list of timestamps
 _rate_limits: dict[str, list[float]] = {}
+
+# Shared with every FastMCP endpoint so all URLs emit identical hints.
+_tool_annotations = tool_annotations
+
+
+def _server_version() -> str:
+    """Hub version reported as serverInfo.version (pyproject, cached)."""
+    global _SERVER_VERSION
+    if _SERVER_VERSION is None:
+        try:
+            from core.dashboard.routes import _get_project_version
+
+            _SERVER_VERSION = _get_project_version()
+        except Exception:  # noqa: BLE001
+            _SERVER_VERSION = "unknown"
+    return _SERVER_VERSION
+
+
+_SERVER_VERSION: str | None = None
 
 
 def _check_user_rate_limit(user_id: str) -> tuple[bool, str]:
@@ -120,6 +141,8 @@ def _tools_to_mcp_schema(
                 "name": tool_def.name,
                 "description": tool_def.description,
                 "inputSchema": schema,
+                "title": humanize_title(tool_def),
+                "annotations": _tool_annotations(tool_def),
             }
         )
     return result
@@ -129,6 +152,7 @@ async def _get_visible_tools_for_site(
     site_id: str,
     key_scopes: list[str],
     plugin_type: str,
+    credentials: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Return tools/list payload filtered by key scope + site scope + toggles (F.7b).
 
@@ -143,6 +167,11 @@ async def _get_visible_tools_for_site(
     tools = await access.get_visible_tools(
         site_id=site_id, key_scopes=key_scopes, plugin_type=plugin_type
     )
+
+    if plugin_type == "coolify" and credentials:
+        from core.coolify_policy import filter_coolify_tools_by_policy
+
+        tools = filter_coolify_tools_by_policy(tools, credentials)
 
     configured_providers: list[str] = []
     if plugin_type in {"wordpress", "woocommerce"}:
@@ -318,7 +347,12 @@ async def user_mcp_handler(request: Request) -> Response:
                         status_code=403,
                     )
             except RuntimeError:
-                pass  # DB unavailable — allow through
+                # A site-scoped key cannot be authorized without checking its
+                # bound site. Fail closed when the boundary store is unavailable.
+                return JSONResponse(
+                    _jsonrpc_error(None, -32600, "Authorization service unavailable"),
+                    status_code=503,
+                )
 
         key_scopes = key_info.get("scopes", "read").split()
     else:
@@ -371,7 +405,7 @@ async def user_mcp_handler(request: Request) -> Response:
         pass
 
     _is_admin_user = False
-    if _user_record_early:
+    if isinstance(_user_record_early, dict):
         from core.admin_utils import is_admin_email
 
         _is_admin_user = (_user_record_early.get("role") == "admin") or is_admin_email(
@@ -435,136 +469,112 @@ async def user_mcp_handler(request: Request) -> Response:
     req_id = body.get("id")
     method = body.get("method", "")
     params = body.get("params", {})
+    if not isinstance(params, dict):
+        params = {}
+
+    # --- Protocol version (dual-era: legacy initialize + modern 2026-07-28) ---
+    from core import mcp_protocol
+
+    server_info = {"name": f"mcphub-{alias}", "version": _server_version()}
+    declared = (
+        None if method == "initialize" else mcp_protocol.declared_version(params, request.headers)
+    )
+    if declared is not None and declared not in mcp_protocol.SUPPORTED_VERSIONS:
+        return JSONResponse(
+            mcp_protocol.unsupported_version_error(req_id, declared), status_code=400
+        )
+    modern = mcp_protocol.is_modern(declared)
+
+    def _result(payload: dict[str, Any], *, ttl_ms: int | None = None) -> JSONResponse:
+        if modern:
+            payload = mcp_protocol.decorate_modern_result(payload, server_info, ttl_ms=ttl_ms)
+        return JSONResponse(_jsonrpc_result(req_id, payload))
 
     # --- Handle MCP methods ---
 
     if method == "initialize":
-        version = "3.1.0"
         return JSONResponse(
             _jsonrpc_result(
                 req_id,
                 {
-                    "protocolVersion": "2024-11-05",
+                    "protocolVersion": mcp_protocol.negotiate_legacy_version(
+                        params.get("protocolVersion")
+                    ),
                     "capabilities": {"tools": {}},
-                    "serverInfo": {
-                        "name": f"mcphub-{alias}",
-                        "version": version,
-                    },
+                    "serverInfo": server_info,
                 },
             )
         )
+
+    elif method == "server/discover":
+        return JSONResponse(_jsonrpc_result(req_id, mcp_protocol.discover_result(server_info)))
 
     elif method == "notifications/initialized":
         # Notification — no response needed
         return Response(status_code=204)
 
     elif method == "tools/list":
-        tools = await _get_visible_tools_for_site(site["id"], key_scopes, site["plugin_type"])
-        return JSONResponse(_jsonrpc_result(req_id, {"tools": tools}))
+        credentials_for_policy: dict[str, Any] | None = None
+        if site["plugin_type"] == "coolify":
+            try:
+                from core.encryption import get_credential_encryption
+
+                encryptor = get_credential_encryption()
+                credentials_for_policy = encryptor.decrypt_credentials(
+                    site["credentials"], site["id"]
+                )
+            except Exception as exc:  # non-fatal — preserve existing list flow
+                logger.warning(
+                    "Failed to decrypt Coolify credentials for tools/list policy on site %s: %s",
+                    site["id"],
+                    exc,
+                )
+        tools = await _get_visible_tools_for_site(
+            site["id"], key_scopes, site["plugin_type"], credentials_for_policy
+        )
+        return _result({"tools": tools}, ttl_ms=mcp_protocol.TOOLS_LIST_TTL_MS)
 
     elif method == "tools/call":
         tool_name = params.get("name", "")
         arguments = params.get("arguments", {})
 
-        # Verify tool belongs to this plugin type
-        plugin_prefix = f"{site['plugin_type']}_"
-        if not tool_name.startswith(plugin_prefix):
-            return JSONResponse(
-                _jsonrpc_error(req_id, -32601, f"Tool '{tool_name}' not available for this site")
+        from core.tool_access import get_tool_access_manager
+
+        access = get_tool_access_manager()
+        try:
+            tool_def, decision = await access.authorize_tool_for_site(
+                site_id=site["id"],
+                key_scopes=key_scopes,
+                plugin_type=site["plugin_type"],
+                tool_name=tool_name,
+                principal_id_safe=user_id,
+                arguments=arguments,
             )
-
-        # Check required scope
-        from core.tool_registry import get_tool_registry
-
-        registry = get_tool_registry()
-        tool_def = registry.get_by_name(tool_name)
-        if not tool_def:
-            return JSONResponse(_jsonrpc_error(req_id, -32601, f"Tool '{tool_name}' not found"))
-
-        required_scope = tool_def.required_scope
-        # key_scopes is set during authentication (both mhu_ and JWT paths)
-
-        # F.7b: enforce category-based scope allowlist in addition to the
-        # universal scope tier. A tool is allowed only if BOTH
-        #   (a) the universal scope tier grants it (works for every plugin), AND
-        #   (b) for plugins with fine-grained categories (Coolify), the
-        #       tool's category is in BOTH the key-scope set AND the site's
-        #       stored tool_scope set (the narrower layer wins).
-        from core.tool_access import (
-            KNOWN_CATEGORIES,
-            SCOPE_CUSTOM,
-            UNIVERSAL_SCOPE_TIERS,
-            scopes_to_categories,
-        )
-
-        # F.19.5 introduced the ``editor`` tier (between ``read`` and
-        # ``write``). The legacy 3-level hierarchy here ({read:1, write:2,
-        # admin:3}) silently dropped ``editor`` to level 0, which made
-        # every tool call from an editor-scope key fail "Insufficient
-        # scope". Use the canonical UNIVERSAL_SCOPE_TIERS map from
-        # tool_access so this list stays single-sourced as new tiers
-        # land (F.19.2 introduces ``manage`` / ``install`` next).
-        allowed_scopes: set[str] = set()
-        for s in key_scopes:
-            allowed_scopes |= UNIVERSAL_SCOPE_TIERS.get(s.strip(), set())
-        legacy_ok = required_scope in allowed_scopes
-
-        plugin_type = tool_def.plugin_type
-        # Category check is for plugins with fine-grained categories
-        # (currently Coolify only). For other plugins ``tool_def.category``
-        # defaults to ``"read"`` which collides with one of Coolify's
-        # KNOWN_CATEGORIES — running the check against non-Coolify tools
-        # mis-rejected wordpress_specialist + wordpress + gitea tools when
-        # the key scope didn't happen to map to category "read".
-        if plugin_type == "coolify":
-            key_cats = scopes_to_categories(key_scopes)
-            key_category_ok = (
-                tool_def.category not in KNOWN_CATEGORIES or tool_def.category in key_cats
-            )
-        else:
-            key_category_ok = True
-
-        # Site-level scope check (skipped for "custom" preset).
-        site_scope = site.get("tool_scope") or "admin"
-        if site_scope and site_scope != SCOPE_CUSTOM:
-            if plugin_type == "coolify":
-                site_cats = scopes_to_categories([site_scope])
-                site_category_ok = (
-                    tool_def.category not in KNOWN_CATEGORIES or tool_def.category in site_cats
-                )
-            else:
-                # Non-Coolify plugins use the universal tier at site level
-                # too — site_scope is one of ``read`` / ``editor`` / ``write``
-                # / ``admin`` / ``custom``, same vocabulary as the key.
-                site_allowed = UNIVERSAL_SCOPE_TIERS.get(site_scope, set())
-                site_category_ok = required_scope in site_allowed
-        else:
-            site_category_ok = True
-
-        if not (legacy_ok and key_category_ok and site_category_ok):
+        except LookupError:
             return JSONResponse(
                 _jsonrpc_error(
                     req_id,
-                    -32600,
-                    f"Insufficient scope. Tool '{tool_name}' requires "
-                    f"scope '{required_scope}' (category '{tool_def.category}').",
+                    -32601,
+                    f"Tool '{tool_name}' is not available for this site",
                 )
             )
 
-        # F.7b: honour per-site tool toggles — a disabled tool cannot be called
-        # even if scopes would otherwise allow it.
-        try:
-            toggles = await db.get_site_tool_toggles(site["id"])
-            if not toggles.get(tool_name, True):
-                return JSONResponse(
-                    _jsonrpc_error(
-                        req_id,
-                        -32600,
-                        f"Tool '{tool_name}' is disabled for this site.",
-                    )
-                )
-        except Exception as exc:  # non-fatal — fall through on DB errors
-            logger.warning("Failed to check site tool toggles for %s: %s", site["id"], exc)
+        if tool_def is None or not decision.allow:
+            reason = getattr(decision, "reason", "Tool authorization denied")
+            reason_code = getattr(decision, "reason_code", "")
+            if reason_code == "INSUFFICIENT_SCOPE":
+                message = f"Insufficient scope: {reason}"
+            else:
+                message = f"Tool not authorized: {reason}"
+            return JSONResponse(_jsonrpc_error(req_id, -32003, message))
+
+        # The registry definition, not the request name, is authoritative for
+        # plugin ownership and all scope/site/toggle/prerequisite checks.
+        plugin_type = tool_def.plugin_type
+        if plugin_type != site["plugin_type"]:
+            return JSONResponse(
+                _jsonrpc_error(req_id, -32601, f"Tool '{tool_name}' not available for this site")
+            )
 
         # Decrypt credentials
         try:
@@ -592,7 +602,60 @@ async def user_mcp_handler(request: Request) -> Response:
             **credentials,
         }
 
-        result = await _execute_tool(tool_name, arguments, site["plugin_type"], config_dict)
+        # OAuth-based plugins (google_search_console) store only
+        # access_token / refresh_token / token_expires_at in per-site
+        # credentials.  The plugin's client needs client_id and
+        # client_secret to refresh expired access tokens.  These come from
+        # the server-wide GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET env vars
+        # — the same pair used by the site OAuth flow itself.
+        # Gmail uses manual credentials (client_id/secret/refresh_token
+        # entered by the owner), so it is NOT included here.
+        if site["plugin_type"] == "google_search_console":
+            google_client_id = os.getenv("GOOGLE_CLIENT_ID", "")
+            google_client_secret = os.getenv("GOOGLE_CLIENT_SECRET", "")
+            if google_client_id:
+                config_dict.setdefault("client_id", google_client_id)
+            if google_client_secret:
+                config_dict.setdefault("client_secret", google_client_secret)
+
+        if site["plugin_type"] == "coolify":
+            from core.coolify_policy import is_coolify_tool_allowed
+
+            allowed_by_policy, deny_reason = is_coolify_tool_allowed(
+                tool_def, arguments, credentials
+            )
+            if not allowed_by_policy:
+                return JSONResponse(
+                    _jsonrpc_error(
+                        req_id,
+                        -32600,
+                        f"Tool '{tool_name}' is disabled by Coolify site policy: {deny_reason}",
+                    )
+                )
+
+        # SSRF boundary: every outbound request made while executing this tool
+        # targets the user-supplied site URL. Non-admin sites may only reach
+        # public addresses — enforced at connect time, so redirects and DNS
+        # rebinding are covered too. Admin-owned sites keep private access
+        # (same trust boundary as the admin rate-limit/visibility exemptions).
+        from core.net_guard import allow_private_destinations
+
+        with allow_private_destinations(_is_admin_user):
+            result = await _execute_tool(tool_name, arguments, site["plugin_type"], config_dict)
+
+            if site["plugin_type"] == "coolify":
+                from core.coolify_policy import filter_coolify_result_by_policy
+                from plugins.coolify.client import CoolifyClient
+
+                policy_client = CoolifyClient(site["url"], credentials["token"])
+                policy_cache: dict[str, Any] = {}
+                result = await filter_coolify_result_by_policy(
+                    tool_name,
+                    result,
+                    credentials,
+                    policy_client,
+                    policy_cache,
+                )
 
         # Format result as MCP content
         if isinstance(result, str):
@@ -604,7 +667,7 @@ async def user_mcp_handler(request: Request) -> Response:
         else:
             content = [{"type": "text", "text": json.dumps(result, default=str)}]
 
-        return JSONResponse(_jsonrpc_result(req_id, {"content": content}))
+        return _result({"content": content})
 
     else:
         return JSONResponse(_jsonrpc_error(req_id, -32601, f"Method '{method}' not supported"))

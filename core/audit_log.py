@@ -14,6 +14,7 @@ Features:
 
 import json
 import logging
+import re
 from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
@@ -37,6 +38,62 @@ class EventType(Enum):
     HEALTH_CHECK = "health_check"
     ERROR = "error"
     SYSTEM = "system"
+
+
+_SENSITIVE_KEY_FRAGMENTS = (
+    "password",
+    "passwd",
+    "app_password",
+    "token",
+    "api_key",
+    "secret",
+    "credential",
+    "auth",
+    "private_key",
+    "access_token",
+    "refresh_token",
+    "consumer_key",
+    "service_role",
+    "cookie",
+    "jwt",
+)
+
+_SECRET_VALUE_PATTERNS = (
+    re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]{8,}"),
+    re.compile(r"(?i)\bbasic\s+[A-Za-z0-9+/=]{12,}"),
+    re.compile(r"\bmh[uk]_[A-Za-z0-9_-]{16,}"),
+    re.compile(r"\b(?:ck|cs)_[A-Fa-f0-9]{20,}"),
+    re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}"),
+    re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{5,}"),
+)
+
+
+def _is_sensitive_key(key: Any) -> bool:
+    lowered = str(key).lower()
+    return any(fragment in lowered for fragment in _SENSITIVE_KEY_FRAGMENTS)
+
+
+def _scrub_string(value: str) -> str:
+    for pattern in _SECRET_VALUE_PATTERNS:
+        value = pattern.sub("[REDACTED]", value)
+    return value
+
+
+def redact_sensitive(value: Any, _depth: int = 0) -> Any:
+    """Recursively redact secrets from dicts, lists, tuples and strings."""
+    if _depth > 20:
+        return "[TRUNCATED]"
+    if isinstance(value, dict):
+        return {
+            k: ("[REDACTED]" if _is_sensitive_key(k) else redact_sensitive(v, _depth + 1))
+            for k, v in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        items = [redact_sensitive(v, _depth + 1) for v in value]
+        return items if isinstance(value, list) else tuple(items)
+    if isinstance(value, str):
+        return _scrub_string(value)
+    return value
 
 
 class AuditLogger:
@@ -267,6 +324,12 @@ class AuditLogger:
         """
         Filter sensitive data from logs (GDPR compliance).
 
+        Recurses through nested dicts, lists and tuples. Values under a
+        sensitive key are replaced with ``[REDACTED]``; token-shaped strings
+        (Bearer headers, hub/user keys, WooCommerce keys, GitHub tokens, JWTs)
+        are scrubbed wherever they appear, so secrets inside error messages or
+        free-text arguments do not reach the log either.
+
         Args:
             data: Data to filter
 
@@ -275,31 +338,7 @@ class AuditLogger:
         """
         if not data:
             return {}
-
-        sensitive_keys = {
-            "password",
-            "app_password",
-            "token",
-            "api_key",
-            "secret",
-            "credential",
-            "auth",
-            "private_key",
-            "access_token",
-            "refresh_token",
-        }
-
-        filtered = {}
-        for key, value in data.items():
-            # Check if key contains sensitive words
-            if any(sensitive in key.lower() for sensitive in sensitive_keys):
-                filtered[key] = "[REDACTED]"
-            elif isinstance(value, dict):
-                filtered[key] = self._filter_sensitive_data(value)
-            else:
-                filtered[key] = value
-
-        return filtered
+        return redact_sensitive(data)
 
     def get_logs(
         self,

@@ -203,9 +203,13 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         },
         {
             "name": "validate_server",
-            "category": "read",
+            "category": "lifecycle",
             "method_name": "validate_server",
-            "description": "Validate server connectivity and configuration.",
+            "description": (
+                "Validate server connectivity and configuration. "
+                "With install=true, can also install prerequisites/Docker and restart "
+                "the Docker daemon — mutating, so this tool requires write scope."
+            ),
             "schema": {
                 "type": "object",
                 "properties": {
@@ -214,10 +218,18 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                         "description": "Server UUID",
                         "minLength": 1,
                     },
+                    "install": {
+                        "type": "boolean",
+                        "description": (
+                            "Install missing prerequisites and Docker on the server. "
+                            "Can restart the Docker daemon — leave false for a read-only check."
+                        ),
+                        "default": False,
+                    },
                 },
                 "required": ["uuid"],
             },
-            "scope": "read",
+            "scope": "write",
         },
     ]
 
@@ -283,9 +295,9 @@ async def get_server_domains(client: CoolifyClient, uuid: str) -> str:
     return json.dumps(result, indent=2, ensure_ascii=False)
 
 
-async def validate_server(client: CoolifyClient, uuid: str) -> str:
+async def validate_server(client: CoolifyClient, uuid: str, install: bool = False) -> str:
     """Validate server."""
-    result_data = await client.validate_server(uuid)
+    result_data = await client.validate_server(uuid, install=install)
     result = {
         "success": True,
         "message": "Server validation started",

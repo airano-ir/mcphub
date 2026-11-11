@@ -1,7 +1,7 @@
 """
 WordPress Plugin - Option B Clean Architecture
 
-Complete WordPress content management through REST API and WP-CLI.
+Complete WordPress content management through REST API and companion routes.
 Refactored to use modular handlers for better organization and maintainability.
 
 Note: WooCommerce functionality split to separate plugin in Phase D.1.
@@ -27,11 +27,11 @@ class WordPressPlugin(BasePlugin):
     - Site management (plugins, themes, settings)
     - SEO (Yoast, RankMath)
     - Menus and navigation
-    - WP-CLI operations (cache, database, updates)
+    - Companion-backed maintenance operations (cache, transients, database checks)
     - Internal link analysis
 
     Note: WooCommerce functionality moved to separate woocommerce plugin (Phase D.1)
-    Total: 67 tools
+    Total: 85 tools
     """
 
     @staticmethod
@@ -53,7 +53,6 @@ class WordPressPlugin(BasePlugin):
                 - url: WordPress site URL
                 - username: WordPress username
                 - app_password: WordPress application password
-                - container: (Optional) Docker container name for WP-CLI
             project_id: Optional project ID (auto-generated if not provided)
         """
         super().__init__(config, project_id=project_id)
@@ -77,7 +76,10 @@ class WordPressPlugin(BasePlugin):
         )
         # F.5a.5: chunked media uploads (session store + disk spill)
         self.media_chunked = handlers.MediaChunkedHandler(
-            self.client, user_id=config.get("user_id")
+            self.client,
+            user_id=config.get("user_id"),
+            site_id=config.get("site_id"),
+            alias=config.get("alias"),
         )
         # F.5a.6.3: probe WP upload limits (24h cache)
         self.media_probe = handlers.ProbeHandler(self.client)
@@ -89,10 +91,17 @@ class WordPressPlugin(BasePlugin):
         self.export = handlers.ExportHandler(self.client)
         # F.18.4: cache purge via companion plugin
         self.cache_purge_handler = handlers.CachePurgeHandler(self.client)
+        # F.18.8: PHP OPcache reset via companion plugin
+        self.opcache_handler = handlers.OpcacheHandler(self.client)
         # F.18.5: native transient flush via companion plugin
         self.transient_flush_handler = handlers.TransientFlushHandler(self.client)
+        # F.18.9/F.19.3.4: legacy admin tool names now use the companion
+        # plugin rather than private Docker/WP-CLI transport.
+        self.legacy_admin_handler = handlers.LegacyAdminHandler(self.client)
         # F.18.6: unified site-health snapshot via companion plugin
         self.site_health_handler = handlers.SiteHealthHandler(self.client)
+        # Read-only health diagnosis distilled from real-site failures
+        self.diagnostics = handlers.DiagnosticsHandler(self.client)
         # F.18.7: audit-hook configuration + query
         self.audit_hook_handler = handlers.AuditHookHandler(self.client)
         # F.5a.8.2: regenerate attachment sub-sizes via companion plugin
@@ -109,16 +118,6 @@ class WordPressPlugin(BasePlugin):
         # Note: WooCommerce handlers moved to woocommerce plugin (Phase D.1)
         # self.products, self.orders, self.customers, self.reports, self.coupons
 
-        # WP-CLI handler (optional - requires container)
-        container_name = config.get("container")
-        if container_name:
-            from plugins.wordpress.wp_cli import WPCLIManager
-
-            wp_cli_manager = WPCLIManager(container_name)
-            self.wp_cli = handlers.WPCLIHandler(wp_cli_manager)
-        else:
-            self.wp_cli = None
-
         # Database, bulk, and system operations live on
         # ``wordpress_specialist`` (companion-backed; no Docker socket).
         # The legacy ``wordpress_advanced`` plugin was sunset 2026-05-04.
@@ -132,34 +131,36 @@ class WordPressPlugin(BasePlugin):
         with site parameter routing.
 
         Returns:
-            List of tool specification dictionaries (67 tools)
+            List of tool specification dictionaries (85 tools)
         """
         specs = []
 
         # Core WordPress handlers
-        specs.extend(handlers.get_posts_specs())  # 13 tools
+        specs.extend(handlers.get_posts_specs())  # 14 tools
         specs.extend(handlers.get_media_specs())  # 6 tools (F.5a.1: added base64 upload)
         specs.extend(handlers.get_ai_media_specs())  # 1 tool (F.5a.4: generate+upload)
-        specs.extend(handlers.get_media_chunked_specs())  # 5 tools (F.5a.5 + F.5a.8.4 status)
+        specs.extend(handlers.get_media_chunked_specs())  # 6 tools (F.5a.5 + F.5a.8.4 status)
         specs.extend(handlers.get_media_probe_specs())  # 1 tool (F.5a.6.3: probe limits)
         specs.extend(handlers.get_capabilities_specs())  # 1 tool (F.18.1: probe capabilities)
         specs.extend(handlers.get_bulk_meta_specs())  # 1 tool (F.18.2: bulk meta write)
         specs.extend(handlers.get_export_specs())  # 1 tool (F.18.3: structured export)
         specs.extend(handlers.get_cache_purge_specs())  # 1 tool (F.18.4: cache purge)
+        specs.extend(handlers.get_opcache_specs())  # 1 tool (F.18.8: opcache reset)
         specs.extend(handlers.get_transient_flush_specs())  # 1 tool (F.18.5: transient flush)
         specs.extend(handlers.get_site_health_specs())  # 1 tool (F.18.6: site health)
+        specs.extend(handlers.get_diagnostics_specs())  # 1 tool (diagnose_site)
         specs.extend(handlers.get_audit_hook_specs())  # 3 tools (F.18.7: audit hook)
         specs.extend(handlers.get_regenerate_thumbnails_specs())  # 1 tool (F.5a.8.2)
         specs.extend(handlers.get_media_bulk_specs())  # 2 tools (F.5a.8.3: bulk delete+reassign)
-        specs.extend(handlers.get_taxonomy_specs())  # 11 tools
+        specs.extend(handlers.get_taxonomy_specs())  # 12 tools
         specs.extend(handlers.get_comments_specs())  # 5 tools
         specs.extend(handlers.get_users_specs())  # 2 tools
         specs.extend(handlers.get_site_specs())  # 5 tools
 
         # Advanced content handlers
         specs.extend(handlers.get_seo_specs())  # 4 tools
-        specs.extend(handlers.get_menus_specs())  # 9 tools (incl. wp_navigation CRUD)
-        specs.extend(handlers.get_wp_cli_specs())  # 15 tools
+        specs.extend(handlers.get_menus_specs())  # 10 tools (incl. wp_navigation CRUD)
+        specs.extend(handlers.get_legacy_admin_specs())  # 5 companion-backed legacy names
 
         # Note: WooCommerce specs moved to woocommerce plugin (Phase D.1)
         # Database / bulk / system specs live on wordpress_specialist
@@ -263,6 +264,9 @@ class WordPressPlugin(BasePlugin):
     async def list_pages(self, **kwargs):
         return await self.posts.list_pages(**kwargs)
 
+    async def get_page(self, **kwargs):
+        return await self.posts.get_page(**kwargs)
+
     async def create_page(self, **kwargs):
         return await self.posts.create_page(**kwargs)
 
@@ -326,6 +330,9 @@ class WordPressPlugin(BasePlugin):
     async def upload_media_chunked_status(self, **kwargs):
         return await self.media_chunked.upload_media_chunked_status(**kwargs)
 
+    async def media_upload_workflow_status(self, **kwargs):
+        return await self.media_chunked.media_upload_workflow_status(**kwargs)
+
     # === Probe Upload Limits (F.5a.6.3) ===
     async def probe_upload_limits(self, **kwargs):
         return await self.media_probe.probe_upload_limits(**kwargs)
@@ -346,6 +353,10 @@ class WordPressPlugin(BasePlugin):
     async def cache_purge(self, **kwargs):
         return await self.cache_purge_handler.cache_purge(**kwargs)
 
+    # === OPcache Reset (F.18.8) ===
+    async def opcache_reset(self, **kwargs):
+        return await self.opcache_handler.opcache_reset(**kwargs)
+
     # === Regenerate Thumbnails (F.5a.8.2) ===
     async def regenerate_thumbnails(self, **kwargs):
         return await self.regenerate_thumbnails_handler.regenerate_thumbnails(**kwargs)
@@ -364,6 +375,9 @@ class WordPressPlugin(BasePlugin):
     # === Unified Site Health (F.18.6) ===
     async def site_health(self, **kwargs):
         return await self.site_health_handler.site_health(**kwargs)
+
+    async def diagnose_site(self, **kwargs):
+        return await self.diagnostics.diagnose_site(**kwargs)
 
     # === Audit Hook (F.18.7) ===
     async def audit_hook_status(self, **kwargs):
@@ -408,6 +422,9 @@ class WordPressPlugin(BasePlugin):
 
     async def create_taxonomy_term(self, **kwargs):
         return await self.taxonomy.create_taxonomy_term(**kwargs)
+
+    async def set_term_language(self, **kwargs):
+        return await self.taxonomy.set_term_language(**kwargs)
 
     # === Comments ===
     async def list_comments(self, **kwargs):
@@ -491,81 +508,27 @@ class WordPressPlugin(BasePlugin):
     async def update_navigation(self, **kwargs):
         return await self.menus.update_navigation(**kwargs)
 
-    # === WP-CLI Operations ===
-    async def wp_cache_flush(self, **kwargs):
-        if self.wp_cli:
-            return await self.wp_cli.wp_cache_flush(**kwargs)
-        return '{"error": "WP-CLI not available. Container not configured."}'
+    async def delete_navigation(self, **kwargs):
+        return await self.menus.delete_navigation(**kwargs)
 
-    async def wp_cache_type(self, **kwargs):
-        if self.wp_cli:
-            return await self.wp_cli.wp_cache_type(**kwargs)
-        return '{"error": "WP-CLI not available. Container not configured."}'
+    # === Companion-backed legacy admin operations ===
+    async def wp_cache_flush(self, **kwargs):
+        return await self.cache_purge_handler.cache_purge(**kwargs)
 
     async def wp_transient_delete_all(self, **kwargs):
-        if self.wp_cli:
-            return await self.wp_cli.wp_transient_delete_all(**kwargs)
-        return '{"error": "WP-CLI not available. Container not configured."}'
+        return await self.transient_flush_handler.transient_flush(
+            scope="expired",
+            include_site_transients=kwargs.get("include_site_transients", True),
+        )
 
     async def wp_transient_list(self, **kwargs):
-        if self.wp_cli:
-            return await self.wp_cli.wp_transient_list(**kwargs)
-        return '{"error": "WP-CLI not available. Container not configured."}'
+        return await self.transient_flush_handler.transient_list(**kwargs)
 
     async def wp_db_check(self, **kwargs):
-        if self.wp_cli:
-            return await self.wp_cli.wp_db_check(**kwargs)
-        return '{"error": "WP-CLI not available. Container not configured."}'
+        return await self.legacy_admin_handler.wp_db_check(**kwargs)
 
     async def wp_db_optimize(self, **kwargs):
-        if self.wp_cli:
-            return await self.wp_cli.wp_db_optimize(**kwargs)
-        return '{"error": "WP-CLI not available. Container not configured."}'
-
-    async def wp_db_export(self, **kwargs):
-        if self.wp_cli:
-            return await self.wp_cli.wp_db_export(**kwargs)
-        return '{"error": "WP-CLI not available. Container not configured."}'
-
-    async def wp_plugin_list_detailed(self, **kwargs):
-        if self.wp_cli:
-            return await self.wp_cli.wp_plugin_list_detailed(**kwargs)
-        return '{"error": "WP-CLI not available. Container not configured."}'
-
-    async def wp_theme_list_detailed(self, **kwargs):
-        if self.wp_cli:
-            return await self.wp_cli.wp_theme_list_detailed(**kwargs)
-        return '{"error": "WP-CLI not available. Container not configured."}'
-
-    async def wp_plugin_verify_checksums(self, **kwargs):
-        if self.wp_cli:
-            return await self.wp_cli.wp_plugin_verify_checksums(**kwargs)
-        return '{"error": "WP-CLI not available. Container not configured."}'
-
-    async def wp_core_verify_checksums(self, **kwargs):
-        if self.wp_cli:
-            return await self.wp_cli.wp_core_verify_checksums(**kwargs)
-        return '{"error": "WP-CLI not available. Container not configured."}'
-
-    async def wp_search_replace_dry_run(self, **kwargs):
-        if self.wp_cli:
-            return await self.wp_cli.wp_search_replace_dry_run(**kwargs)
-        return '{"error": "WP-CLI not available. Container not configured."}'
-
-    async def wp_plugin_update(self, **kwargs):
-        if self.wp_cli:
-            return await self.wp_cli.wp_plugin_update(**kwargs)
-        return '{"error": "WP-CLI not available. Container not configured."}'
-
-    async def wp_theme_update(self, **kwargs):
-        if self.wp_cli:
-            return await self.wp_cli.wp_theme_update(**kwargs)
-        return '{"error": "WP-CLI not available. Container not configured."}'
-
-    async def wp_core_update(self, **kwargs):
-        if self.wp_cli:
-            return await self.wp_cli.wp_core_update(**kwargs)
-        return '{"error": "WP-CLI not available. Container not configured."}'
+        return await self.legacy_admin_handler.wp_db_optimize(**kwargs)
 
     # Database, bulk, and system operations live on wordpress_specialist
     # (companion-backed; legacy wordpress_advanced was sunset 2026-05-04).

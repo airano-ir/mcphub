@@ -24,6 +24,22 @@ def _strip_html(html_content: str, max_chars: int = 500) -> str:
     return text
 
 
+def _filter_meta(meta: Any, meta_keys: str | None = None) -> dict[str, Any]:
+    """Return REST-exposed post meta, optionally scoped to comma-separated keys."""
+    if not isinstance(meta, dict):
+        return {}
+    if not meta_keys:
+        return meta
+
+    requested = [key.strip() for key in meta_keys.split(",") if key.strip()]
+    if not requested:
+        return meta
+    return {key: meta[key] for key in requested if key in meta}
+
+
+_POST_LANGUAGE_ROUTE = "airano-mcp/v1/post-language"
+
+
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator"""
     return [
@@ -87,6 +103,10 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                         "anyOf": [{"type": "string"}, {"type": "null"}],
                         "description": "Comma-separated list of fields to return (e.g., 'id,title,status,tags'). Returns all fields if not specified. Use to reduce response size and token usage.",
                     },
+                    "meta_keys": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Optional comma-separated REST-exposed meta keys to include inside `meta`, e.g. 'rank_math_title,rank_math_description'. Use with fields='id,meta' to keep payloads small.",
+                    },
                 },
                 "required": ["post_id"],
             },
@@ -95,7 +115,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         {
             "name": "create_post",
             "method_name": "create_post",
-            "description": "Create a new WordPress post. Supports custom slug, categories, tags, and featured image.",
+            "description": "Create a new WordPress post. Supports custom slug, categories, tags, featured image, REST-registered post meta, and generic multilingual metadata.",
             "schema": {
                 "type": "object",
                 "properties": {
@@ -140,6 +160,18 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                         "anyOf": [{"type": "integer"}, {"type": "null"}],
                         "description": "Featured image media ID",
                     },
+                    "meta": {
+                        "anyOf": [{"type": "object"}, {"type": "null"}],
+                        "description": "Post meta key/value map forwarded as REST `meta`. Only registered/whitelisted keys are persisted by WordPress.",
+                    },
+                    "language": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Optional target language code for multilingual sites (provider is auto-detected by the companion plugin).",
+                    },
+                    "translation_of": {
+                        "anyOf": [{"type": "integer", "minimum": 1}, {"type": "null"}],
+                        "description": "Optional source post/page ID this post translates. Uses the companion's generic multilingual adapter when available.",
+                    },
                 },
                 "required": ["title", "content"],
             },
@@ -148,7 +180,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         {
             "name": "update_post",
             "method_name": "update_post",
-            "description": "Update an existing WordPress post. Can update any field including title, content, status, categories, and tags.",
+            "description": "Update an existing WordPress post. Can update any field including title, content, status, categories, tags, REST-registered post meta, and generic multilingual metadata.",
             "schema": {
                 "type": "object",
                 "properties": {
@@ -195,6 +227,18 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                     "featured_media": {
                         "anyOf": [{"type": "integer"}, {"type": "null"}],
                         "description": "Featured image media ID",
+                    },
+                    "meta": {
+                        "anyOf": [{"type": "object"}, {"type": "null"}],
+                        "description": "Post meta key/value map forwarded as REST `meta`. Only registered/whitelisted keys are persisted by WordPress.",
+                    },
+                    "language": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Optional target language code for multilingual sites (provider is auto-detected by the companion plugin).",
+                    },
+                    "translation_of": {
+                        "anyOf": [{"type": "integer", "minimum": 1}, {"type": "null"}],
+                        "description": "Optional source post/page ID this post translates. Uses the companion's generic multilingual adapter when available.",
                     },
                 },
                 "required": ["post_id"],
@@ -255,9 +299,34 @@ def get_tool_specifications() -> list[dict[str, Any]]:
             "scope": "read",
         },
         {
+            "name": "get_page",
+            "method_name": "get_page",
+            "description": "Get a specific WordPress page by ID. Returns complete page data including content, metadata, and author information.",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "page_id": {
+                        "type": "integer",
+                        "description": "Page ID to retrieve",
+                        "minimum": 1,
+                    },
+                    "fields": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Comma-separated list of fields to return (e.g., 'id,title,status,slug'). Returns all fields if not specified. Use to reduce response size and token usage.",
+                    },
+                    "meta_keys": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Optional comma-separated REST-exposed meta keys to include inside `meta`, e.g. 'rank_math_title,_yoast_wpseo_metadesc'. Use with fields='id,meta' to keep payloads small.",
+                    },
+                },
+                "required": ["page_id"],
+            },
+            "scope": "read",
+        },
+        {
             "name": "create_page",
             "method_name": "create_page",
-            "description": "Create a new WordPress page. Supports HTML content, parent pages, and custom slugs.",
+            "description": "Create a new WordPress page. Supports HTML content, parent pages, custom slugs, REST-registered post meta, and generic multilingual metadata.",
             "schema": {
                 "type": "object",
                 "properties": {
@@ -283,6 +352,18 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                     "parent": {
                         "anyOf": [{"type": "integer"}, {"type": "null"}],
                         "description": "Parent page ID for creating hierarchical page structure",
+                    },
+                    "meta": {
+                        "anyOf": [{"type": "object"}, {"type": "null"}],
+                        "description": "Post meta key/value map forwarded as REST `meta`. Only registered/whitelisted keys are persisted by WordPress.",
+                    },
+                    "language": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Optional target language code for multilingual sites (provider is auto-detected by the companion plugin).",
+                    },
+                    "translation_of": {
+                        "anyOf": [{"type": "integer", "minimum": 1}, {"type": "null"}],
+                        "description": "Optional source post/page ID this page translates. Uses the companion's generic multilingual adapter when available.",
                     },
                 },
                 "required": ["title", "content"],
@@ -480,6 +561,42 @@ class PostsHandler:
 
     # === POSTS ===
 
+    async def _apply_multilingual(
+        self,
+        post_id: int,
+        *,
+        language: str | None = None,
+        translation_of: int | None = None,
+    ) -> dict[str, Any] | None:
+        """Apply generic multilingual metadata through the companion adapter."""
+        if language is None and translation_of is None:
+            return None
+
+        body: dict[str, Any] = {"post_id": post_id}
+        if language is not None:
+            body["language"] = language
+        if translation_of is not None:
+            body["translation_of"] = translation_of
+
+        try:
+            result = await self.client.post(
+                _POST_LANGUAGE_ROUTE,
+                json_data=body,
+                use_custom_namespace=True,
+            )
+            return result if isinstance(result, dict) else {"applied": False, "raw": result}
+        except Exception as exc:  # noqa: BLE001
+            return {
+                "post_id": post_id,
+                "applied": False,
+                "provider": None,
+                "notice": {
+                    "code": "multilingual_route_unavailable",
+                    "message": str(exc),
+                    "route": _POST_LANGUAGE_ROUTE,
+                },
+            }
+
     async def list_posts(
         self,
         per_page: int = 10,
@@ -567,7 +684,9 @@ class PostsHandler:
                 {"error": str(e), "message": f"Failed to list posts: {str(e)}"}, indent=2
             )
 
-    async def get_post(self, post_id: int, fields: str | None = None) -> str:
+    async def get_post(
+        self, post_id: int, fields: str | None = None, meta_keys: str | None = None
+    ) -> str:
         """
         Get a specific WordPress post.
 
@@ -577,6 +696,9 @@ class PostsHandler:
                 When set, behaves as a STRICT allow-list — only the
                 requested names (plus ``id``) are returned. Unknown
                 names are ignored.
+            meta_keys: Optional comma-separated meta keys to keep in the
+                returned ``meta`` object. WordPress only returns keys
+                registered/exposed to REST.
 
         Returns:
             JSON string with post data. Default projection includes
@@ -610,6 +732,7 @@ class PostsHandler:
                 "featured_media": "featured_media",
                 "featured_media_url": "_embedded",
                 "word_count": "content",
+                "meta": "meta",
             }
             if fields:
                 wp_fields: set[str] = set()
@@ -651,6 +774,7 @@ class PostsHandler:
                 "featured_media": post.get("featured_media", 0) or 0,
                 "featured_media_url": featured_media_url,
                 "word_count": _count_words(post.get("content", {}).get("rendered", "")),
+                "meta": _filter_meta(post.get("meta", {}), meta_keys),
             }
 
             # Strict allow-list filtering when ``fields`` is provided.
@@ -677,6 +801,9 @@ class PostsHandler:
         categories: list[int] | None = None,
         tags: list[int] | None = None,
         featured_media: int | None = None,
+        meta: dict[str, Any] | None = None,
+        language: str | None = None,
+        translation_of: int | None = None,
     ) -> str:
         """
         Create a new WordPress post.
@@ -690,6 +817,9 @@ class PostsHandler:
             categories: Category IDs to assign
             tags: Tag IDs to assign
             featured_media: Featured image media ID
+            meta: Post meta key/value map (registered REST meta only)
+            language: Target language code for multilingual sites
+            translation_of: Source post/page ID this post translates
 
         Returns:
             JSON string with created post data
@@ -706,8 +836,15 @@ class PostsHandler:
                 data["tags"] = tags
             if featured_media:
                 data["featured_media"] = featured_media
+            if meta is not None:
+                data["meta"] = meta
 
             post = await self.client.post("posts", json_data=data)
+            language_result = await self._apply_multilingual(
+                post["id"],
+                language=language,
+                translation_of=translation_of,
+            )
 
             result = {
                 "id": post["id"],
@@ -716,6 +853,8 @@ class PostsHandler:
                 "link": post["link"],
                 "message": f"Post created successfully with ID {post['id']}",
             }
+            if language_result is not None:
+                result["language"] = language_result
 
             return json.dumps(result, indent=2)
         except Exception as e:
@@ -734,6 +873,9 @@ class PostsHandler:
         categories: list[int] | None = None,
         tags: list[int] | None = None,
         featured_media: int | None = None,
+        meta: dict[str, Any] | None = None,
+        language: str | None = None,
+        translation_of: int | None = None,
     ) -> str:
         """
         Update an existing WordPress post.
@@ -748,6 +890,9 @@ class PostsHandler:
             categories: Category IDs
             tags: Tag IDs
             featured_media: Featured image media ID
+            meta: Post meta key/value map (registered REST meta only)
+            language: Target language code for multilingual sites
+            translation_of: Source post/page ID this post translates
 
         Returns:
             JSON string with updated post data
@@ -771,8 +916,18 @@ class PostsHandler:
                 data["tags"] = tags
             if featured_media is not None:
                 data["featured_media"] = featured_media
+            if meta is not None:
+                data["meta"] = meta
 
-            post = await self.client.post(f"posts/{post_id}", json_data=data)
+            if data:
+                post = await self.client.post(f"posts/{post_id}", json_data=data)
+            else:
+                post = await self.client.get(f"posts/{post_id}")
+            language_result = await self._apply_multilingual(
+                post_id,
+                language=language,
+                translation_of=translation_of,
+            )
 
             result = {
                 "id": post["id"],
@@ -781,6 +936,8 @@ class PostsHandler:
                 "link": post["link"],
                 "message": f"Post {post_id} updated successfully",
             }
+            if language_result is not None:
+                result["language"] = language_result
 
             return json.dumps(result, indent=2)
         except Exception as e:
@@ -848,6 +1005,91 @@ class PostsHandler:
                 {"error": str(e), "message": f"Failed to list pages: {str(e)}"}, indent=2
             )
 
+    async def get_page(
+        self, page_id: int, fields: str | None = None, meta_keys: str | None = None
+    ) -> str:
+        """
+        Get a specific WordPress page.
+
+        Args:
+            page_id: Page ID to retrieve
+            fields: Comma-separated list of fields to return. When set,
+                behaves as a strict allow-list plus ``id``.
+            meta_keys: Optional comma-separated REST-exposed meta keys to
+                keep in the returned ``meta`` object.
+
+        Returns:
+            JSON string with page data.
+        """
+        try:
+            params = {"_embed": "true"}
+            field_map = {
+                "id": "id",
+                "title": "title",
+                "content": "content",
+                "excerpt": "excerpt",
+                "status": "status",
+                "date": "date",
+                "modified": "modified",
+                "author": "_embedded",
+                "link": "link",
+                "slug": "slug",
+                "parent": "parent",
+                "featured_media": "featured_media",
+                "featured_media_url": "_embedded",
+                "word_count": "content",
+                "meta": "meta",
+            }
+            if fields:
+                wp_fields: set[str] = set()
+                requested = {f.strip().lower() for f in fields.split(",") if f.strip()}
+                for f in requested:
+                    if f in field_map:
+                        wp_fields.add(field_map[f])
+                wp_fields.add("id")
+                params["_fields"] = ",".join(wp_fields)
+
+            page = await self.client.get(f"pages/{page_id}", params=params)
+
+            featured_media_url = ""
+            embedded = page.get("_embedded") or {}
+            media_entries = embedded.get("wp:featuredmedia") or []
+            if isinstance(media_entries, list) and media_entries:
+                first = media_entries[0] or {}
+                if isinstance(first, dict):
+                    featured_media_url = first.get("source_url") or ""
+
+            full_result = {
+                "id": page["id"],
+                "title": page.get("title", {}).get("rendered", ""),
+                "slug": page.get("slug", ""),
+                "content": page.get("content", {}).get("rendered", ""),
+                "excerpt": page.get("excerpt", {}).get("rendered", ""),
+                "status": page.get("status", ""),
+                "date": page.get("date", ""),
+                "modified": page.get("modified", ""),
+                "author": embedded.get("author", [{}])[0].get("name", "Unknown"),
+                "link": page.get("link", ""),
+                "parent": page.get("parent", 0) or 0,
+                "featured_media": page.get("featured_media", 0) or 0,
+                "featured_media_url": featured_media_url,
+                "word_count": _count_words(page.get("content", {}).get("rendered", "")),
+                "meta": _filter_meta(page.get("meta", {}), meta_keys),
+            }
+
+            if fields:
+                requested = {f.strip().lower() for f in fields.split(",") if f.strip()}
+                requested.add("id")
+                result = {k: v for k, v in full_result.items() if k in requested}
+            else:
+                result = full_result
+
+            return json.dumps(result, indent=2)
+        except Exception as e:
+            return json.dumps(
+                {"error": str(e), "message": f"Failed to get page {page_id}: {str(e)}"}, indent=2
+            )
+
     async def create_page(
         self,
         title: str,
@@ -855,6 +1097,9 @@ class PostsHandler:
         status: str = "draft",
         slug: str | None = None,
         parent: int | None = None,
+        meta: dict[str, Any] | None = None,
+        language: str | None = None,
+        translation_of: int | None = None,
     ) -> str:
         """
         Create a new WordPress page.
@@ -865,6 +1110,9 @@ class PostsHandler:
             status: Publication status (draft, publish, pending, private)
             slug: Page URL slug (auto-generated if not provided)
             parent: Parent page ID for hierarchical structure
+            meta: Post meta key/value map (registered REST meta only)
+            language: Target language code for multilingual sites
+            translation_of: Source post/page ID this page translates
 
         Returns:
             JSON string with created page data
@@ -875,8 +1123,15 @@ class PostsHandler:
                 data["slug"] = slug
             if parent:
                 data["parent"] = parent
+            if meta is not None:
+                data["meta"] = meta
 
             page = await self.client.post("pages", json_data=data)
+            language_result = await self._apply_multilingual(
+                page["id"],
+                language=language,
+                translation_of=translation_of,
+            )
 
             result = {
                 "id": page["id"],
@@ -885,6 +1140,8 @@ class PostsHandler:
                 "link": page["link"],
                 "message": f"Page created successfully with ID {page['id']}",
             }
+            if language_result is not None:
+                result["language"] = language_result
 
             return json.dumps(result, indent=2)
         except Exception as e:

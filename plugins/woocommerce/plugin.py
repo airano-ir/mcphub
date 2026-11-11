@@ -20,6 +20,7 @@ from plugins.wordpress.handlers import (
     OrdersHandler,
     ProductsHandler,
     ReportsHandler,
+    StoreDiagnosticsHandler,
     get_ai_media_specs,
     get_coupons_specs,
     get_customers_specs,
@@ -27,6 +28,7 @@ from plugins.wordpress.handlers import (
     get_orders_specs,
     get_products_specs,
     get_reports_specs,
+    get_store_diagnostics_specs,
 )
 
 logger = logging.getLogger(__name__)
@@ -43,7 +45,7 @@ class WooCommercePlugin(BasePlugin):
     - Coupons (4 tools): list, create, update, delete
     - Reports (3 tools): sales, top_sellers, customer_report
 
-    Total: 28 tools
+    Total: 38 tools (incl. media attach, AI image, #75 deletes, diagnose_store)
     """
 
     @staticmethod
@@ -127,6 +129,7 @@ class WooCommercePlugin(BasePlugin):
         self.customers = CustomersHandler(self.client)
         self.coupons = CouponsHandler(self.client)
         self.reports = ReportsHandler(self.client)
+        self.store_diagnostics = StoreDiagnosticsHandler(self.client)
         self.media_attach = MediaAttachHandler(self.client, wp_media_client=self.wp_media_client)
         # F.X.fix-pass5 — expose generate_and_upload_image on WC sites
         # too (was WP-only). The handler reads the per-site provider
@@ -185,6 +188,9 @@ class WooCommercePlugin(BasePlugin):
         # resolver). On a WC site this lets the operator chain
         # generate → attach without two endpoints.
         specs.extend(get_ai_media_specs())
+
+        # Read-only store health diagnosis (1 tool — diagnose_store)
+        specs.extend(get_store_diagnostics_specs())
 
         return specs
 
@@ -349,6 +355,15 @@ class WooCommercePlugin(BasePlugin):
     async def delete_product(self, **kwargs):
         return await self.products.delete_product(**kwargs)
 
+    async def delete_product_variation(self, **kwargs):
+        return await self.products.delete_product_variation(**kwargs)
+
+    async def delete_product_category(self, **kwargs):
+        return await self.products.delete_product_category(**kwargs)
+
+    async def delete_product_attribute(self, **kwargs):
+        return await self.products.delete_product_attribute(**kwargs)
+
     async def list_product_categories(self, **kwargs):
         return await self.products.list_product_categories(**kwargs)
 
@@ -399,6 +414,9 @@ class WooCommercePlugin(BasePlugin):
     async def update_customer(self, **kwargs):
         return await self.customers.update_customer(**kwargs)
 
+    async def delete_customer(self, **kwargs):
+        return await self.customers.delete_customer(**kwargs)
+
     # === Coupons ===
     async def list_coupons(self, **kwargs):
         return await self.coupons.list_coupons(**kwargs)
@@ -431,6 +449,12 @@ class WooCommercePlugin(BasePlugin):
 
     async def set_featured_image(self, **kwargs):
         return await self.media_attach.set_featured_image(**kwargs)
+
+    async def delete_media(self, **kwargs):
+        return await self.media_attach.delete_media(**kwargs)
+
+    async def diagnose_store(self, **kwargs):
+        return await self.store_diagnostics.diagnose_store(**kwargs)
 
     # === F.X.fix-pass5: AI image (re-exported from WP handler) ===
     async def generate_and_upload_image(self, **kwargs):

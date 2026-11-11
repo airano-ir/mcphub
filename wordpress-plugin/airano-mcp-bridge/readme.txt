@@ -1,10 +1,10 @@
 === Airano MCP Bridge ===
 Contributors: airano
 Tags: mcp, ai, rest-api, seo, media
-Requires at least: 5.0
-Tested up to: 6.9
+Requires at least: 5.6
+Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 2.18.1
+Stable tag: 2.21.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -43,15 +43,20 @@ Companion plugin for MCP Hub. REST API routes for SEO meta, raw-binary media upl
 * `POST /wp-json/airano-mcp/v1/upload-chunk` — Raw-body media upload (bypasses `upload_max_filesize`)
 * `GET /wp-json/airano-mcp/v1/capabilities` — Effective capabilities + feature flags + available routes (added in 2.1.0)
 * `POST /wp-json/airano-mcp/v1/bulk-meta` — Batch post/product meta writes in a single HTTP round-trip (added in 2.2.0)
+* `POST /wp-json/airano-mcp/v1/post-language` — Generic language + translation linking for posts/pages through the active WPML or Polylang adapter. Requires `edit_post` on the target and readable access to `translation_of` when supplied (added in 2.19.0)
+* `POST /wp-json/airano-mcp/v1/term-language` — Generic language + translation linking for taxonomy terms through the active WPML or Polylang adapter. Accepts taxonomy slug or REST base and requires the taxonomy edit-terms capability (added in 2.20.0)
+* `POST /wp-json/airano-mcp/v1/term-update` — Narrow fallback for translated-term slug duplicate failures in stock REST. Accepts taxonomy slug or REST base and updates supported term fields through WordPress core APIs (added in 2.20.0)
 * `GET /wp-json/airano-mcp/v1/export` — Structured JSON export: posts, pages, products + media + terms + meta, with post_type/status/since/limit/offset paging (added in 2.3.0)
-* `POST /wp-json/airano-mcp/v1/cache-purge` — Auto-detects active cache plugins (LiteSpeed, WP Rocket, W3TC, Super Cache, Fastest Cache, SG Optimizer) and invokes their purge API; always flushes object cache (added in 2.4.0)
+* `POST /wp-json/airano-mcp/v1/cache-purge` — Auto-detects active cache plugins (LiteSpeed, WP Rocket, W3TC, Super Cache, Fastest Cache, SG Optimizer) and invokes their purge API; accepts `scope=object|page|all` (added in 2.4.0; scoped in 2.18.2)
+* `POST /wp-json/airano-mcp/v1/opcache-reset` — Calls PHP `opcache_reset()` after theme/plugin deploys without CDN/infra credentials or app restarts (added in 2.18.4)
 * `POST /wp-json/airano-mcp/v1/transient-flush` — Native transient cleanup with scope=expired/all/pattern (glob); optional site-transient handling on multisite (added in 2.5.0)
+* `GET /wp-json/airano-mcp/v1/transients` — Metadata-only transient inventory: key, type, and expiration. Values are never returned (added in 2.18.5)
 * `GET /wp-json/airano-mcp/v1/site-health` — Unified site-health snapshot: PHP/MySQL/WP versions, extensions, disk free, active plugins + theme, writability checks (added in 2.6.0)
 * `GET|POST|DELETE /wp-json/airano-mcp/v1/audit-hook` — Configure + query a webhook that forwards WordPress action events to MCP Hub (HMAC-SHA256 signed, non-blocking) (added in 2.7.0)
 * `POST /wp-json/airano-mcp/v1/regenerate-thumbnails` — Regenerate attachment sub-sizes via `wp_generate_attachment_metadata` for a list of IDs or in paged batch mode (added in 2.8.0)
 * `POST /wp-json/airano-mcp/v1/upload-and-attach` — Raw-body upload + metadata + attach-to-post + set-featured in a single REST call (added in 2.9.0). Query params: `attach_to_post`, `set_featured`, `title`, `alt_text`, `caption`, `description`. Permission: `upload_files` + `edit_post` on the target post.
 
-*WordPress Specialist admin namespace (`airano-mcp/v1/admin/*`, added in 2.11.0–2.18.0)*
+*WordPress Specialist admin namespace (`airano-mcp/v1/admin/*`, added in 2.11.0–2.18.5)*
 
 All admin routes require `manage_options`. They power the `wordpress_specialist` MCP plugin (companion-backed advanced WordPress management — no Docker socket required).
 
@@ -88,6 +93,7 @@ Theme dev write routes (2.14.0). Per-route capability checks layer on top of `ma
 * `POST /wp-json/airano-mcp/v1/admin/themes/{slug}/activate` — Switch the active theme.
 * `DELETE /wp-json/airano-mcp/v1/admin/themes/{slug}` — Delete an installed theme (refuses if active or active parent).
 * `PUT /wp-json/airano-mcp/v1/admin/themes/files/{slug}/{path}` — Write a theme file (base64 body, optional `expected_sha256`, optional `create_dirs`).
+* `PATCH /wp-json/airano-mcp/v1/admin/themes/files/{slug}/{path}` — Small line-range text patch (`from_line`, `to_line`, `content`, optional `expected_sha256`) without full-file base64 upload (2.18.3).
 * `DELETE /wp-json/airano-mcp/v1/admin/themes/files/{slug}/{path}` — Delete a theme file (refuses to delete `style.css` of the active theme).
 
 Plugin write management routes (2.15.0). Per-route capability checks layer on `manage_options`: `install_plugins` for install / update, `activate_plugins` for activate / deactivate, `delete_plugins` for delete. New security rules: S-20 refuses to deactivate / delete the Airano MCP Bridge companion itself (would brick the MCP connection); S-21 refuses to deactivate / delete plugins marked `Required: yes` in their header. Reuses S-15 (slug whitelist via `get_plugins()`) + S-18 (50 MB cap on install zip).
@@ -117,11 +123,13 @@ Site layout routes (2.17.0). All gated on `manage_options`. Per-request capabili
 * `PUT /wp-json/airano-mcp/v1/admin/widgets/{area_id}` — Full replace. Block areas accept `{raw}` (or `{blocks}` server-serialised); legacy areas accept `text` widget settings only this round (other legacy types remain read-only). Caller-side `kind` is ignored — area kind is determined by the area itself.
 * `POST /wp-json/airano-mcp/v1/admin/customizer/changeset` — `{action: get|apply|discard}`. `get` returns the pending changeset; `apply` publishes it; `discard` trashes it. Empty changeset returns `{status: 'empty'}` 200.
 
-Database inspection routes (2.18.0). All gated on `manage_options`. New security rule S-25: db/search wraps `WP_Query` with `s=$query` (NEVER raw SQL); query is sanitised via `sanitize_text_field` and length-capped at 200 chars; `WP_Query`'s own `posts_clauses` filter (the same gate the WP search page uses) keeps non-readable posts out of the result set.
+Database inspection and bounded maintenance routes (2.18.0 / 2.18.5). All gated on `manage_options`. New security rule S-25: db/search wraps `WP_Query` with `s=$query` (NEVER raw SQL); query is sanitised via `sanitize_text_field` and length-capped at 200 chars; `WP_Query`'s own `posts_clauses` filter (the same gate the WP search page uses) keeps non-readable posts out of the result set. DB check/optimize are scoped to current-prefix WordPress tables; caller cannot choose arbitrary tables.
 
 * `GET /wp-json/airano-mcp/v1/admin/db/size` — Aggregate database size. Single `information_schema.TABLES` aggregation scoped to the WP table prefix; returns `{database_bytes, table_count, row_count_estimate, database_name, table_prefix}`. No SQL exposure: caller doesn't pick the query.
 * `GET /wp-json/airano-mcp/v1/admin/db/tables` — Per-table breakdown. Same source as `db/size`, one row per WP table; returns `{database_name, table_prefix, tables: [{name, engine, rows, data_bytes, index_bytes, total_bytes, collation}]}` ordered by total_bytes descending.
 * `POST /wp-json/airano-mcp/v1/admin/db/search` — Full-text search wrapper around `WP_Query`. Body `{query, post_type?, status?, limit?}` (limit default 20, max 100). Returns `{query, limit, count, hits: [{id, post_type, status, title, snippet, url, modified}]}`.
+* `GET /wp-json/airano-mcp/v1/admin/db/check` — Runs `CHECK TABLE` on current-prefix WordPress tables only.
+* `POST /wp-json/airano-mcp/v1/admin/db/optimize` — Runs `OPTIMIZE TABLE` on current-prefix WordPress tables only.
 
 **Designed for [MCP Hub](https://github.com/airano-ir/mcphub)** — the AI-native management hub for WordPress and self-hosted services.
 
@@ -163,6 +171,38 @@ Plugin slugs on wordpress.org are permanent. Existing installs keep working; the
 Yes. All REST API endpoints work with any application that can make authenticated HTTP requests.
 
 == Changelog ==
+
+= 2.21.1 =
+* Plugin Check follow-ups. Seven `unlink()` calls are now `wp_delete_file()`, so the `wp_delete_file` filter is honoured; the theme-file DELETE route confirms removal by stat instead of by return value, because `wp_delete_file()` returns nothing.
+* **`Requires at least` corrected 5.0 -> 5.6.** `/site-health` has always called `wp_timezone_string()` (WP 5.3) and `wp_is_application_passwords_available()` (WP 5.6), so the old floor advertised installs that would fatal on those routes.
+* The `phpcs:ignore` on CHECK TABLE / OPTIMIZE TABLE names the sniffs that actually fire. The SQL is unchanged and was already safe: table identifiers cannot be bound as placeholders, and the names come from an information_schema allowlist scoped to this install's own prefix.
+
+= 2.21.0 =
+* New `POST /airano-mcp/v1/admin/seo/rank-math/sync-identity` (admin only): writes the site title (or supplied values) into Rank Math's schema identity keys `website_name`, `knowledgegraph_name` and optionally `website_alternate_name`. Rank Math captures these once in its setup wizard, so after renaming a site the JSON-LD kept the old name. Only those keys of `rank-math-options-titles` are touched; the response returns before/after values.
+
+= 2.20.2 =
+* Made taxonomy translation creation idempotent for WPML and Polylang. `POST /airano-mcp/v1/term-language` now supports lookup-only checks so MCPHub can return an existing target-language term before creating duplicate `translation_of` entries.
+
+= 2.20.1 =
+* Internal package refresh for MCPHub media-intake compatibility. No new companion REST routes were added; MCPHub now handles large chat-attached media through its authenticated per-user HTTP intake before forwarding to existing companion upload routes when available.
+
+= 2.20.0 =
+* Extended the plugin-agnostic multilingual adapter to taxonomy terms: `POST /airano-mcp/v1/term-language` applies generic `language` + `translation_of` metadata through WPML or Polylang adapters, `/capabilities` advertises `features.multilingual.terms.can_link`, and `POST /airano-mcp/v1/term-update` provides a narrow fallback for translated-term slug duplicate failures in stock REST.
+
+= 2.19.0 =
+* Added plugin-agnostic content primitives for MCPHub: `POST /airano-mcp/v1/post-language` applies generic `language` + `translation_of` metadata through WPML or Polylang adapters, and `/capabilities` now advertises `features.multilingual` plus `features.meta_passthrough` for stock REST create/update flows.
+
+= 2.18.5 =
+* Added companion REST replacements for low-risk legacy MCPHub WordPress maintenance tools: `GET /transients`, `GET /admin/db/check`, and `POST /admin/db/optimize`. Transient listing is metadata-only and DB maintenance is scoped to the current WordPress table prefix.
+
+= 2.18.4 =
+* Added `POST /wp-json/airano-mcp/v1/opcache-reset`, gated on `manage_options`, to call PHP `opcache_reset()` and return a compact before/after OPcache status snapshot. This gives public companion-only MCPHub deployments a no-secret way to avoid app restarts after theme/plugin deploys on hosts with `opcache.validate_timestamps=0`.
+
+= 2.18.3 =
+* Added line-range theme-file patching via `PATCH /admin/themes/files/{slug}/{path}` with `expected_sha256` concurrency, so MCPHub agents can apply small CSS/template edits without full-file base64 uploads.
+
+= 2.18.2 =
+* Cache purge route now accepts `scope` (`object`, `page`, or `all`) so MCPHub can purge page-cache plugins through the companion plugin without WP-CLI or Docker access.
 
 = 2.18.1 =
 * WordPress.org review fixes: drop the unused `wp-admin/includes/media.php` include from `/upload-chunk` and `/upload-and-attach` (only helpers from `file.php` and `image.php` are actually used). Split the `/upload-and-attach` permission_callback into its own method (`require_upload_and_attach_capability`) that explicitly checks `current_user_can('edit_post', $attach_to_post)` at the route gate when `attach_to_post` is supplied, and rejects `set_featured` without a target. The per-target check is no longer hidden inside the callback body.
@@ -244,6 +284,33 @@ Yes. All REST API endpoints work with any application that can make authenticate
 * Initial release with Rank Math and Yoast SEO support
 
 == Upgrade Notice ==
+
+= 2.21.0 =
+Adds the Rank Math identity sync route used by MCPHub's wp_rank_math_sync_identity tool. No change to existing routes.
+
+= 2.20.2 =
+Recommended for multilingual taxonomy workflows. Prevents duplicate WPML/Polylang term translations when MCPHub retries create_category/create_tag with translation_of.
+
+= 2.20.1 =
+Internal MCPHub compatibility/package refresh only. No new WordPress companion routes are required.
+
+= 2.20.0 =
+Adds generic taxonomy-term language/translation linking and a stock-REST fallback for translated-term slug conflicts. Existing routes unchanged.
+
+= 2.19.0 =
+Adds generic multilingual language/translation linking and advertises meta passthrough capability for MCPHub content tools. Existing routes unchanged.
+
+= 2.18.5 =
+Adds transient inventory and prefix-scoped DB check/optimize routes for companion-only MCPHub sites. Existing routes unchanged.
+
+= 2.18.4 =
+Adds OPcache reset for deploy loops without CDN/infra credentials. Existing routes unchanged.
+
+= 2.18.3 =
+Adds line-range theme-file patching for small text edits without full-file base64 uploads. Existing routes unchanged.
+
+= 2.18.2 =
+Cache purge now supports `scope=object|page|all`, allowing MCPHub's `wordpress_wp_cache_flush` tool to clear page caches without WP-CLI.
 
 = 2.18.1 =
 WordPress.org review fixes only — no behaviour changes. Drops a redundant core file include and tightens the `/upload-and-attach` permission gate so the per-target `edit_post` check runs before the callback (visible to static analysis).

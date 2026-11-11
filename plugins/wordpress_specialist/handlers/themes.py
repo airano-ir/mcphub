@@ -10,16 +10,19 @@ Surface map:
 * **Theme management** (3 tools, companion v2.14.0 routes
   ``/admin/themes/*``): ``wp_theme_install_from_zip`` (POST install),
   ``wp_theme_activate``, ``wp_theme_delete``. Install accepts either
-  a remote ``zip_url`` (companion downloads via ``wp_safe_remote_get``)
-  or an inline ``zip_base64`` (cap 50 MB, decoded server-side). All three
-  ride WP core's ``Theme_Upgrader`` so signature checks and the existing
-  filesystem abstraction stay engaged.
-* **Theme file CRUD** (4 tools, ``/admin/themes/files/*``):
+  a remote ``zip_url`` (companion downloads via ``wp_safe_remote_get``),
+  an inline ``zip_base64`` (cap 50 MB, decoded server-side), a
+  server-local ``zip_path`` read by MCPHub and forwarded as base64, or a
+  staged ``zip_session_id`` from the chunked zip tools. All four ride WP
+  core's ``Theme_Upgrader`` so signature checks and the existing filesystem
+  abstraction stay engaged.
+* **Theme file CRUD** (5 tools, ``/admin/themes/files/*``):
   ``wp_theme_file_list`` (glob walk), ``wp_theme_file_read``,
-  ``wp_theme_file_write``, ``wp_theme_file_delete``. Reads/writes go
-  through ``WP_Filesystem_Direct`` server-side; payloads round-trip as
-  base64 so the JSON envelope stays binary-safe (favicons, fonts, MO
-  files, etc.).
+  ``wp_theme_file_write``, ``wp_theme_file_patch``,
+  ``wp_theme_file_delete``. Full reads/writes round-trip as base64 so
+  the JSON envelope stays binary-safe (favicons, fonts, MO files, etc.).
+  Patch uses small raw-text line splices to avoid huge base64 payloads
+  for iterative CSS/PHP edits.
 
 Security rules layered on top of F.19.2 S-1…S-11 + F.19.5 S-12…S-14
 (companion enforces these regardless of MCPHub-side guards):
@@ -40,8 +43,9 @@ Security rules layered on top of F.19.2 S-1…S-11 + F.19.5 S-12…S-14
   files (CSS, JSON, MO/PO, JS, images, fonts) skip the
   ``DISALLOW_FILE_EDIT`` check but still require ``edit_themes``.
 * **S-18** — Per-call caps: 5 MB per file, 1000 files per list, 50 MB
-  per theme install zip. Companion enforces in PHP; MCPHub rejects
-  obviously-oversized payloads before the wire.
+  per theme install zip, including staged ``zip_session_id`` payloads.
+  Companion enforces in PHP; MCPHub rejects obviously-oversized payloads
+  before the wire.
 * **S-19** — Optimistic concurrency. When ``expected_sha256`` is
   provided on write, the companion compares against the current file
   sha256 and returns ``sha_mismatch`` (409) if it doesn't match. Lets
@@ -57,6 +61,10 @@ from typing import Any
 from urllib.parse import quote
 
 from plugins.wordpress.client import WordPressClient
+from plugins.wordpress_specialist.handlers._zip_payload import (
+    local_zip_to_base64,
+    zip_session_to_base64,
+)
 
 # Companion admin namespace — same prefix used by F.19.1 / F.19.5.
 _ADMIN_NS = "airano-mcp/v1/admin"
@@ -85,12 +93,16 @@ def get_tool_specifications() -> list[dict[str, Any]]:
             "name": "wp_theme_install_from_zip",
             "method_name": "wp_theme_install_from_zip",
             "description": (
-                "Install a theme from a remote URL or inline base64 zip. "
+                "Install a theme from a remote URL, inline base64 zip, "
+                "server-local zip_path, or chunked zip_session_id. "
                 "Companion runs WP core's Theme_Upgrader so signature checks "
                 "and the WP filesystem abstraction stay engaged. Pass exactly "
-                "one of zip_url (companion fetches via wp_safe_remote_get) or "
-                "zip_base64 (decoded server-side). Capped at 50 MB per zip "
-                "(S-18). Set activate=true to make the new theme active "
+                "one of zip_url (companion fetches via wp_safe_remote_get), "
+                "zip_base64 (decoded server-side), zip_path (read by "
+                "MCPHub from the server filesystem and sent to the companion "
+                "as zip_base64), or zip_session_id (created with "
+                "wp_zip_install_chunked_start/chunk). Capped at 50 MB per "
+                "zip (S-18). Set activate=true to make the new theme active "
                 "after install; overwrite=true permits re-installing a slug "
                 "that already exists. Requires Airano MCP Bridge v2.14.0+ "
                 "and a WordPress user with install_themes."
@@ -103,7 +115,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                         "description": (
                             "https URL the companion will download via "
                             "wp_safe_remote_get. Mutually exclusive with "
-                            "zip_base64."
+                            "zip_base64, zip_path, and zip_session_id."
                         ),
                     },
                     "zip_base64": {
@@ -111,7 +123,30 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                         "description": (
                             "Base64-encoded theme zip body. Capped at "
                             "~50 MB after decode (S-18). Mutually exclusive "
-                            "with zip_url."
+                            "with zip_url, zip_path, and zip_session_id."
+                        ),
+                    },
+                    "zip_path": {
+                        "type": "string",
+                        "description": (
+                            "MCPHub-host-local path to a .zip file readable "
+                            "by the MCPHub process. MCPHub validates that it "
+                            "is a regular non-symlink zip under the same "
+                            "50 MB cap, then forwards it to the companion as "
+                            "zip_base64. Agent-local workspace paths usually "
+                            "need zip_session_id instead."
+                        ),
+                    },
+                    "zip_session_id": {
+                        "type": "string",
+                        "description": (
+                            "Session ID returned by "
+                            "wp_zip_install_chunked_start after streaming "
+                            "the zip chunks with wp_zip_install_chunked_chunk. "
+                            "Use this when the zip is local to an agent or "
+                            "operator workspace that MCPHub cannot read as "
+                            "zip_path. Mutually exclusive with zip_url, "
+                            "zip_base64, and zip_path."
                         ),
                     },
                     "activate": {
@@ -304,6 +339,56 @@ def get_tool_specifications() -> list[dict[str, Any]]:
             "scope": "editor",
         },
         {
+            "name": "wp_theme_file_patch",
+            "method_name": "wp_theme_file_patch",
+            "description": (
+                "Patch a text file inside a theme with a small line-range "
+                "splice, avoiding full-file base64 uploads for iterative CSS "
+                "and template edits. Lines are 1-based and inclusive. To "
+                "replace lines 10-12 pass from_line=10, to_line=12. To insert "
+                "before line 10 pass from_line=10, to_line=9. To append pass "
+                "from_line=line_count+1, to_line=line_count. Empty content "
+                "deletes the selected range. Pass expected_sha256 for "
+                "optimistic concurrency; the companion rejects with "
+                "sha_mismatch (409) if the file changed. Requires Airano MCP "
+                "Bridge v2.18.3+."
+            ),
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "theme_slug": {"type": "string"},
+                    "path": {"type": "string"},
+                    "from_line": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "1-based first line to replace, or insertion point.",
+                    },
+                    "to_line": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": (
+                            "1-based last line to replace. Use from_line-1 "
+                            "for insertion without deleting existing lines."
+                        ),
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "Replacement text. Empty string deletes the selected range.",
+                    },
+                    "expected_sha256": {
+                        "type": "string",
+                        "description": (
+                            "Optional sha256 of the on-disk file the caller "
+                            "based their edit on. When supplied, companion "
+                            "rejects with sha_mismatch on drift (S-19)."
+                        ),
+                    },
+                },
+                "required": ["theme_slug", "path", "from_line", "to_line", "content"],
+            },
+            "scope": "editor",
+        },
+        {
             "name": "wp_theme_file_delete",
             "method_name": "wp_theme_file_delete",
             "description": (
@@ -399,16 +484,19 @@ class ThemesHandler:
         self,
         zip_url: str | None = None,
         zip_base64: str | None = None,
+        zip_path: str | None = None,
+        zip_session_id: str | None = None,
         activate: bool = False,
         overwrite: bool = False,
         **_: Any,
     ) -> dict[str, Any]:
         # Exactly one source must be supplied — both the prompt and the
         # companion route reject the empty + double-supply cases.
-        if not zip_url and not zip_base64:
-            raise ValueError("wp_theme_install_from_zip requires zip_url or zip_base64")
-        if zip_url and zip_base64:
-            raise ValueError("wp_theme_install_from_zip accepts zip_url OR zip_base64, not both")
+        if sum(bool(source) for source in (zip_url, zip_base64, zip_path, zip_session_id)) != 1:
+            raise ValueError(
+                "wp_theme_install_from_zip requires exactly one of "
+                "zip_url, zip_base64, zip_path, or zip_session_id"
+            )
         body: dict[str, Any] = {
             "activate": bool(activate),
             "overwrite": bool(overwrite),
@@ -417,7 +505,7 @@ class ThemesHandler:
             if not isinstance(zip_url, str):
                 raise ValueError("zip_url must be a string")
             body["zip_url"] = zip_url
-        else:
+        elif zip_base64:
             if not isinstance(zip_base64, str):
                 raise ValueError("zip_base64 must be a string")
             # Cheap pre-cap: base64 expands by ~4/3, so ``len * 3 // 4``
@@ -431,6 +519,13 @@ class ThemesHandler:
                     f"— exceeds {_THEME_ZIP_MAX_BYTES} byte cap (S-18)"
                 )
             body["zip_base64"] = zip_base64
+        elif zip_path:
+            body["zip_base64"] = local_zip_to_base64(zip_path, max_bytes=_THEME_ZIP_MAX_BYTES)
+        else:
+            body["zip_base64"] = await zip_session_to_base64(
+                zip_session_id,
+                max_bytes=_THEME_ZIP_MAX_BYTES,
+            )
         return await self.client.post(
             f"{_ADMIN_NS}/themes/install",
             json_data=body,
@@ -519,6 +614,49 @@ class ThemesHandler:
                 raise ValueError("expected_sha256 must be a 64-char hex string")
             body["expected_sha256"] = expected_sha256.lower()
         return await self.client.put(
+            f"{_ADMIN_NS}/themes/files/{theme_slug}/{_quote_path(path)}",
+            json_data=body,
+            use_custom_namespace=True,
+        )
+
+    async def wp_theme_file_patch(
+        self,
+        theme_slug: str,
+        path: str,
+        from_line: int,
+        to_line: int,
+        content: str,
+        expected_sha256: str | None = None,
+        **_: Any,
+    ) -> dict[str, Any]:
+        theme_slug = _validate_theme_slug(theme_slug)
+        path = _validate_theme_file_path(path)
+        if not isinstance(from_line, int) or isinstance(from_line, bool) or from_line < 1:
+            raise ValueError("from_line must be a positive integer")
+        if not isinstance(to_line, int) or isinstance(to_line, bool) or to_line < 0:
+            raise ValueError("to_line must be a non-negative integer")
+        if to_line < from_line - 1:
+            raise ValueError("to_line must be >= from_line - 1")
+        if not isinstance(content, str):
+            raise ValueError("content must be a string")
+        content_bytes = len(content.encode("utf-8"))
+        if content_bytes > _THEME_FILE_MAX_BYTES:
+            raise ValueError(
+                f"content is {content_bytes} bytes — exceeds "
+                f"{_THEME_FILE_MAX_BYTES} byte cap (S-18)"
+            )
+        body: dict[str, Any] = {
+            "from_line": from_line,
+            "to_line": to_line,
+            "content": content,
+        }
+        if expected_sha256 is not None:
+            if not isinstance(expected_sha256, str) or not re.fullmatch(
+                r"[0-9a-fA-F]{64}", expected_sha256
+            ):
+                raise ValueError("expected_sha256 must be a 64-char hex string")
+            body["expected_sha256"] = expected_sha256.lower()
+        return await self.client.patch(
             f"{_ADMIN_NS}/themes/files/{theme_slug}/{_quote_path(path)}",
             json_data=body,
             use_custom_namespace=True,

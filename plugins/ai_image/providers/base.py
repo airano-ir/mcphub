@@ -42,6 +42,8 @@ class GenerationRequest:
     quality: str = "standard"
     model: str | None = None
     negative_prompt: str | None = None
+    input_images: list[bytes] = field(default_factory=list)
+    input_image_mimes: list[str] = field(default_factory=list)
     extras: dict[str, Any] = field(default_factory=dict)
 
 

@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 _DEFAULT_DATA_DIR = "/app/data" if Path("/app").exists() else "./data"
 
 # Schema version — increment when adding migrations
-SCHEMA_VERSION = 14
+SCHEMA_VERSION = 16
 
 # Initial schema DDL
 _SCHEMA_SQL = """\
@@ -139,6 +139,22 @@ CREATE INDEX IF NOT EXISTS idx_upload_sessions_user_status
 CREATE INDEX IF NOT EXISTS idx_upload_sessions_expires
     ON upload_sessions(expires_at);
 
+-- Gitea HTTP binary upload metadata.
+-- The bytes live in upload_sessions; this table scopes a session to a
+-- Gitea target without changing the shared upload-session schema.
+CREATE TABLE IF NOT EXISTS gitea_upload_sessions (
+    session_id     TEXT PRIMARY KEY REFERENCES upload_sessions(id) ON DELETE CASCADE,
+    owner_user_id  TEXT NOT NULL,
+    site_id        TEXT NOT NULL,
+    alias          TEXT NOT NULL,
+    plugin_type    TEXT NOT NULL,
+    kind           TEXT NOT NULL,
+    target_json    TEXT NOT NULL,
+    created_at     TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_gitea_upload_sessions_site
+    ON gitea_upload_sessions(site_id);
+
 -- F.5a.9.x: per-site AI provider keys (AES-GCM encrypted, reversible).
 -- Replaces the per-user user_provider_keys table with a per-site model so
 -- each WordPress/WooCommerce site carries its own OpenAI/Stability/Replicate
@@ -156,6 +172,24 @@ CREATE TABLE IF NOT EXISTS site_provider_keys (
 );
 CREATE INDEX IF NOT EXISTS idx_site_provider_keys_site
     ON site_provider_keys(site_id);
+
+-- Public OpenAI-compatible connections. Each site may have multiple
+-- named connections; the key is encrypted and never returned by list APIs.
+CREATE TABLE IF NOT EXISTS site_ai_provider_configs (
+    id                  TEXT PRIMARY KEY,
+    site_id             TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+    provider            TEXT NOT NULL DEFAULT 'openai_compatible',
+    name                TEXT NOT NULL,
+    api_type            TEXT NOT NULL DEFAULT 'openai_compatible',
+    base_url            TEXT NOT NULL,
+    api_key_ciphertext  BLOB NOT NULL,
+    model_id            TEXT,
+    created_at          TEXT NOT NULL,
+    updated_at          TEXT NOT NULL,
+    UNIQUE(site_id, name)
+);
+CREATE INDEX IF NOT EXISTS idx_site_ai_provider_configs_site
+    ON site_ai_provider_configs(site_id);
 """
 
 # Migration registry: version -> SQL string
@@ -297,6 +331,39 @@ _MIGRATIONS: dict[int, str] = {
         "UPDATE user_api_keys "
         "SET scopes = 'read editor settings install write admin' "
         "WHERE scopes IN ('read write admin', 'read write', 'admin');\n"
+    ),
+    15: (
+        # Gitea HTTP binary upload metadata. The raw bytes remain in
+        # upload_sessions, while this table records the scoped Gitea target.
+        "CREATE TABLE IF NOT EXISTS gitea_upload_sessions (\n"
+        "    session_id     TEXT PRIMARY KEY REFERENCES upload_sessions(id) ON DELETE CASCADE,\n"
+        "    owner_user_id  TEXT NOT NULL,\n"
+        "    site_id        TEXT NOT NULL,\n"
+        "    alias          TEXT NOT NULL,\n"
+        "    plugin_type    TEXT NOT NULL,\n"
+        "    kind           TEXT NOT NULL,\n"
+        "    target_json    TEXT NOT NULL,\n"
+        "    created_at     TEXT NOT NULL\n"
+        ");\n"
+        "CREATE INDEX IF NOT EXISTS idx_gitea_upload_sessions_site "
+        "ON gitea_upload_sessions(site_id);\n"
+    ),
+    16: (
+        "CREATE TABLE IF NOT EXISTS site_ai_provider_configs (\n"
+        "    id                  TEXT PRIMARY KEY,\n"
+        "    site_id             TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,\n"
+        "    provider            TEXT NOT NULL DEFAULT 'openai_compatible',\n"
+        "    name                TEXT NOT NULL,\n"
+        "    api_type            TEXT NOT NULL DEFAULT 'openai_compatible',\n"
+        "    base_url            TEXT NOT NULL,\n"
+        "    api_key_ciphertext  BLOB NOT NULL,\n"
+        "    model_id            TEXT,\n"
+        "    created_at          TEXT NOT NULL,\n"
+        "    updated_at          TEXT NOT NULL,\n"
+        "    UNIQUE(site_id, name)\n"
+        ");\n"
+        "CREATE INDEX IF NOT EXISTS idx_site_ai_provider_configs_site "
+        "ON site_ai_provider_configs(site_id);\n"
     ),
 }
 
@@ -1126,6 +1193,71 @@ class Database:
         if isinstance(value, str) and value:
             return value
         return None
+
+    # ------------------------------------------------------------------
+    # Public OpenAI-compatible connections
+    # ------------------------------------------------------------------
+
+    async def create_site_ai_provider_config(
+        self,
+        *,
+        config_id: str,
+        site_id: str,
+        name: str,
+        api_type: str,
+        base_url: str,
+        api_key_ciphertext: bytes,
+        model_id: str | None,
+    ) -> dict[str, Any]:
+        now = _utc_now()
+        await self.execute(
+            "INSERT INTO site_ai_provider_configs "
+            "(id, site_id, provider, name, api_type, base_url, api_key_ciphertext, model_id, created_at, updated_at) "
+            "VALUES (?, ?, 'openai_compatible', ?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(site_id, name) DO UPDATE SET "
+            "api_type = excluded.api_type, base_url = excluded.base_url, "
+            "api_key_ciphertext = excluded.api_key_ciphertext, model_id = excluded.model_id, updated_at = excluded.updated_at",
+            (config_id, site_id, name, api_type, base_url, api_key_ciphertext, model_id, now, now),
+        )
+        row = await self.fetchone(
+            "SELECT id, site_id, provider, name, api_type, base_url, model_id, created_at, updated_at "
+            "FROM site_ai_provider_configs WHERE site_id = ? AND name = ?",
+            (site_id, name),
+        )
+        if row is None:
+            raise RuntimeError("Failed to read back compatible provider config")
+        return row
+
+    async def get_site_ai_provider_config(
+        self, site_id: str, config_id: str
+    ) -> dict[str, Any] | None:
+        return await self.fetchone(
+            "SELECT * FROM site_ai_provider_configs WHERE site_id = ? AND id = ?",
+            (site_id, config_id),
+        )
+
+    async def list_site_ai_provider_configs(self, site_id: str) -> list[dict[str, Any]]:
+        return await self.fetchall(
+            "SELECT id, site_id, provider, name, api_type, base_url, model_id, created_at, updated_at "
+            "FROM site_ai_provider_configs WHERE site_id = ? ORDER BY name",
+            (site_id,),
+        )
+
+    async def delete_site_ai_provider_config(self, site_id: str, config_id: str) -> bool:
+        cursor = await self.execute(
+            "DELETE FROM site_ai_provider_configs WHERE site_id = ? AND id = ?",
+            (site_id, config_id),
+        )
+        return cursor.rowcount > 0
+
+    async def update_site_ai_provider_model(
+        self, site_id: str, config_id: str, model_id: str | None
+    ) -> bool:
+        cursor = await self.execute(
+            "UPDATE site_ai_provider_configs SET model_id = ?, updated_at = ? WHERE site_id = ? AND id = ?",
+            (model_id, _utc_now(), site_id, config_id),
+        )
+        return cursor.rowcount > 0
 
     async def set_site_tool_scope(self, site_id: str, scope: str) -> None:
         """Update the ``tool_scope`` preset for a site.

@@ -21,8 +21,6 @@ class EndpointType(Enum):
     N8N = "n8n"
     SUPABASE = "supabase"  # Phase G
     OPENPANEL = "openpanel"  # Phase H
-    APPWRITE = "appwrite"  # Phase I
-    DIRECTUS = "directus"  # Phase J
     PROJECT = "project"  # Dynamic per-project endpoint
     CUSTOM = "custom"
 
@@ -126,10 +124,17 @@ ENDPOINT_CONFIGS = {
             "manage_api_keys_revoke",
             "manage_api_keys_delete",
             "manage_api_keys_rotate",
-            # Health & Status (4)
+            # Health & Status (11)
             "list_projects",
+            "get_project_info",
+            "check_all_projects_health",
+            "get_project_health",
+            "get_system_metrics",
+            "get_system_uptime",
+            "get_project_metrics",
             "get_endpoints",
             "get_system_info",
+            "export_health_metrics",
             "get_audit_log",
             # OAuth Management (4)
             "oauth_register_client",
@@ -141,7 +146,7 @@ ENDPOINT_CONFIGS = {
             "reset_rate_limit",
             "set_rate_limit_config",
         },
-        max_tools=20,
+        max_tools=24,
     ),
     # WordPress endpoint - core WordPress tools only (64 tools)
     EndpointType.WORDPRESS: EndpointConfig(
@@ -279,44 +284,6 @@ ENDPOINT_CONFIGS = {
             "oauth_revoke_client",
         },
         max_tools=50,
-    ),
-    # Appwrite endpoint - Backend-as-a-Service (100 tools) - Phase I
-    EndpointType.APPWRITE: EndpointConfig(
-        path="/appwrite",
-        name="Appwrite Manager",
-        description="Appwrite Self-Hosted management (databases, documents, users, teams, storage, functions, messaging)",
-        endpoint_type=EndpointType.APPWRITE,
-        plugin_types=["appwrite"],
-        require_master_key=False,
-        allowed_scopes={"read", "write", "admin"},
-        # Blacklist system and admin tools
-        tool_blacklist={
-            "manage_api_keys_create",
-            "manage_api_keys_delete",
-            "manage_api_keys_rotate",
-            "oauth_register_client",
-            "oauth_revoke_client",
-        },
-        max_tools=110,
-    ),
-    # Directus endpoint - Headless CMS (100 tools) - Phase J
-    EndpointType.DIRECTUS: EndpointConfig(
-        path="/directus",
-        name="Directus CMS",
-        description="Directus Self-Hosted CMS management (items, collections, files, users, roles, flows, dashboards)",
-        endpoint_type=EndpointType.DIRECTUS,
-        plugin_types=["directus"],
-        require_master_key=False,
-        allowed_scopes={"read", "write", "admin"},
-        # Blacklist system and admin tools
-        tool_blacklist={
-            "manage_api_keys_create",
-            "manage_api_keys_delete",
-            "manage_api_keys_rotate",
-            "oauth_register_client",
-            "oauth_revoke_client",
-        },
-        max_tools=110,
     ),
 }
 

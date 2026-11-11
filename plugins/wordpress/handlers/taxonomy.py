@@ -5,6 +5,16 @@ from typing import Any
 
 from plugins.wordpress.client import WordPressClient
 
+_TERM_LANGUAGE_ROUTE = "airano-mcp/v1/term-language"
+_TERM_UPDATE_ROUTE = "airano-mcp/v1/term-update"
+
+
+def _looks_like_term_slug_conflict(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return "slug" in message and (
+        "already in use" in message or "term_exists" in message or "term exists" in message
+    )
+
 
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specifications for ToolGenerator"""
@@ -54,6 +64,14 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                     "parent": {
                         "anyOf": [{"type": "integer"}, {"type": "null"}],
                         "description": "Parent category ID for hierarchy",
+                    },
+                    "language": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Optional language code for multilingual sites (WPML/Polylang adapter, when active).",
+                    },
+                    "translation_of": {
+                        "anyOf": [{"type": "integer", "minimum": 1}, {"type": "null"}],
+                        "description": "Optional source term ID to link this category as a translation of.",
                     },
                 },
                 "required": ["name"],
@@ -152,6 +170,14 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                     "description": {
                         "anyOf": [{"type": "string"}, {"type": "null"}],
                         "description": "Tag description",
+                    },
+                    "language": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Optional language code for multilingual sites (WPML/Polylang adapter, when active).",
+                    },
+                    "translation_of": {
+                        "anyOf": [{"type": "integer", "minimum": 1}, {"type": "null"}],
+                        "description": "Optional source term ID to link this tag as a translation of.",
                     },
                 },
                 "required": ["name"],
@@ -263,8 +289,45 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                         "anyOf": [{"type": "integer"}, {"type": "null"}],
                         "description": "Parent term ID for hierarchical taxonomies (e.g., subcategories)",
                     },
+                    "language": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Optional language code for multilingual sites (WPML/Polylang adapter, when active).",
+                    },
+                    "translation_of": {
+                        "anyOf": [{"type": "integer", "minimum": 1}, {"type": "null"}],
+                        "description": "Optional source term ID to link this term as a translation of.",
+                    },
                 },
                 "required": ["taxonomy", "name"],
+            },
+            "scope": "write",
+        },
+        {
+            "name": "set_term_language",
+            "method_name": "set_term_language",
+            "description": "Apply generic language and/or translation linking to an existing taxonomy term through the active multilingual provider adapter.",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "taxonomy": {
+                        "type": "string",
+                        "description": "Taxonomy slug or REST base (e.g., 'category', 'categories', 'post_tag', 'tags', 'product_cat')",
+                    },
+                    "term_id": {
+                        "type": "integer",
+                        "description": "Target term ID",
+                        "minimum": 1,
+                    },
+                    "language": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Optional language code to assign.",
+                    },
+                    "translation_of": {
+                        "anyOf": [{"type": "integer", "minimum": 1}, {"type": "null"}],
+                        "description": "Optional source term ID to link as the translation source.",
+                    },
+                },
+                "required": ["taxonomy", "term_id"],
             },
             "scope": "write",
         },
@@ -282,6 +345,113 @@ class TaxonomyHandler:
             client: WordPress API client instance
         """
         self.client = client
+
+    async def _apply_term_language(
+        self,
+        *,
+        taxonomy: str,
+        term_id: int,
+        language: str | None = None,
+        translation_of: int | None = None,
+    ) -> dict[str, Any] | None:
+        if not language and not translation_of:
+            return None
+
+        payload: dict[str, Any] = {"taxonomy": taxonomy, "term_id": term_id}
+        if language:
+            payload["language"] = language
+        if translation_of:
+            payload["translation_of"] = translation_of
+
+        try:
+            return await self.client.post(
+                _TERM_LANGUAGE_ROUTE,
+                json_data=payload,
+                use_custom_namespace=True,
+            )
+        except Exception as exc:  # noqa: BLE001 - language adapter is optional by capability
+            return {
+                "term_id": term_id,
+                "taxonomy": taxonomy,
+                "language": language,
+                "translation_of": translation_of,
+                "applied": False,
+                "linked": False,
+                "notice": {
+                    "code": "term_language_route_unavailable",
+                    "message": str(exc),
+                },
+            }
+
+    async def _find_existing_term_translation(
+        self,
+        *,
+        taxonomy: str,
+        language: str | None,
+        translation_of: int | None,
+    ) -> dict[str, Any] | None:
+        """Ask the companion to return an existing translated term before creating one."""
+        if not language or not translation_of:
+            return None
+
+        try:
+            result = await self.client.post(
+                _TERM_LANGUAGE_ROUTE,
+                json_data={
+                    "taxonomy": taxonomy,
+                    "language": language,
+                    "translation_of": translation_of,
+                    "lookup_only": True,
+                },
+                use_custom_namespace=True,
+            )
+        except Exception:  # noqa: BLE001 - older companion versions simply fall through
+            return None
+
+        if isinstance(result, dict) and result.get("already_existed") and result.get("term_id"):
+            return result
+        return None
+
+    def _existing_term_result(
+        self,
+        *,
+        kind: str,
+        requested_name: str,
+        existing: dict[str, Any],
+    ) -> dict[str, Any]:
+        term = existing.get("term") if isinstance(existing.get("term"), dict) else {}
+        term_id = existing.get("term_id") or term.get("id")
+        return {
+            "id": term_id,
+            "name": term.get("name") or existing.get("name") or requested_name,
+            "slug": term.get("slug") or existing.get("slug") or "",
+            "created": False,
+            "already_existed": True,
+            "message": f"{kind} translation already exists with ID {term_id}; returned existing term",
+            "language": existing,
+        }
+
+    async def _update_term(
+        self,
+        *,
+        taxonomy: str,
+        term_id: int,
+        data: dict[str, Any],
+    ) -> dict[str, Any]:
+        try:
+            return await self.client.post(f"{taxonomy}/{term_id}", json_data=data)
+        except Exception as exc:
+            if not _looks_like_term_slug_conflict(exc):
+                raise
+            payload = {"taxonomy": taxonomy, "term_id": term_id, **data}
+            fallback = await self.client.post(
+                _TERM_UPDATE_ROUTE,
+                json_data=payload,
+                use_custom_namespace=True,
+            )
+            if isinstance(fallback, dict):
+                fallback.setdefault("fallback", "term_update")
+            return fallback
 
     # === CATEGORIES ===
 
@@ -330,7 +500,12 @@ class TaxonomyHandler:
             )
 
     async def create_category(
-        self, name: str, description: str | None = None, parent: int | None = None
+        self,
+        name: str,
+        description: str | None = None,
+        parent: int | None = None,
+        language: str | None = None,
+        translation_of: int | None = None,
     ) -> str:
         """
         Create a new WordPress category.
@@ -344,6 +519,21 @@ class TaxonomyHandler:
             JSON string with created category data
         """
         try:
+            existing = await self._find_existing_term_translation(
+                taxonomy="categories",
+                language=language,
+                translation_of=translation_of,
+            )
+            if existing is not None:
+                return json.dumps(
+                    self._existing_term_result(
+                        kind="Category",
+                        requested_name=name,
+                        existing=existing,
+                    ),
+                    indent=2,
+                )
+
             data = {"name": name}
             if description:
                 data["description"] = description
@@ -351,6 +541,12 @@ class TaxonomyHandler:
                 data["parent"] = parent
 
             category = await self.client.post("categories", json_data=data)
+            language_result = await self._apply_term_language(
+                taxonomy="categories",
+                term_id=int(category["id"]),
+                language=language,
+                translation_of=translation_of,
+            )
 
             result = {
                 "id": category["id"],
@@ -358,6 +554,8 @@ class TaxonomyHandler:
                 "slug": category["slug"],
                 "message": f"Category '{name}' created successfully with ID {category['id']}",
             }
+            if language_result is not None:
+                result["language"] = language_result
 
             return json.dumps(result, indent=2)
         except Exception as e:
@@ -394,7 +592,11 @@ class TaxonomyHandler:
             if parent is not None:
                 data["parent"] = parent
 
-            category = await self.client.post(f"categories/{category_id}", json_data=data)
+            category = await self._update_term(
+                taxonomy="categories",
+                term_id=category_id,
+                data=data,
+            )
 
             result = {
                 "id": category["id"],
@@ -476,7 +678,13 @@ class TaxonomyHandler:
                 {"error": str(e), "message": f"Failed to list tags: {str(e)}"}, indent=2
             )
 
-    async def create_tag(self, name: str, description: str | None = None) -> str:
+    async def create_tag(
+        self,
+        name: str,
+        description: str | None = None,
+        language: str | None = None,
+        translation_of: int | None = None,
+    ) -> str:
         """
         Create a new WordPress tag.
 
@@ -488,11 +696,32 @@ class TaxonomyHandler:
             JSON string with created tag data
         """
         try:
+            existing = await self._find_existing_term_translation(
+                taxonomy="tags",
+                language=language,
+                translation_of=translation_of,
+            )
+            if existing is not None:
+                return json.dumps(
+                    self._existing_term_result(
+                        kind="Tag",
+                        requested_name=name,
+                        existing=existing,
+                    ),
+                    indent=2,
+                )
+
             data = {"name": name}
             if description:
                 data["description"] = description
 
             tag = await self.client.post("tags", json_data=data)
+            language_result = await self._apply_term_language(
+                taxonomy="tags",
+                term_id=int(tag["id"]),
+                language=language,
+                translation_of=translation_of,
+            )
 
             result = {
                 "id": tag["id"],
@@ -500,6 +729,8 @@ class TaxonomyHandler:
                 "slug": tag["slug"],
                 "message": f"Tag '{name}' created successfully with ID {tag['id']}",
             }
+            if language_result is not None:
+                result["language"] = language_result
 
             return json.dumps(result, indent=2)
         except Exception as e:
@@ -529,7 +760,7 @@ class TaxonomyHandler:
             if description is not None:
                 data["description"] = description
 
-            tag = await self.client.post(f"tags/{tag_id}", json_data=data)
+            tag = await self._update_term(taxonomy="tags", term_id=tag_id, data=data)
 
             result = {
                 "id": tag["id"],
@@ -656,7 +887,13 @@ class TaxonomyHandler:
             )
 
     async def create_taxonomy_term(
-        self, taxonomy: str, name: str, description: str | None = None, parent: int | None = None
+        self,
+        taxonomy: str,
+        name: str,
+        description: str | None = None,
+        parent: int | None = None,
+        language: str | None = None,
+        translation_of: int | None = None,
     ) -> str:
         """
         Create a new term in a taxonomy.
@@ -671,6 +908,21 @@ class TaxonomyHandler:
             JSON string with created term details
         """
         try:
+            existing = await self._find_existing_term_translation(
+                taxonomy=taxonomy,
+                language=language,
+                translation_of=translation_of,
+            )
+            if existing is not None:
+                return json.dumps(
+                    self._existing_term_result(
+                        kind="Term",
+                        requested_name=name,
+                        existing=existing,
+                    ),
+                    indent=2,
+                )
+
             data = {"name": name}
 
             if description:
@@ -679,6 +931,14 @@ class TaxonomyHandler:
                 data["parent"] = parent
 
             term = await self.client.post(taxonomy, json_data=data)
+            language_result = await self._apply_term_language(
+                taxonomy=taxonomy,
+                term_id=int(term["id"]),
+                language=language,
+                translation_of=translation_of,
+            )
+            if language_result is not None and isinstance(term, dict):
+                term["language"] = language_result
 
             return json.dumps(term, indent=2)
         except Exception as e:
@@ -686,6 +946,37 @@ class TaxonomyHandler:
                 {
                     "error": str(e),
                     "message": f"Failed to create taxonomy term in '{taxonomy}': {str(e)}",
+                },
+                indent=2,
+            )
+
+    async def set_term_language(
+        self,
+        taxonomy: str,
+        term_id: int,
+        language: str | None = None,
+        translation_of: int | None = None,
+    ) -> str:
+        """Apply generic multilingual language metadata to an existing term."""
+        try:
+            if not language and not translation_of:
+                raise ValueError("Send at least one of language or translation_of")
+            result = await self.client.post(
+                _TERM_LANGUAGE_ROUTE,
+                json_data={
+                    "taxonomy": taxonomy,
+                    "term_id": term_id,
+                    "language": language,
+                    "translation_of": translation_of,
+                },
+                use_custom_namespace=True,
+            )
+            return json.dumps(result, indent=2)
+        except Exception as e:
+            return json.dumps(
+                {
+                    "error": str(e),
+                    "message": f"Failed to set language for term {term_id} in '{taxonomy}': {str(e)}",
                 },
                 indent=2,
             )

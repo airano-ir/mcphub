@@ -29,11 +29,12 @@ from plugins.wordpress_specialist.handlers.site_config import (
 
 def test_tool_specs_count_and_names_match_f196a():
     specs = get_tool_specifications()
-    assert len(specs) == 6, "F.19.6.A advertises 3 read + 3 settings"
+    assert len(specs) == 7, "F.19.6.A: 3 read + 3 settings; #93: + Rank Math identity sync"
     names = {s["name"] for s in specs}
     assert names == {
         "wp_site_identity_get",
         "wp_site_identity_set",
+        "wp_rank_math_sync_identity",
         "wp_reading_settings_get",
         "wp_reading_settings_set",
         "wp_permalinks_get",
@@ -51,6 +52,7 @@ def test_read_settings_tier_split():
         "wp_site_identity_set": "settings",
         "wp_reading_settings_set": "settings",
         "wp_permalinks_set": "settings",
+        "wp_rank_math_sync_identity": "settings",
     }
     for name, scope in expected_scope.items():
         assert specs_by_name[name]["scope"] == scope, f"{name} should be scope={scope}"

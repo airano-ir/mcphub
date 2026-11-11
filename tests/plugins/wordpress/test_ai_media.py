@@ -58,7 +58,13 @@ class TestRegistry:
         # Registry is the source of truth now that the per-user
         # user_provider_keys module has been removed (F.5a.9.x).
         # F.5a.9 partial: OpenRouter added.
-        assert set(list_providers()) == {"openai", "stability", "replicate", "openrouter"}
+        assert set(list_providers()) == {
+            "openai",
+            "openai_compatible",
+            "stability",
+            "replicate",
+            "openrouter",
+        }
 
     def test_get_provider_known(self):
         assert get_provider("openai").name == "openai"
@@ -105,6 +111,43 @@ def _fake_resp(*, status: int, json_data=None, text_data=None, raw=None):
 
 
 class TestOpenAIProvider:
+    @pytest.mark.asyncio
+    async def test_custom_openai_base_url_and_input_image_use_edits_endpoint(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_BASE_URL", "https://custom.example/v1/")
+        provider = OpenAIProvider()
+        response = _fake_resp(
+            status=200,
+            json_data={"data": [{"b64_json": base64.b64encode(_PNG_1x1).decode()}]},
+        )
+        sess = _mock_session_post([response])
+        calls = []
+        original_post = sess.post
+
+        def recording_post(*args, **kwargs):
+            calls.append((args, kwargs))
+            return original_post(*args, **kwargs)
+
+        sess.post = recording_post
+        with patch("plugins.ai_image.providers.openai.aiohttp.ClientSession") as cls:
+            cls.return_value = AsyncMock(
+                __aenter__=AsyncMock(return_value=sess),
+                __aexit__=AsyncMock(return_value=False),
+            )
+            result = await provider.generate(
+                "sk-test",
+                GenerationRequest(
+                    prompt="edit this",
+                    model="gpt-image-1",
+                    input_images=[_PNG_1x1],
+                    input_image_mimes=["image/png"],
+                ),
+            )
+        assert result.data == _PNG_1x1
+        assert len(calls) == 1
+        args, kwargs = calls[0]
+        assert args[0] == "https://custom.example/v1/images/edits"
+        assert kwargs["data"] is not None
+
     @pytest.mark.asyncio
     async def test_dalle_url_fetched_and_returned_as_bytes(self):
         provider = OpenAIProvider()
@@ -183,6 +226,32 @@ class TestOpenAIProvider:
 
 
 class TestAIMediaHandler:
+    @pytest.mark.asyncio
+    async def test_input_images_b64_are_forwarded_to_provider(self, wp_client, monkeypatch):
+        handler = AIMediaHandler(wp_client, user_id="u1")
+        monkeypatch.setattr(handler, "_resolve_api_key", AsyncMock(return_value="sk"))
+        fake_result = GenerationResult(
+            data=_PNG_1x1, mime="image/png", filename="ai.png", meta={}, cost_usd=None
+        )
+        provider = AsyncMock()
+        provider.generate = AsyncMock(return_value=fake_result)
+        monkeypatch.setattr("plugins.wordpress.handlers.ai_media.get_provider", lambda _: provider)
+        monkeypatch.setattr(
+            "plugins.wordpress.handlers.ai_media.wp_raw_upload",
+            AsyncMock(return_value={"id": 1, "source_url": "https://wp.example/media/1"}),
+        )
+
+        out = await handler.generate_and_upload_image(
+            provider="openai",
+            prompt="edit",
+            input_images_b64=[base64.b64encode(_PNG_1x1).decode()],
+            skip_optimize=True,
+        )
+
+        assert json.loads(out)["id"] == 1
+        request = provider.generate.call_args.args[1]
+        assert request.input_images == [_PNG_1x1]
+
     @pytest.mark.asyncio
     async def test_missing_api_key_returns_typed_error(self, wp_client, monkeypatch):
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)

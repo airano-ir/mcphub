@@ -673,7 +673,8 @@ function CodexFlow({ alias, userId }: { alias?: string; userId: string }) {
   const envName = alias
     ? `MCPHUB_${alias.replace(/[^a-zA-Z0-9]+/g, "_").toUpperCase()}_TOKEN`
     : "MCPHUB_TOKEN";
-  const codexToml = `[mcp_servers.mcphub]\nurl = "${url}"\nbearer_token_env_var = "${envName}"`;
+  const serverName = (alias || "mcphub").replace(/[^A-Za-z0-9_-]/g, "_");
+  const codexToml = `[mcp_servers.${serverName}]\nurl = "${url}"\nbearer_token_env_var = "${envName}"`;
   const claudeJson = JSON.stringify(
     {
       mcpServers: {

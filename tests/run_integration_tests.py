@@ -157,7 +157,7 @@ class IntegrationTester:
                 "UsersHandler",
                 "SiteHandler",
                 "SEOHandler",
-                "WPCLIHandler",
+                "LegacyAdminHandler",
                 "MenusHandler",
             ]
 

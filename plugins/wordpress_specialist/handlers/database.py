@@ -1,4 +1,4 @@
-"""F.19.3.2-.3 — Database inspection surface (db/size + db/tables + db/search).
+"""F.19.3.2-.4 — Database inspection surface.
 
 Closes the database-introspection gap on ``wordpress_specialist`` so the
 deprecated ``wordpress_advanced`` (Docker-socket / WP-CLI) plugin can
@@ -16,6 +16,10 @@ Surface map:
   rows / data_bytes / index_bytes / total_bytes / collation.
 * **wp_db_search** (``POST /admin/db/search``) — search wrapper
   around ``WP_Query`` with ``s=$query``. NEVER raw SQL.
+* **wp_db_check** (``GET /admin/db/check``) — runs ``CHECK TABLE``
+  on tables with the current WordPress prefix.
+* **wp_db_optimize** (``POST /admin/db/optimize``) — runs
+  ``OPTIMIZE TABLE`` on tables with the current WordPress prefix.
 
 Security rules (extending S-1…S-24):
 
@@ -50,7 +54,7 @@ _SEARCH_LIMIT_MAX = 100
 
 
 def get_tool_specifications() -> list[dict[str, Any]]:
-    """Return tool specs for the F.19.3.2-.3 database surface."""
+    """Return tool specs for the F.19.3.2-.4 database surface."""
     return [
         {
             "name": "wp_db_size",
@@ -144,6 +148,32 @@ def get_tool_specifications() -> list[dict[str, Any]]:
             },
             "scope": "read",
         },
+        {
+            "name": "wp_db_check",
+            "method_name": "wp_db_check",
+            "description": (
+                "Check WordPress database tables via the Airano MCP Bridge "
+                "companion plugin. Runs ``CHECK TABLE`` only on tables with "
+                "the current WordPress table prefix and returns per-table "
+                "status rows. Requires Airano MCP Bridge v2.18.5+ and "
+                "manage_options."
+            ),
+            "schema": {"type": "object", "properties": {}},
+            "scope": "read",
+        },
+        {
+            "name": "wp_db_optimize",
+            "method_name": "wp_db_optimize",
+            "description": (
+                "Optimize WordPress database tables via the Airano MCP "
+                "Bridge companion plugin. Runs ``OPTIMIZE TABLE`` only on "
+                "tables with the current WordPress table prefix and returns "
+                "per-table results. Requires Airano MCP Bridge v2.18.5+ and "
+                "manage_options."
+            ),
+            "schema": {"type": "object", "properties": {}},
+            "scope": "admin",
+        },
     ]
 
 
@@ -201,7 +231,7 @@ def _normalise_filter(value: Any, field: str) -> str | list[str] | None:
 
 
 class DatabaseHandler:
-    """Database inspection surface (F.19.3.2-.3) — db/size + db/tables + db/search.
+    """Database inspection + maintenance surface.
 
     Each method returns the parsed JSON envelope from the companion.
     The plugin.py wrapper serialises for MCP transport. Server errors
@@ -221,6 +251,19 @@ class DatabaseHandler:
     async def wp_db_tables(self, **_: Any) -> dict[str, Any]:
         return await self.client.get(
             f"{_ADMIN_NS}/db/tables",
+            use_custom_namespace=True,
+        )
+
+    async def wp_db_check(self, **_: Any) -> dict[str, Any]:
+        return await self.client.get(
+            f"{_ADMIN_NS}/db/check",
+            use_custom_namespace=True,
+        )
+
+    async def wp_db_optimize(self, **_: Any) -> dict[str, Any]:
+        return await self.client.post(
+            f"{_ADMIN_NS}/db/optimize",
+            json_data={},
             use_custom_namespace=True,
         )
 

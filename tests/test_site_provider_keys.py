@@ -98,7 +98,7 @@ class TestHelpers:
 
     @pytest.mark.unit
     def test_supports_provider_keys_rejects_others(self):
-        for plugin_type in ("gitea", "n8n", "supabase", "openpanel", "appwrite"):
+        for plugin_type in ("gitea", "n8n", "supabase", "openpanel", "coolify"):
             assert site_supports_provider_keys(plugin_type) is False
 
     @pytest.mark.unit

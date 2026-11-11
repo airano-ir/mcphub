@@ -300,8 +300,14 @@ async def probe_site_capabilities(
             "cached": False,
         }
 
+    from core.admin_utils import user_id_is_admin
+    from core.net_guard import allow_private_destinations
+
     try:
-        result = await instance.probe_credential_capabilities()
+        # SSRF boundary: the probe calls the user-supplied site URL. Only
+        # admin-owned sites may reach private/internal addresses.
+        with allow_private_destinations(await user_id_is_admin(user_id)):
+            result = await instance.probe_credential_capabilities()
     except Exception as exc:  # noqa: BLE001
         logger.warning("capability_probe: probe call raised for site %s: %s", site_id, exc)
         result = {

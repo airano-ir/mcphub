@@ -42,6 +42,34 @@ case "$tested" in
     *.*) pass "Tested up to is major.minor ($tested)" ;;
     *) fail "Tested up to has unexpected format: $tested" ;;
 esac
+
+# Requires-at-least vs WP functions actually called — Plugin Check fails
+# if the plugin calls a function newer than the declared minimum. Keep
+# track of the lowest version that the code actually requires.
+requires_php=$(grep -oE '^\s*\*\s*Requires at least:\s*\S+' "$PHP_FILE" | head -1 | awk '{print $NF}')
+requires_txt=$(grep -oE '^Requires at least:\s*\S+' "$README_TXT" | awk '{print $NF}')
+[ "$requires_php" = "$requires_txt" ] && pass "Requires at least matches between PHP header and readme.txt ($requires_php)" \
+    || fail "Requires at least mismatch: PHP=$requires_php  readme.txt=$requires_txt"
+
+# Specific guard: if the plugin calls wp_is_application_passwords_available
+# without function_exists, Requires at least must be ≥ 5.6
+if grep -qE "wp_is_application_passwords_available\s*\(" "$PHP_FILE"; then
+    case "$requires_php" in
+        5.0|5.1|5.2|5.3|5.4|5.5)
+            fail "calls wp_is_application_passwords_available() but Requires at least is $requires_php (needs ≥ 5.6)";;
+        *)
+            pass "wp_is_application_passwords_available() usage is compatible with Requires at least $requires_php";;
+    esac
+fi
+# wp_timezone_string requires 5.3
+if grep -qE "wp_timezone_string\s*\(" "$PHP_FILE"; then
+    case "$requires_php" in
+        5.0|5.1|5.2)
+            fail "calls wp_timezone_string() but Requires at least is $requires_php (needs ≥ 5.3)";;
+        *)
+            pass "wp_timezone_string() usage is compatible with Requires at least $requires_php";;
+    esac
+fi
 [ -n "$plugin_uri" ] && [ -n "$author_uri" ] && [ "$plugin_uri" != "$author_uri" ] \
     && pass "Plugin URI ($plugin_uri) and Author URI ($author_uri) are distinct" \
     || fail "Plugin URI and Author URI are the same or missing"
@@ -57,6 +85,42 @@ if grep -q "^class Airano_MCP_Bridge" "$PHP_FILE"; then
     pass "main class uses the Airano_MCP_ prefix"
 else
     fail "main class is not Airano_MCP_Bridge"
+fi
+
+# 2.11.0 — new routes must have dedicated permission callbacks at the
+# route gate, not inline manage_options closures hiding per-target checks.
+if grep -q "'permission_callback' => \[\$this, 'require_term_update_capability'\]" "$PHP_FILE"; then
+    pass "/term-update is gated by require_term_update_capability"
+else
+    fail "/term-update does not use require_term_update_capability"
+fi
+if grep -q "function require_term_update_capability" "$PHP_FILE"; then
+    pass "require_term_update_capability method is defined"
+else
+    fail "require_term_update_capability method is missing"
+fi
+# /term-update's gate must enforce the taxonomy's own edit_terms cap
+if grep -q "term_edit_capability" "$PHP_FILE"; then
+    pass "term_edit_capability helper resolves the taxonomy's own edit_terms cap"
+else
+    fail "term_edit_capability helper is missing"
+fi
+# /opcache-reset and /transients must call manage_options at the gate
+if grep -q "'/opcache-reset'" "$PHP_FILE"; then
+    pass "/opcache-reset route is registered"
+else
+    fail "/opcache-reset route registration is missing"
+fi
+if grep -q "'/transients'" "$PHP_FILE"; then
+    pass "/transients route is registered"
+else
+    fail "/transients route registration is missing"
+fi
+# transients route must never echo cached values
+if grep -q "Values are intentionally NEVER returned\|values are not returned\|values are intentionally never returned" "$PHP_FILE"; then
+    pass "/transients documented as values-never-returned"
+else
+    fail "/transients should document that it never returns transient values"
 fi
 # (a) media.php must NOT be loaded directly outside of the comment/changelog
 includes=$(grep -nE "^\s*require(_once)?\s*\(?\s*ABSPATH\s*\.\s*['\"]wp-admin/includes/media\.php" "$PHP_FILE" | wc -l)

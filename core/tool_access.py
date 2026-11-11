@@ -287,9 +287,9 @@ def get_scope_presets_for_plugin(plugin_type: str) -> list[dict[str, str]]:
         ]
 
     if plugin_type == "wordpress":
-        # WordPress has no admin-scope tools (read=27, write=40, admin=0).
-        # SEO + plugin/theme tools require the Airano MCP SEO Bridge plugin
-        # to be installed on the WP site itself. Present 2 tiers + custom.
+        # WordPress core includes stock REST tools plus a small set of
+        # companion-backed maintenance tools. Full Access maps to the
+        # universal admin tier so companion maintenance tools are included.
         return [
             {
                 "value": "read",
@@ -522,6 +522,118 @@ class ToolAccessManager:
         # tool that would 100% fail at call time.
         tools = await self.apply_prerequisites_filter(tools, site_id)
         return tools
+
+    async def get_visible_tool_for_site(
+        self,
+        site_id: str,
+        key_scopes: list[str],
+        plugin_type: str,
+        tool_name: str,
+    ) -> ToolDefinition | None:
+        """Return one tool only when it passes the exact list visibility pipeline.
+
+        ``tools/call`` adapters use this method so direct calls cannot bypass
+        site scope, per-site toggles, or central prerequisite filtering.
+        """
+        visible = await self.get_visible_tools(
+            site_id=site_id,
+            key_scopes=key_scopes,
+            plugin_type=plugin_type,
+        )
+        return next((tool for tool in visible if tool.name == tool_name), None)
+
+    async def authorize_tool_for_site(
+        self,
+        site_id: str,
+        key_scopes: list[str],
+        plugin_type: str,
+        tool_name: str,
+        *,
+        principal_id_safe: str,
+        arguments: dict[str, Any] | None = None,
+        endpoint_name: str = "user",
+        endpoint_kind: str = "user",
+        correlation_id: str | None = None,
+    ) -> tuple[ToolDefinition | None, Any]:
+        """Run visibility and the shared authorization decision for one tool.
+
+        This is the narrow runtime adapter used by call endpoints.  The
+        existing visibility pipeline remains responsible for legacy category
+        policies (notably Coolify), toggles, and capability prerequisites;
+        the shared typed decision then enforces the canonical identity,
+        plugin/site, endpoint, and universal-scope boundaries.
+        """
+        from core.tool_authorization import authorize_tool_call
+        from core.tool_policy import EndpointContext, Principal, SiteContext
+
+        if plugin_type in _CATEGORY_PLUGINS:
+            # Coolify has a separate, explicit category policy.  Keep its
+            # legacy visibility overlay before the universal decision.
+            tool = await self.get_visible_tool_for_site(
+                site_id=site_id,
+                key_scopes=key_scopes,
+                plugin_type=plugin_type,
+                tool_name=tool_name,
+            )
+        else:
+            # Universal plugins must let the typed decision service own both
+            # key-scope and site-scope denials.  Apply only the non-scope
+            # visibility gates here, so a forbidden registered tool yields an
+            # INSUFFICIENT_SCOPE decision rather than a misleading not-found
+            # response.  Toggle/prerequisite failures remain unavailable.
+            from core.tool_registry import get_tool_registry
+
+            candidates = get_tool_registry().get_by_plugin_type(plugin_type)
+            candidates = await self.apply_site_toggles(candidates, site_id)
+            candidates = await self.apply_prerequisites_filter(candidates, site_id)
+            tool = next(
+                (candidate for candidate in candidates if candidate.name == tool_name), None
+            )
+
+        if tool is None:
+            # There is no trustworthy ToolDefinition to authorize.  Return a
+            # typed fail-closed result only for callers that need an audit
+            # decision; execution callers must treat the missing tool as
+            # unavailable.
+            raise LookupError("Tool is not visible for this site")
+
+        from core.database import get_database
+
+        try:
+            site_scope = await get_database().get_site_tool_scope(site_id)
+        except RuntimeError:
+            site_scope = "admin"
+
+        principal = Principal(
+            authentication_type="bearer",
+            principal_id_safe=principal_id_safe,
+            project_id=site_id,
+            site_ids=[site_id],
+            granted_scopes=key_scopes,
+        )
+        endpoint = EndpointContext(
+            name=endpoint_name,
+            kind=endpoint_kind,
+            plugin_types=[plugin_type],
+        )
+        site = SiteContext(
+            site_id=site_id,
+            plugin_type=plugin_type,
+            tool_scope=site_scope or "admin",
+            tool_enabled=True,
+            capability_available=True,
+        )
+        decision = await authorize_tool_call(
+            tool_definition=tool,
+            principal=principal,
+            endpoint=endpoint,
+            site=site,
+            arguments=arguments or {},
+            correlation_id=correlation_id,
+        )
+        if not decision.allow:
+            return None, decision
+        return tool, decision
 
     async def toggle_tool(
         self,
@@ -775,15 +887,21 @@ _TOOL_PREREQUISITES: dict[str, list[dict[str, Any]]] = {
     "wordpress_generate_and_upload_image": [
         {
             "kind": "provider_key",
-            "any_of": ["openai", "stability", "replicate", "openrouter"],
+            "any_of": ["openai", "openai_compatible", "stability", "replicate", "openrouter"],
         }
     ],
     # Companion-route-backed WP tools.
     "wordpress_cache_purge": [{"kind": "companion_route", "name": "cache_purge"}],
+    "wordpress_wp_cache_flush": [{"kind": "companion_route", "name": "cache_purge"}],
+    "wordpress_opcache_reset": [{"kind": "companion_route", "name": "opcache_reset"}],
     "wordpress_bulk_update_meta": [{"kind": "companion_route", "name": "bulk_meta"}],
     "wordpress_export_content": [{"kind": "companion_route", "name": "export"}],
     "wordpress_site_health": [{"kind": "companion_route", "name": "site_health"}],
     "wordpress_transient_flush": [{"kind": "companion_route", "name": "transient_flush"}],
+    "wordpress_wp_transient_delete_all": [{"kind": "companion_route", "name": "transient_flush"}],
+    "wordpress_wp_transient_list": [{"kind": "companion_route", "name": "transient_list"}],
+    "wordpress_wp_db_check": [{"kind": "companion_route", "name": "admin_db_check"}],
+    "wordpress_wp_db_optimize": [{"kind": "companion_route", "name": "admin_db_optimize"}],
     "wordpress_audit_hook_status": [{"kind": "companion_route", "name": "audit_hook"}],
     "wordpress_audit_hook_configure": [{"kind": "companion_route", "name": "audit_hook"}],
     "wordpress_audit_hook_disable": [{"kind": "companion_route", "name": "audit_hook"}],
@@ -792,6 +910,7 @@ _TOOL_PREREQUISITES: dict[str, list[dict[str, Any]]] = {
     ],
     "wordpress_bulk_delete_media": [{"kind": "companion_route", "name": "bulk_meta"}],
     "wordpress_bulk_reassign_media": [{"kind": "companion_route", "name": "bulk_meta"}],
+    "wordpress_set_term_language": [{"kind": "companion_route", "name": "term_language"}],
     # SEO — needs Rank Math (or Yoast in the future). Probe surfaces
     # both flags; we accept either.
     "wordpress_get_post_seo": [{"kind": "feature_any", "names": ["rank_math", "yoast"]}],
@@ -811,10 +930,88 @@ _TOOL_PREREQUISITES: dict[str, list[dict[str, Any]]] = {
     # /wp/v2/media); the WP variant only needs the provider key
     # since its primary client already uses Application Password.
     "woocommerce_generate_and_upload_image": [
-        {"kind": "provider_key", "any_of": ["openai", "stability", "replicate", "openrouter"]},
+        {
+            "kind": "provider_key",
+            "any_of": ["openai", "openai_compatible", "stability", "replicate", "openrouter"],
+        },
         {"kind": "wp_credentials"},
     ],
+    "wordpress_specialist_wp_db_size": [{"kind": "companion_route", "name": "admin_db_size"}],
+    "wordpress_specialist_wp_db_tables": [{"kind": "companion_route", "name": "admin_db_tables"}],
+    "wordpress_specialist_wp_db_search": [{"kind": "companion_route", "name": "admin_db_search"}],
+    "wordpress_specialist_wp_db_check": [{"kind": "companion_route", "name": "admin_db_check"}],
+    "wordpress_specialist_wp_db_optimize": [
+        {"kind": "companion_route", "name": "admin_db_optimize"}
+    ],
 }
+
+
+_COMPANION_ROUTE_MIN_VERSION: dict[str, str] = {
+    "bulk_meta": "2.2.0",
+    "post_language": "2.19.0",
+    "term_language": "2.20.0",
+    "term_update": "2.20.0",
+    "export": "2.3.0",
+    "cache_purge": "2.4.0",
+    "transient_flush": "2.5.0",
+    "transient_list": "2.18.5",
+    "site_health": "2.6.0",
+    "audit_hook": "2.7.0",
+    "regenerate_thumbnails": "2.8.0",
+    "opcache_reset": "2.18.4",
+    "admin_db_size": "2.18.0",
+    "admin_db_tables": "2.18.0",
+    "admin_db_search": "2.18.0",
+    "admin_db_check": "2.18.5",
+    "admin_db_optimize": "2.18.5",
+}
+
+
+def _version_tuple(raw: Any) -> tuple[int, ...]:
+    """Parse a loose semver-ish string into a comparable integer tuple."""
+    if raw is None:
+        return ()
+    parts: list[int] = []
+    for part in str(raw).split("."):
+        digits = ""
+        for char in part:
+            if char.isdigit():
+                digits += char
+                continue
+            break
+        if digits == "":
+            break
+        parts.append(int(digits))
+    return tuple(parts)
+
+
+def _version_at_least(raw: Any, minimum: str) -> bool:
+    current = _version_tuple(raw)
+    required = _version_tuple(minimum)
+    if not current or not required:
+        return False
+    width = max(len(current), len(required))
+    return current + (0,) * (width - len(current)) >= required + (0,) * (width - len(required))
+
+
+def _companion_route_available_by_version(
+    route_name: str,
+    probe_payload: dict[str, Any] | None,
+) -> bool:
+    """Fallback for stale route bitmaps when plugin_version is authoritative.
+
+    Older cached capability payloads can have a missing or false ``routes`` entry
+    even though the installed companion version already ships that endpoint. The
+    version fallback keeps live MCP catalogs from hiding route-backed tools until
+    every worker's probe cache expires.
+    """
+    payload = probe_payload or {}
+    minimum = _COMPANION_ROUTE_MIN_VERSION.get(route_name)
+    if not minimum:
+        return False
+    if payload.get("companion_available") is False or payload.get("probe_available") is False:
+        return False
+    return _version_at_least(payload.get("plugin_version"), minimum)
 
 
 def check_tool_prerequisites(
@@ -852,7 +1049,10 @@ def check_tool_prerequisites(
             # Probe is authoritative when present; absence of probe data
             # (e.g. companion not installed → companion_available=False)
             # is also treated as "unavailable".
-            if not routes.get(name):
+            if not routes.get(name) and not _companion_route_available_by_version(
+                name,
+                probe_payload,
+            ):
                 return False, "companion_route"
         elif kind == "feature_any":
             names = list(rule.get("names") or [])

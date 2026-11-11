@@ -17,6 +17,7 @@ from __future__ import annotations
 import base64 as _b64
 import binascii
 import json
+import os
 from typing import Any
 
 from core.media_audit import log_media_upload
@@ -24,6 +25,7 @@ from core.upload_sessions import (
     UploadSessionError,
     UploadSessionStore,
     get_upload_session_store,
+    make_session_owner_id,
 )
 from plugins.wordpress.client import WordPressClient
 from plugins.wordpress.handlers._media_core import wp_raw_upload
@@ -34,6 +36,8 @@ from plugins.wordpress.handlers.media import (
     _maybe_optimize,
 )
 
+_RECOMMENDED_CHUNK_BYTES = 1024 * 1024
+
 
 def get_tool_specifications() -> list[dict[str, Any]]:
     """Return tool specs for ToolGenerator."""
@@ -43,8 +47,12 @@ def get_tool_specifications() -> list[dict[str, Any]]:
             "method_name": "upload_media_chunked_start",
             "description": (
                 "Start a chunked upload session for a large media file. "
-                "Returns a session_id to use for subsequent chunk/finish/abort "
-                "calls. TTL 1h, hard cap 500 MB per session."
+                "Returns a session_id for finish/status/abort. On per-user "
+                "MCP endpoints it also returns a relative upload_url so an "
+                "agent can PUT raw bytes with curl --data-binary @file, using "
+                "the same Bearer token, instead of embedding large base64 in "
+                "tool calls. Use the chunk tool only as the fallback path. TTL "
+                "1h, hard cap 500 MB per session."
             ),
             "schema": {
                 "type": "object",
@@ -73,7 +81,9 @@ def get_tool_specifications() -> list[dict[str, Any]]:
             "method_name": "upload_media_chunked_chunk",
             "description": (
                 "Append a single base64-encoded chunk to a chunked upload session. "
-                "Chunks must arrive in order starting at index 0."
+                "Chunks must arrive in order starting at index 0. Prefer the "
+                "upload_url returned by upload_media_chunked_start when it is "
+                "available; this base64 tool is the portable fallback."
             ),
             "schema": {
                 "type": "object",
@@ -153,6 +163,22 @@ def get_tool_specifications() -> list[dict[str, Any]]:
             },
             "scope": "read",
         },
+        {
+            "name": "media_upload_workflow_status",
+            "method_name": "media_upload_workflow_status",
+            "description": (
+                "Report WordPress media workflow capabilities for general "
+                "agents. Shows whether AI image generation is enabled or "
+                "disabled_missing_provider_key, and lists the recommended "
+                "fallback path for public URLs, small attachments, and larger "
+                "agent-local/chat-attached files."
+            ),
+            "schema": {
+                "type": "object",
+                "properties": {},
+            },
+            "scope": "read",
+        },
     ]
 
 
@@ -175,15 +201,65 @@ class MediaChunkedHandler:
         client: WordPressClient,
         *,
         user_id: str | None = None,
+        site_id: str | None = None,
+        alias: str | None = None,
         store: UploadSessionStore | None = None,
     ) -> None:
         self.client = client
-        self.user_id = user_id or "admin"
+        self.actor_user_id = user_id
+        self.site_id = site_id
+        self.alias = alias
+        self.user_id = make_session_owner_id(user_id, site_id)
         self._store = store
 
     @property
     def store(self) -> UploadSessionStore:
         return self._store or get_upload_session_store()
+
+    def _public_session_payload(self, sess) -> dict[str, Any]:
+        payload = sess.to_public_dict()
+        payload["max_bytes"] = self.store.max_session_bytes
+        payload["recommended_chunk_bytes"] = _RECOMMENDED_CHUNK_BYTES
+        payload["handoff"] = "stream_base64_chunks"
+        if self.user_id == "admin":
+            public_url = os.environ.get("PUBLIC_URL", "").strip().rstrip("/")
+            upload_path = f"/admin/media-upload/{sess.id}"
+            upload_url = f"{public_url}{upload_path}" if public_url else upload_path
+            from core.media_intake import make_admin_browser_upload_url
+
+            payload["handoff"] = "admin_http_binary_put"
+            payload["upload"] = {
+                "method": "PUT",
+                "url": upload_url,
+                "auth": "Use the same Authorization: Bearer *** as this MCP endpoint.",
+                "content_type": "application/octet-stream",
+                "curl": f"curl -X PUT -H 'Authorization: Bearer ***' --data-binary @FILE '{upload_url}'",
+            }
+            payload["browser_url"] = make_admin_browser_upload_url(sess.id)
+            payload["fallback_handoff"] = "stream_base64_chunks"
+        elif self.actor_user_id and self.alias:
+            from core.media_intake import make_browser_upload_url
+
+            public_url = os.environ.get("PUBLIC_URL", "").strip().rstrip("/")
+            upload_path = f"/u/{self.actor_user_id}/{self.alias}/media-upload/{sess.id}"
+            upload_url = f"{public_url}{upload_path}" if public_url else upload_path
+            payload["handoff"] = "http_binary_put"
+            payload["upload"] = {
+                "method": "PUT",
+                "url": upload_url,
+                "auth": "Use the same Authorization: Bearer *** as this MCP endpoint.",
+                "content_type": "application/octet-stream",
+                "curl": f"curl -X PUT -H 'Authorization: Bearer ***' --data-binary @FILE '{upload_url}'",
+            }
+            payload["browser_url"] = make_browser_upload_url(
+                sess.id,
+                owner=self.actor_user_id,
+                site_id=self.site_id,
+                alias=self.alias,
+                upload_path=upload_path,
+            )
+            payload["fallback_handoff"] = "stream_base64_chunks"
+        return payload
 
     async def upload_media_chunked_start(
         self,
@@ -200,7 +276,7 @@ class MediaChunkedHandler:
                 mime=mime,
                 sha256=sha256,
             )
-            return json.dumps(sess.to_public_dict(), indent=2)
+            return json.dumps(self._public_session_payload(sess), indent=2)
         except UploadSessionError as e:
             return json.dumps(e.to_dict(), indent=2)
 
@@ -214,7 +290,7 @@ class MediaChunkedHandler:
         try:
             data = _decode_chunk(data_b64)
             sess = await self.store.append_chunk(session_id, index, data, chunk_sha256=chunk_sha256)
-            return json.dumps(sess.to_public_dict(), indent=2)
+            return json.dumps(self._public_session_payload(sess), indent=2)
         except UploadSessionError as e:
             return json.dumps(e.to_dict(), indent=2)
 
@@ -233,7 +309,7 @@ class MediaChunkedHandler:
         try:
             get_tool_rate_limiter().check(
                 "wordpress_upload_media_chunked_finish",
-                self.user_id if self.user_id != "admin" else None,
+                self.actor_user_id if self.actor_user_id else None,
             )
         except ToolRateLimitError as e:
             return json.dumps(e.to_dict(), indent=2)
@@ -265,7 +341,7 @@ class MediaChunkedHandler:
             )
             log_media_upload(
                 site=self.client.site_url,
-                user_id=self.user_id if self.user_id != "admin" else None,
+                user_id=self.actor_user_id,
                 mime=media.get("mime_type") or mime_hint or sess.mime,
                 size_bytes=len(data),
                 source="chunked",
@@ -306,7 +382,7 @@ class MediaChunkedHandler:
                     },
                     indent=2,
                 )
-            return json.dumps(sess.to_public_dict(), indent=2)
+            return json.dumps(self._public_session_payload(sess), indent=2)
         except Exception as exc:  # noqa: BLE001
             return json.dumps(
                 {
@@ -320,3 +396,68 @@ class MediaChunkedHandler:
     async def upload_media_chunked_abort(self, session_id: str) -> str:
         removed = await self.store.abort(session_id)
         return json.dumps({"session_id": session_id, "aborted": bool(removed)}, indent=2)
+
+    async def media_upload_workflow_status(self) -> str:
+        """Return a compact media workflow decision matrix for agents."""
+        configured_providers: list[str] = []
+        if self.site_id:
+            try:
+                from core.site_api import list_site_providers_set
+
+                configured_providers = sorted(await list_site_providers_set(self.site_id))
+            except Exception:
+                configured_providers = []
+
+        has_http_intake = bool(self.actor_user_id and self.alias)
+        public_url = os.environ.get("PUBLIC_URL", "").strip().rstrip("/")
+        payload = {
+            "ai_image_generation": {
+                "status": ("enabled" if configured_providers else "disabled_missing_provider_key"),
+                "configured_providers": configured_providers,
+                "tool": "wordpress_generate_and_upload_image",
+                "note": (
+                    "Use this only when a provider key is configured for the site. "
+                    "Otherwise generate/use the image outside MCPHub and upload it "
+                    "with one of the fallback paths below."
+                ),
+            },
+            "fallbacks": [
+                {
+                    "when": "public_or_short_lived_https_url",
+                    "tool": "wordpress_upload_media_from_url",
+                },
+                {
+                    "when": "small_chat_attachment",
+                    "tool": "wordpress_upload_media_from_base64",
+                    "practical_limit": "about 10 MB in one tool call",
+                },
+                {
+                    "when": "larger_chat_attachment_or_agent_local_file",
+                    "start_tool": "wordpress_upload_media_chunked_start",
+                    "preferred_handoff": (
+                        "http_binary_put" if has_http_intake else "stream_base64_chunks"
+                    ),
+                    "finish_tool": "wordpress_upload_media_chunked_finish",
+                    "status_tool": "wordpress_upload_media_chunked_status",
+                },
+            ],
+            "media_intake": {
+                "available": has_http_intake,
+                "browser_upload": has_http_intake,
+                "endpoint_template": (
+                    f"{public_url}/u/{self.actor_user_id}/{self.alias}/media-upload/{{session_id}}"
+                    if has_http_intake and public_url
+                    else (
+                        (
+                            f"/u/{self.actor_user_id}/{self.alias}/media-upload/{{session_id}}"
+                            if has_http_intake
+                            else None
+                        )
+                        if has_http_intake
+                        else None
+                    )
+                ),
+                "auth": "same Bearer token as the MCP endpoint" if has_http_intake else None,
+            },
+        }
+        return json.dumps(payload, indent=2)

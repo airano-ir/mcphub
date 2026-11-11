@@ -1,10 +1,10 @@
 === Airano MCP Bridge ===
 Contributors: airano
 Tags: mcp, ai, rest-api, seo, media
-Requires at least: 5.0
-Tested up to: 6.9
+Requires at least: 5.6
+Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 2.10.3
+Stable tag: 2.11.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -50,6 +50,10 @@ Companion plugin for MCP Hub. REST API routes for SEO meta and raw-binary media 
 * `GET|POST|DELETE /wp-json/airano-mcp/v1/audit-hook` — Configure + query a webhook that forwards WordPress action events to MCP Hub (HMAC-SHA256 signed, non-blocking) (added in 2.7.0)
 * `POST /wp-json/airano-mcp/v1/regenerate-thumbnails` — Regenerate attachment sub-sizes via `wp_generate_attachment_metadata` for a list of IDs or in paged batch mode (added in 2.8.0)
 * `POST /wp-json/airano-mcp/v1/upload-and-attach` — Raw-body upload + metadata + attach-to-post + set-featured in a single REST call (added in 2.9.0). Query params: `attach_to_post`, `set_featured`, `title`, `alt_text`, `caption`, `description`. Permission: `upload_files` + `edit_post` on the target post.
+* `POST /wp-json/airano-mcp/v1/opcache-reset` — Reset PHP OPcache after a theme/plugin deploy (added in 2.11.0). Permission: `manage_options`.
+* `GET /wp-json/airano-mcp/v1/transients` — Read-only inventory of transient keys + expirations; values intentionally never returned (added in 2.11.0). Capped at 500 per call. Permission: `manage_options`.
+* `POST /wp-json/airano-mcp/v1/term-update` — Mutate a taxonomy term via `wp_update_term` (added in 2.11.0). Accepts `taxonomy` (canonical name or REST base), `term_id`, and any of `name`/`slug`/`description`/`parent`. Permission: the taxonomy's own `edit_terms` capability, enforced at the route gate.
+* `POST /wp-json/airano-mcp/v1/cache-purge` — As of 2.11.0 accepts an optional `scope` body parameter (`all` / `page` / `object`, default `all`).
 
 **Designed for [MCP Hub](https://mcp.palebluedot.live)** — the AI-native management hub for WordPress and self-hosted services. [Try the live platform](https://mcp.palebluedot.live) · [Source on GitHub](https://github.com/airano-ir/mcphub).
 
@@ -91,6 +95,18 @@ Plugin slugs on wordpress.org are permanent. Existing installs keep working; the
 Yes. All REST API endpoints work with any application that can make authenticated HTTP requests.
 
 == Changelog ==
+
+= 2.11.1 =
+* Mark **Tested up to: 7.1** for the WordPress 7.1 release cycle. There is no code change in this release — every route is built on core APIs that 7.1 leaves untouched (`register_rest_route`, `wp_update_term`, `wp_handle_sideload`, `wp_cache_flush`, `opcache_reset`), and PHP 7.4 remains the minimum.
+* Why this ships at all: until the header catches up, the plugin directory shows a "has not been tested with your version of WordPress" warning to everyone running 7.1.x. This release is purely that paperwork.
+
+= 2.11.0 =
+* Mark **Tested up to: 7.0** for the WordPress 7.0 release cycle. No behaviour change is required — every route exercises stable core APIs (`register_rest_route`, `wp_update_term`, `wp_cache_flush`, `opcache_reset`, etc.) and PHP 7.4+ which remains the project minimum.
+* Bump **Requires at least** from 5.0 to 5.6. The existing `/site-health` route already calls `wp_timezone_string()` (added in WP 5.3) and `wp_is_application_passwords_available()` (added in WP 5.6); Plugin Check correctly rejected the 5.0 floor against these functions. WP 5.6 shipped in December 2020, so this is a paperwork fix rather than a real audience shift.
+* New route: `POST /airano-mcp/v1/opcache-reset` — calls PHP's `opcache_reset()` when available so a freshly deployed plugin / theme / CSS file is picked up without an FPM restart or shell access. Reports `opcache.enable` + `opcache.validate_timestamps` + before/after summary. Permission: `manage_options`.
+* New route: `GET /airano-mcp/v1/transients` — read-only inventory of transient keys + expirations (multisite-aware via `?include_site_transients=1`). Values are intentionally NEVER returned; this is for observability and cleanup discovery. Capped at 500 keys per call. Permission: `manage_options`.
+* New route: `POST /airano-mcp/v1/term-update` — taxonomy-term mutation through `wp_update_term()` that bypasses the stock REST limitation around translated-term slug conflicts. Accepts `taxonomy` (canonical name OR REST base), `term_id`, and any of `name` / `slug` / `description` / `parent`. Permission: enforced at the route gate via the taxonomy's own `edit_terms` capability (no generic `manage_options`-only override).
+* Enhancement: `POST /airano-mcp/v1/cache-purge` now accepts a `scope` body parameter — `all` (default, identical to the v2.10.x behaviour), `page` (skip object cache), or `object` (skip page-cache plugins). Existing callers that send an empty body keep working unchanged.
 
 = 2.10.3 =
 * WordPress.org review fix: rename main class from the generic `SEO_API_Bridge` to `Airano_MCP_Bridge` per the wp.org "unique prefixes" guideline. The class is only instantiated from this file's bootstrap line and is never referenced by callers (the plugin's public surface is its REST routes, not its PHP class), so this is an internal refactor with no behaviour change.
@@ -160,6 +176,12 @@ Yes. All REST API endpoints work with any application that can make authenticate
 * Initial release with Rank Math and Yoast SEO support
 
 == Upgrade Notice ==
+
+= 2.11.1 =
+Compatibility bump for WordPress 7.1. No code or REST API changes — safe to update without touching your integrations.
+
+= 2.11.0 =
+WP 7.0 compatibility bump + 3 new routes (opcache-reset, transients, term-update) + `scope` parameter on cache-purge. No breaking changes — existing callers keep working.
 
 = 2.10.3 =
 Internal refactor only — main class renamed from `SEO_API_Bridge` to `Airano_MCP_Bridge` to satisfy wp.org's prefix guideline. No behaviour or REST API changes.

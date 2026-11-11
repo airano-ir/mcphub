@@ -80,7 +80,9 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                 "are left untouched). Attachment ids are validated by "
                 "the companion against WP's media library — invalid "
                 "ids return ``invalid_attachment``. Requires Airano "
-                "MCP Bridge v2.16.0+ and manage_options."
+                "MCP Bridge v2.16.0+ and manage_options. If Rank Math is "
+                "active, call wp_rank_math_sync_identity after changing the "
+                "title so the schema (JSON-LD) uses the new name."
             ),
             "schema": {
                 "type": "object",
@@ -111,6 +113,37 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                             "Pass 0 to clear; the active theme must "
                             "declare ``custom-logo`` support."
                         ),
+                    },
+                },
+            },
+            "scope": "settings",
+        },
+        {
+            "name": "wp_rank_math_sync_identity",
+            "method_name": "wp_rank_math_sync_identity",
+            "description": (
+                "Push the site name into Rank Math's schema identity "
+                "(WebSite name, Person/Organization name). Rank Math captures "
+                "these once in its setup wizard, so after renaming the site "
+                "(wp_site_identity_set) the JSON-LD keeps the old name. With "
+                "no arguments it uses the current site title. Returns the "
+                "before/after values. Requires Rank Math and Airano MCP "
+                "Bridge v2.21.0+ (manage_options). Purge page cache afterwards."
+            ),
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "WebSite name for the schema (default: site title)",
+                    },
+                    "alternate_name": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Optional alternate WebSite name",
+                    },
+                    "knowledgegraph_name": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Person/Organization name (default: same as name)",
                     },
                 },
             },
@@ -337,6 +370,43 @@ class SiteConfigHandler:
             json_data=body,
             use_custom_namespace=True,
         )
+
+    async def wp_rank_math_sync_identity(
+        self,
+        name: str | None = None,
+        alternate_name: str | None = None,
+        knowledgegraph_name: str | None = None,
+        **_: Any,
+    ) -> dict[str, Any]:
+        body: dict[str, Any] = {}
+        for key, value in (
+            ("name", name),
+            ("alternate_name", alternate_name),
+            ("knowledgegraph_name", knowledgegraph_name),
+        ):
+            if value is not None:
+                if not isinstance(value, str):
+                    raise ValueError(f"{key} must be a string")
+                body[key] = value
+        try:
+            return await self.client.post(
+                f"{_ADMIN_NS}/seo/rank-math/sync-identity",
+                json_data=body,
+                use_custom_namespace=True,
+            )
+        except Exception as exc:
+            text = str(exc)
+            if "NOT_FOUND" in text or "rest_no_route" in text:
+                return {
+                    "error_code": "COMPANION_UPGRADE_REQUIRED",
+                    "message": (
+                        "This site's Airano MCP Bridge companion has no Rank Math "
+                        "identity route. Update the companion to v2.21.0+."
+                    ),
+                }
+            if "rank_math_inactive" in text or "Rank Math is not active" in text:
+                return {"error_code": "RANK_MATH_INACTIVE", "message": "Rank Math is not active."}
+            raise
 
     # ── Reading ─────────────────────────────────────────────────────
 

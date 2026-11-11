@@ -269,6 +269,42 @@ gitea_create_file(site, owner, repo, path, content, message)
 gitea_update_file(site, owner, repo, path, content, sha, message)
 ```
 
+#### Release Assets and Large Binary Uploads
+```
+gitea_upload_release_asset(site, owner, repo, release_id, filename, content_b64)
+gitea_upload_start(site, kind="release_asset", owner, repo, release_id, filename, total_bytes, sha256?)
+gitea_upload_chunk(site, session_id, index, data_b64, chunk_sha256?)
+gitea_upload_status(site, session_id)
+gitea_upload_abort(site, session_id)
+gitea_upload_finish(site, session_id)
+```
+
+Use `gitea_create_file`, `gitea_update_file`, and `gitea_create_files` for small text or structured repository edits. Use `gitea_upload_release_asset` only for small base64 assets.
+
+For generated artifacts, zips, images, and other large files, start a binary session with `gitea_upload_start`. On per-user MCP endpoints the response includes:
+
+```json
+{
+  "handoff": "http_binary_put",
+  "upload": {
+    "method": "PUT",
+    "url": "/u/{user_id}/{alias}/gitea-upload/{session_id}",
+    "auth": "Use the same Authorization: Bearer token as this MCP endpoint."
+  },
+  "finish_tool": "gitea_upload_finish"
+}
+```
+
+Upload bytes with the same Bearer token:
+
+```bash
+curl -X PUT   -H "Authorization: Bearer $MCPHUB_TOKEN"   --data-binary @artifact.zip   "https://your-mcphub.example.com/u/{user_id}/{alias}/gitea-upload/{session_id}"
+```
+
+When `ready_to_finish` is true, call `gitea_upload_finish(session_id)`. The finish step verifies the optional full-payload `sha256` and forwards the original bytes to Gitea as a release asset multipart upload.
+
+`repo_file` binary handoff is intentionally not enabled yet. It needs explicit create/update overwrite semantics and current-file `sha` handling before it is safe to expose.
+
 ### 2. Issue Tools
 
 #### Manage Issues

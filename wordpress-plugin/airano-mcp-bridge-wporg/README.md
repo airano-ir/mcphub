@@ -39,16 +39,19 @@ Both must exit 0 before zipping or uploading.
 
 ```bash
 python - <<'PY'
-import zipfile, os
-src = "wordpress-plugin/airano-mcp-bridge-wporg/airano-mcp-bridge"
-dst = "wordpress-plugin/airano-mcp-bridge-wporg/airano-mcp-bridge.zip"
-if os.path.exists(dst): os.remove(dst)
+import io, os, re, glob, zipfile
+src    = "wordpress-plugin/airano-mcp-bridge-wporg/airano-mcp-bridge"
+outdir = "wordpress-plugin/airano-mcp-bridge-wporg"
+# The filename carries the build AND the version on purpose — see the warning in step 7.
+ver = re.search(r"\*\s*Version:\s*([0-9.]+)",
+                io.open(src + "/airano-mcp-bridge.php", encoding="utf-8").read()).group(1)
+for stale in glob.glob(outdir + "/airano-mcp-bridge-wporg-*.zip"):
+    os.remove(stale)
+dst = "%s/airano-mcp-bridge-wporg-%s.zip" % (outdir, ver)
 with zipfile.ZipFile(dst, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
-    for root, _, files in os.walk(src):
-        for f in files:
-            full = os.path.join(root, f)
-            arc  = os.path.relpath(full, "wordpress-plugin/airano-mcp-bridge-wporg").replace(os.sep, "/")
-            z.write(full, arc)
+    z.writestr(zipfile.ZipInfo("airano-mcp-bridge/"), b"")      # dir entry
+    for f in ("airano-mcp-bridge.php", "readme.txt", "README.md"):
+        z.write(src + "/" + f, "airano-mcp-bridge/" + f)
 print("built:", dst, os.path.getsize(dst), "bytes")
 PY
 ```

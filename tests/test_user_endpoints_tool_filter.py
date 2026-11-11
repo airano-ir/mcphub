@@ -32,6 +32,9 @@ def base_tools():
     return [
         _make_tool("wordpress_list_posts"),
         _make_tool("wordpress_create_post"),
+        _make_tool("wordpress_upload_media_from_base64"),
+        _make_tool("wordpress_upload_media_chunked_start"),
+        _make_tool("wordpress_media_upload_workflow_status"),
         _make_tool("wordpress_generate_and_upload_image"),
     ]
 
@@ -53,6 +56,9 @@ class TestAIImageToolVisibility:
         assert "wordpress_generate_and_upload_image" not in names
         assert "wordpress_list_posts" in names
         assert "wordpress_create_post" in names
+        assert "wordpress_upload_media_from_base64" in names
+        assert "wordpress_upload_media_chunked_start" in names
+        assert "wordpress_media_upload_workflow_status" in names
 
     @pytest.mark.unit
     async def test_any_key_exposes_ai_tool(self, base_tools):
@@ -95,14 +101,25 @@ class TestAIImageToolVisibility:
     @pytest.mark.unit
     async def test_woocommerce_plugin_also_gates_ai_tool(self, base_tools):
         """Symmetric behaviour on woocommerce plugin_type."""
+        wc_tools = [
+            _make_tool("woocommerce_list_products"),
+            _make_tool("woocommerce_attach_media_to_product"),
+            _make_tool("woocommerce_upload_and_attach_to_product"),
+            _make_tool("woocommerce_generate_and_upload_image"),
+        ]
+        for tool in wc_tools:
+            tool.plugin_type = "woocommerce"
+
         with (
             patch("core.tool_access.get_tool_access_manager") as m_access,
             patch("core.site_api.list_site_providers_set", AsyncMock(return_value=set())),
         ):
-            m_access.return_value.get_visible_tools = AsyncMock(return_value=base_tools)
+            m_access.return_value.get_visible_tools = AsyncMock(return_value=wc_tools)
             out = await _get_visible_tools_for_site(
                 site_id="wc-1", key_scopes=["write"], plugin_type="woocommerce"
             )
 
         names = [t["name"] for t in out]
-        assert "wordpress_generate_and_upload_image" not in names
+        assert "woocommerce_generate_and_upload_image" not in names
+        assert "woocommerce_attach_media_to_product" in names
+        assert "woocommerce_upload_and_attach_to_product" in names

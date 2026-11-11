@@ -71,12 +71,22 @@ _EXPECTED_ROUTES = (
     "upload_and_attach",
     "capabilities",
     "bulk_meta",
+    "post_language",
+    "term_language",
+    "term_update",
     "export",
     "cache_purge",
+    "opcache_reset",
     "transient_flush",
+    "transient_list",
     "site_health",
     "audit_hook",
     "regenerate_thumbnails",
+    "admin_db_size",
+    "admin_db_tables",
+    "admin_db_search",
+    "admin_db_check",
+    "admin_db_optimize",
 )
 
 
@@ -191,6 +201,7 @@ class CapabilitiesHandler:
 
         routes_raw = payload.get("routes") or {}
         routes = {k: bool(routes_raw.get(k, False)) for k in _EXPECTED_ROUTES}
+        routes.update({k: bool(v) for k, v in routes_raw.items() if k not in _EXPECTED_ROUTES})
 
         user = payload.get("user") or {}
         user_out = {

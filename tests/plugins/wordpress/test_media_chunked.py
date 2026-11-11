@@ -164,6 +164,48 @@ class TestAppendAndFinalize:
         assert data == payload
 
     @pytest.mark.asyncio
+    async def test_append_stream_single_binary_handoff(self, store: UploadSessionStore):
+        payload = b"binary-http-upload"
+        digest = hashlib.sha256(payload).hexdigest()
+        sess = await store.start(
+            user_id="alice",
+            filename="f.bin",
+            total_bytes=len(payload),
+            sha256=digest,
+        )
+
+        async def chunks():
+            yield payload[:6]
+            yield payload[6:]
+
+        updated = await store.append_stream(
+            sess.id,
+            chunks(),
+            chunk_sha256=digest,
+        )
+        assert updated.received_bytes == len(payload)
+        assert updated.next_chunk == 1
+        _, data = await store.finalize(sess.id)
+        assert data == payload
+
+    @pytest.mark.asyncio
+    async def test_append_stream_checksum_mismatch_rolls_back(self, store: UploadSessionStore):
+        payload = b"binary-http-upload"
+        wrong = hashlib.sha256(b"wrong").hexdigest()
+        sess = await store.start(user_id="alice", filename="f.bin", total_bytes=len(payload))
+
+        async def chunks():
+            yield payload
+
+        with pytest.raises(UploadSessionError) as e:
+            await store.append_stream(sess.id, chunks(), chunk_sha256=wrong)
+        assert e.value.code == "CHUNK_CHECKSUM"
+        again = await store.get(sess.id)
+        assert again is not None
+        assert again.received_bytes == 0
+        assert again.spill_path.read_bytes() == b""
+
+    @pytest.mark.asyncio
     async def test_abort_removes_spill(self, store: UploadSessionStore):
         sess = await store.start(user_id="alice", filename="f.bin", total_bytes=10)
         spill = sess.spill_path
@@ -223,6 +265,8 @@ class TestHandlerIntegration:
             await handler.upload_media_chunked_start(filename="photo.png", total_bytes=len(payload))
         )
         sid = start_out["session_id"]
+        assert start_out["recommended_chunk_bytes"] == 1024 * 1024
+        assert start_out["handoff"] == "stream_base64_chunks"
         half = len(payload) // 2
         c0 = _b64.b64encode(payload[:half]).decode()
         c1 = _b64.b64encode(payload[half:]).decode()
@@ -243,6 +287,68 @@ class TestHandlerIntegration:
             assert mock_cls.call_count == 1
         assert out["id"] == 999
         assert out["source"] == "chunked"
+
+    @pytest.mark.asyncio
+    async def test_handler_start_exposes_http_upload_url_for_user_endpoint(
+        self, store: UploadSessionStore
+    ):
+        handler = MediaChunkedHandler(
+            _client(),
+            user_id="user-1",
+            site_id="site-1",
+            alias="myblog",
+            store=store,
+        )
+        start_out = json.loads(
+            await handler.upload_media_chunked_start(filename="photo.png", total_bytes=123)
+        )
+        assert start_out["handoff"] == "http_binary_put"
+        assert start_out["fallback_handoff"] == "stream_base64_chunks"
+        assert start_out["upload"]["method"] == "PUT"
+        assert start_out["upload"]["url"] == (
+            f"/u/user-1/myblog/media-upload/{start_out['session_id']}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_handler_start_exposes_admin_http_upload_url(self, store: UploadSessionStore):
+        handler = MediaChunkedHandler(_client(), user_id="admin", store=store)
+        start_out = json.loads(
+            await handler.upload_media_chunked_start(filename="photo.png", total_bytes=123)
+        )
+        assert start_out["handoff"] == "admin_http_binary_put"
+        assert start_out["upload"]["url"] == f"/admin/media-upload/{start_out['session_id']}"
+        assert "master" not in start_out["upload"]["curl"].lower()
+        assert start_out["browser_url"].startswith(
+            f"/admin/media-upload/{start_out['session_id']}/browser#token=mup_"
+        )
+
+    @pytest.mark.asyncio
+    async def test_handler_start_exposes_user_browser_upload_url(self, store: UploadSessionStore):
+        handler = MediaChunkedHandler(
+            _client(), user_id="user-1", site_id="site-1", alias="myblog", store=store
+        )
+        start_out = json.loads(
+            await handler.upload_media_chunked_start(filename="photo.png", total_bytes=123)
+        )
+        assert start_out["browser_url"].startswith(
+            f"/u/user-1/myblog/media-upload/{start_out['session_id']}/browser#token=mup_"
+        )
+
+    @pytest.mark.asyncio
+    async def test_media_workflow_status_reports_missing_provider_key(
+        self, store: UploadSessionStore
+    ):
+        handler = MediaChunkedHandler(
+            _client(),
+            user_id="user-1",
+            site_id=None,
+            alias="myblog",
+            store=store,
+        )
+        status = json.loads(await handler.media_upload_workflow_status())
+        assert status["ai_image_generation"]["status"] == "disabled_missing_provider_key"
+        assert status["media_intake"]["available"] is True
+        assert status["fallbacks"][2]["preferred_handoff"] == "http_binary_put"
 
     @pytest.mark.asyncio
     async def test_handler_abort(self, handler: MediaChunkedHandler):

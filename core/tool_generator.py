@@ -15,14 +15,10 @@ from core.tool_registry import ToolDefinition
 logger = logging.getLogger(__name__)
 
 
-# Plugin type fallback mapping - used when a plugin has no sites configured
-# WooCommerce can fallback to WordPress sites (same URL, credentials)
-# NOTE: Using fallback is NOT recommended in production. Always configure
-# explicit WOOCOMMERCE_SITE*_... environment variables for stability.
-PLUGIN_SITE_FALLBACK = {
-    "woocommerce": "wordpress",  # WooCommerce can use WordPress site configs
-    # Add more fallbacks as needed
-}
+# Compatibility fallbacks are intentionally disabled by default. A plugin
+# must have an explicit site/config entry; a related plugin's URL or
+# credentials do not prove that capability is installed or verified.
+PLUGIN_SITE_FALLBACK: dict[str, str] = {}
 
 
 def get_site_plugin_type_with_fallback(plugin_type: str, site_manager) -> str:
@@ -181,9 +177,17 @@ class ToolGenerator:
         description = spec["description"]
         schema = spec["schema"]
         scope = spec.get("scope", "read")
-        # F.7: optional category + sensitivity for scope-based visibility
+        # Policy metadata must come from the source spec. Do not infer risk or
+        # mutation semantics from the tool name; missing target metadata is
+        # surfaced by registry validation instead.
         category = spec.get("category", "read")
         sensitivity = spec.get("sensitivity", "normal")
+        risk = spec.get("risk")
+        requires_confirmation = spec.get("requires_confirmation", False)
+        supports_dry_run = spec.get("supports_dry_run", False)
+        idempotent = spec.get("idempotent", False)
+        destructive = spec.get("destructive")
+        retry_policy = copy.deepcopy(spec.get("retry_policy", {}))
 
         # Create full tool name
         tool_name = f"{plugin_type}_{action_name}"
@@ -207,6 +211,12 @@ class ToolGenerator:
             plugin_type=plugin_type,
             category=category,
             sensitivity=sensitivity,
+            risk=risk,
+            requires_confirmation=requires_confirmation,
+            supports_dry_run=supports_dry_run,
+            idempotent=idempotent,
+            destructive=destructive,
+            retry_policy=retry_policy,
         )
 
     def _add_site_parameter(

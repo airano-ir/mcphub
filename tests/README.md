@@ -87,8 +87,8 @@ wordpress_list_posts(site="mysite", per_page=5)
 # Test products
 wordpress_list_products(site="mysite", per_page=5)
 
-# Test WP-CLI (requires container access)
-wordpress_wp_cache_type(site="mysite")
+# Test companion-backed maintenance
+wordpress_wp_transient_list(site="mysite")
 ```
 
 ## Troubleshooting

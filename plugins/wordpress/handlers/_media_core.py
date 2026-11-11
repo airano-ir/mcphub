@@ -20,6 +20,7 @@ from typing import Any
 
 import aiohttp
 
+from core import net_guard
 from plugins.wordpress.client import WordPressClient
 from plugins.wordpress.handlers._media_security import (
     ALLOWED_MIMES,
@@ -145,7 +146,7 @@ async def _companion_upload_and_attach(
     if idempotency_key:
         headers["Idempotency-Key"] = str(idempotency_key)
     timeout = aiohttp.ClientTimeout(total=_UPLOAD_TIMEOUT)
-    async with aiohttp.ClientSession(timeout=timeout) as session:
+    async with net_guard.client_session(timeout=timeout) as session:
         async with session.post(url, data=data, headers=headers, params=params) as response:
             text = await response.text()
             if response.status >= 400:
@@ -183,7 +184,7 @@ async def _companion_raw_upload(
         "Content-Disposition": disposition,
     }
     timeout = aiohttp.ClientTimeout(total=_UPLOAD_TIMEOUT)
-    async with aiohttp.ClientSession(timeout=timeout) as session:
+    async with net_guard.client_session(timeout=timeout) as session:
         async with session.post(url, data=data, headers=headers) as response:
             text = await response.text()
             if response.status >= 400:
@@ -299,7 +300,7 @@ async def wp_raw_upload(
     }
 
     timeout = aiohttp.ClientTimeout(total=_UPLOAD_TIMEOUT)
-    async with aiohttp.ClientSession(timeout=timeout) as session:
+    async with net_guard.client_session(timeout=timeout) as session:
         async with session.post(url, data=data, headers=headers) as response:
             text = await response.text()
             if response.status == 413:
@@ -384,7 +385,22 @@ async def fetch_url_bytes(
     headers = {"User-Agent": user_agent}
     timeout = aiohttp.ClientTimeout(total=timeout_sec)
 
-    async with aiohttp.ClientSession(timeout=timeout) as session:
+    try:
+        return await _fetch_guarded(url, headers, timeout, max_bytes, filename_guess)
+    except net_guard.SSRFBlockedError as exc:
+        # A redirect or DNS answer pointed at a private/internal address after
+        # the pre-flight check passed — same typed error as the pre-flight.
+        raise UploadError("SSRF", f"URL rejected by SSRF guard: {exc}", {"url": url}) from exc
+
+
+async def _fetch_guarded(
+    url: str,
+    headers: dict[str, str],
+    timeout: aiohttp.ClientTimeout,
+    max_bytes: int,
+    filename_guess: str,
+) -> tuple[bytes, str | None, str]:
+    async with net_guard.guarded_session(timeout=timeout) as session:
         async with session.get(url, headers=headers, allow_redirects=True) as resp:
             if resp.status >= 400:
                 raise UploadError(

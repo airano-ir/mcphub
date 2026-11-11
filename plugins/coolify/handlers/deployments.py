@@ -80,6 +80,24 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                         "description": "Force rebuild without cache",
                         "default": False,
                     },
+                    "pr": {
+                        "anyOf": [{"type": "integer"}, {"type": "null"}],
+                        "description": (
+                            "Pull request ID to deploy a PR preview build. "
+                            "Cannot be combined with tag."
+                        ),
+                    },
+                    "pull_request_id": {
+                        "anyOf": [{"type": "integer"}, {"type": "null"}],
+                        "description": "Preview deployment identifier (alias of pr).",
+                    },
+                    "docker_tag": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": (
+                            "Docker image tag for a Docker Image preview deployment. "
+                            "Requires pull_request_id."
+                        ),
+                    },
                 },
             },
             "scope": "write",
@@ -151,9 +169,19 @@ async def deploy(
     tag: str | None = None,
     uuid: str | None = None,
     force: bool = False,
+    pr: int | None = None,
+    pull_request_id: int | None = None,
+    docker_tag: str | None = None,
 ) -> str:
     """Deploy by tag or UUID."""
-    result_data = await client.deploy(tag=tag, uuid=uuid, force=force)
+    result_data = await client.deploy(
+        tag=tag,
+        uuid=uuid,
+        force=force,
+        pr=pr,
+        pull_request_id=pull_request_id,
+        docker_tag=docker_tag,
+    )
     result = {"success": True, "message": "Deployment triggered", "data": result_data}
     return json.dumps(result, indent=2, ensure_ascii=False)
 

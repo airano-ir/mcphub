@@ -3,10 +3,11 @@
 Wraps ``POST /airano-mcp/v1/cache-purge`` (companion plugin v2.4.0+).
 Auto-detects active cache plugins (LiteSpeed, WP Rocket, W3 Total Cache,
 WP Super Cache, WP Fastest Cache, SiteGround Optimizer) and invokes
-their purge API. Always flushes the WP object cache. Replaces the
-previous Docker-socket + WP-CLI path on managed hosts.
+their purge API for page/all scope. Flushes the WP object cache for
+object/all scope. Replaces the previous Docker-socket + WP-CLI path on
+managed hosts.
 
-Tool: ``wordpress_cache_purge()``
+Tool: ``wordpress_cache_purge(scope="all")``
 """
 
 from __future__ import annotations
@@ -29,14 +30,25 @@ def get_tool_specifications() -> list[dict[str, Any]]:
             "name": "cache_purge",
             "method_name": "cache_purge",
             "description": (
-                "Purge all caches on the WordPress site via the "
+                "Purge WordPress caches on the WordPress site via the "
                 "airano-mcp-bridge companion plugin (v2.4.0+). Auto-detects "
                 "active cache plugins (LiteSpeed, WP Rocket, W3 Total Cache, "
                 "WP Super Cache, WP Fastest Cache, SiteGround Optimizer) and "
-                "calls each one's purge API. Always flushes the object cache. "
+                "calls each one's purge API when scope is page or all. Flushes "
+                "the object cache when scope is object or all. "
                 "Requires manage_options on the calling application password."
             ),
-            "schema": {"type": "object", "properties": {}},
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "scope": {
+                        "type": "string",
+                        "description": "Which cache layer to flush.",
+                        "enum": ["object", "page", "all"],
+                        "default": "all",
+                    }
+                },
+            },
             "scope": "admin",
         }
     ]
@@ -48,11 +60,25 @@ class CachePurgeHandler:
     def __init__(self, client: WordPressClient) -> None:
         self.client = client
 
-    async def cache_purge(self) -> str:
+    async def cache_purge(self, scope: str = "all") -> str:
+        scope = (scope or "all").lower()
+        if scope not in {"object", "page", "all"}:
+            return json.dumps(
+                {
+                    "ok": False,
+                    "error": "invalid_scope",
+                    "message": "scope must be one of: object, page, all",
+                    "detected": [],
+                    "purged": [],
+                    "errors": [],
+                },
+                indent=2,
+            )
+
         try:
             payload = await self.client.post(
                 "airano-mcp/v1/cache-purge",
-                json_data={},
+                json_data={"scope": scope},
                 use_custom_namespace=True,
             )
         except Exception as exc:  # noqa: BLE001
@@ -72,6 +98,7 @@ class CachePurgeHandler:
                         required_capability="manage_options",
                         route="airano-mcp/v1/cache-purge",
                     ),
+                    "scope": scope,
                     "detected": [],
                     "purged": [],
                     "errors": [],
@@ -85,6 +112,7 @@ class CachePurgeHandler:
                     "ok": False,
                     "error": "invalid_response",
                     "message": "companion returned a non-object payload",
+                    "scope": scope,
                     "detected": [],
                     "purged": [],
                     "errors": [],
@@ -100,6 +128,7 @@ class CachePurgeHandler:
 
         result = {
             "ok": ok,
+            "scope": payload.get("scope", scope),
             "detected": detected,
             "purged": purged,
             "skipped": list(payload.get("skipped") or []),

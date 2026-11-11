@@ -23,6 +23,9 @@ if (!class_exists('WP_Error')) {
 if (!function_exists('rest_authorization_required_code')) {
     function rest_authorization_required_code() { return 401; }
 }
+if (!function_exists('is_wp_error')) {
+    function is_wp_error($v) { return $v instanceof WP_Error; }
+}
 
 // __() / esc_html__ / etc. just return the string unchanged.
 foreach (['__', '_e', '_x', 'esc_html__', 'esc_attr__', 'esc_html_e', 'esc_attr_e'] as $fn) {
@@ -172,6 +175,96 @@ check('manage_options without upload_files → true', $res === true);
 $GLOBALS['__caps'] = ['upload_files' => true];
 $res = $bridge->require_upload_and_attach_capability(new WP_REST_Request(['attach_to_post' => 0]));
 check('attach_to_post=0 → no per-target check, allowed', $res === true);
+
+// --- 2.11.0 — require_term_update_capability ----------------------------
+echo "\n\033[1mrequire_term_update_capability — gate semantics\033[0m\n";
+
+// Register a fake taxonomy via the get_taxonomies/get_term shims so the
+// resolve_taxonomy_object + get_term_for_taxonomy_object helpers find it.
+$GLOBALS['__taxonomies'] = [
+    'category' => (object) [
+        'name' => 'category',
+        'rest_base' => 'categories',
+        'cap' => (object) ['edit_terms' => 'manage_categories'],
+    ],
+];
+$GLOBALS['__terms'] = [
+    'category:42' => (object) [
+        'term_id' => 42,
+        'term_taxonomy_id' => 42,
+        'name' => 'Existing',
+        'slug' => 'existing',
+        'description' => '',
+        'parent' => 0,
+    ],
+];
+if (!function_exists('get_taxonomies')) {
+    function get_taxonomies($args = [], $output = 'names') {
+        return $GLOBALS['__taxonomies'] ?? [];
+    }
+}
+if (!function_exists('get_term')) {
+    function get_term($id, $tax) {
+        return $GLOBALS['__terms']["$tax:$id"] ?? null;
+    }
+}
+if (!function_exists('sanitize_key')) {
+    function sanitize_key($s) { return strtolower(preg_replace('/[^a-z0-9_\-]/i','',(string)$s)); }
+}
+
+// 1. Missing taxonomy → taxonomy_not_found
+$GLOBALS['__caps'] = ['manage_categories' => true];
+$res = $bridge->require_term_update_capability(new WP_REST_Request(['taxonomy' => '']));
+check('missing taxonomy → taxonomy_not_found',
+    $res instanceof WP_Error && $res->code === 'taxonomy_not_found');
+
+// 2. taxonomy passed by REST base ("categories") resolves the same as canonical
+$res = $bridge->require_term_update_capability(new WP_REST_Request(['taxonomy' => 'categories', 'term_id' => 42]));
+check('REST base "categories" resolves + manage_categories granted → true',
+    $res === true,
+    is_object($res) ? "got " . $res->code : "got " . var_export($res, true));
+
+// 3. taxonomy passed by canonical name resolves the same
+$res = $bridge->require_term_update_capability(new WP_REST_Request(['taxonomy' => 'category', 'term_id' => 42]));
+check('canonical "category" resolves + manage_categories granted → true', $res === true);
+
+// 4. Invalid term_id → rest_invalid_param
+$res = $bridge->require_term_update_capability(new WP_REST_Request(['taxonomy' => 'category', 'term_id' => 0]));
+check('term_id=0 → rest_invalid_param',
+    $res instanceof WP_Error && $res->code === 'rest_invalid_param');
+
+// 5. Unknown term_id → term_not_found
+$res = $bridge->require_term_update_capability(new WP_REST_Request(['taxonomy' => 'category', 'term_id' => 9999]));
+check('unknown term_id → term_not_found',
+    $res instanceof WP_Error && $res->code === 'term_not_found');
+
+// 6. Caller without manage_categories → rest_cannot_edit_terms
+$GLOBALS['__caps'] = ['manage_categories' => false];
+$res = $bridge->require_term_update_capability(new WP_REST_Request(['taxonomy' => 'category', 'term_id' => 42]));
+check('caller without manage_categories → rest_cannot_edit_terms',
+    $res instanceof WP_Error && $res->code === 'rest_cannot_edit_terms');
+
+// 7. Custom taxonomy with its own cap is honoured
+$GLOBALS['__taxonomies']['product_brand'] = (object) [
+    'name' => 'product_brand',
+    'rest_base' => 'product_brands',
+    'cap' => (object) ['edit_terms' => 'edit_product_terms'],
+];
+$GLOBALS['__terms']['product_brand:7'] = (object) [
+    'term_id' => 7, 'term_taxonomy_id' => 7,
+    'name' => 'Acme', 'slug' => 'acme', 'description' => '', 'parent' => 0,
+];
+$GLOBALS['__caps'] = ['edit_product_terms' => true];
+$res = $bridge->require_term_update_capability(new WP_REST_Request(['taxonomy' => 'product_brands', 'term_id' => 7]));
+check('custom taxonomy uses its own edit_terms cap',
+    $res === true,
+    is_object($res) ? "got " . $res->code : "got " . var_export($res, true));
+
+// 8. Same custom taxonomy, but caller has manage_categories (wrong cap) → denied
+$GLOBALS['__caps'] = ['manage_categories' => true, 'edit_product_terms' => false];
+$res = $bridge->require_term_update_capability(new WP_REST_Request(['taxonomy' => 'product_brand', 'term_id' => 7]));
+check('manage_categories does NOT bypass custom taxonomy cap',
+    $res instanceof WP_Error && $res->code === 'rest_cannot_edit_terms');
 
 echo "\n";
 if ($fail === 0) {

@@ -214,40 +214,17 @@ Some tools require specific WordPress plugins or infrastructure:
 | Tools | Requirement |
 |-------|-------------|
 | `wordpress_get_post_seo`, `wordpress_update_post_seo`, `wordpress_get_product_seo`, `wordpress_update_product_seo` | **Yoast SEO** or **RankMath** |
-| `wordpress_wp_cache_*`, `wordpress_wp_db_*`, `wordpress_wp_plugin_*`, `wordpress_wp_theme_*`, `wordpress_wp_core_*`, `wordpress_wp_search_replace_dry_run` (15 tools) | Docker socket + `CONTAINER` env var |
-| `wordpress_specialist_*` (51 tools — plugins, themes, users, options, cron, maintenance, page editing, site config + layout, db inspection, bulk fan-out) | **Airano MCP Bridge v2.18.0+** companion plugin (no Docker socket) |
+| `wordpress_wp_cache_flush`, `wordpress_wp_transient_*`, `wordpress_wp_db_check`, `wordpress_wp_db_optimize` | **Airano MCP Bridge v2.18.5+** companion plugin |
+| `wordpress_specialist_*` (58 tools — plugins, themes, users, options, cron, maintenance, page editing, site config + layout, db inspection, bulk fan-out) | **Airano MCP Bridge v2.18.5+** companion plugin |
 | `woocommerce_*` | **WooCommerce** plugin (separate `WOOCOMMERCE_` config) |
 
-### Docker Socket for WP-CLI
+### Companion Plugin for Maintenance Tools
 
-A subset of legacy `wordpress_*` tools (15 WP-CLI helpers under
-`wordpress_wp_*`) require Docker socket access:
-
-```yaml
-services:
-  mcphub:
-    image: airano/mcphub:latest
-    ports:
-      - "8000:8000"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    environment:
-      WORDPRESS_SITE1_URL: https://your-site.com
-      WORDPRESS_SITE1_USERNAME: admin
-      WORDPRESS_SITE1_APP_PASSWORD: xxxx xxxx xxxx xxxx
-      WORDPRESS_SITE1_CONTAINER: wordpress-container-name
-      WORDPRESS_SITE1_ALIAS: mysite
-```
-
-`wordpress_specialist_*` tools do **not** need Docker — they're served
-through the Airano MCP Bridge companion plugin via REST. Install
-`wordpress-plugin/airano-mcp-bridge.zip` on the WordPress site and use
-an Application Password for a `manage_options` user.
-
-Without Docker socket:
-- WP-CLI helpers (`wordpress_wp_*`) return "not available" errors
-- All REST API tools (bulk operations, content management,
-  `wordpress_specialist_*`) work normally
+WordPress maintenance tools are served through the Airano MCP Bridge
+companion plugin via REST. Install `wordpress-plugin/airano-mcp-bridge.zip`
+on the WordPress site and use an Application Password for a user with
+the required WordPress capabilities. No Docker socket or container name
+is required.
 
 ### Site Configuration
 
@@ -261,7 +238,6 @@ WORDPRESS_SITE1_URL=https://your-site.com        # Required
 WORDPRESS_SITE1_USERNAME=admin                     # Required
 WORDPRESS_SITE1_APP_PASSWORD=xxxx xxxx xxxx xxxx   # Required (WordPress Application Password)
 WORDPRESS_SITE1_ALIAS=my-site                      # Recommended
-WORDPRESS_SITE1_CONTAINER=wp-container             # Optional (for WP-CLI)
 ```
 
 #### WooCommerce
@@ -272,13 +248,12 @@ WOOCOMMERCE_SITE1_CONSUMER_SECRET=cs_xxx          # Required
 WOOCOMMERCE_SITE1_ALIAS=my-shop                   # Recommended
 ```
 
-#### WordPress Advanced
+#### WordPress Specialist
 ```env
-WORDPRESS_ADVANCED_SITE1_URL=https://your-site.com         # Required
-WORDPRESS_ADVANCED_SITE1_USERNAME=admin                     # Required
-WORDPRESS_ADVANCED_SITE1_APP_PASSWORD=xxxx xxxx xxxx xxxx   # Required
-WORDPRESS_ADVANCED_SITE1_CONTAINER=wp-container             # Required (for WP-CLI tools)
-WORDPRESS_ADVANCED_SITE1_ALIAS=my-site-admin                # Recommended
+WORDPRESS_SPECIALIST_SITE1_URL=https://your-site.com         # Required
+WORDPRESS_SPECIALIST_SITE1_USERNAME=admin                    # Required
+WORDPRESS_SPECIALIST_SITE1_APP_PASSWORD=xxxx xxxx xxxx xxxx  # Required
+WORDPRESS_SPECIALIST_SITE1_ALIAS=my-site-admin               # Recommended
 ```
 
 #### Gitea
@@ -478,8 +453,6 @@ MCP Hub supports **Open Dynamic Client Registration** (RFC 7591). ChatGPT can au
 | n8n | 56 | `N8N_` |
 | Supabase | 70 | `SUPABASE_` |
 | OpenPanel | 42 | `OPENPANEL_` |
-| Appwrite | 100 | `APPWRITE_` |
-| Directus | 100 | `DIRECTUS_` |
 | System | 24 | (no config needed) |
 
 ### Unified Tool Pattern

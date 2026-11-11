@@ -15,6 +15,7 @@ library, not an MCP plugin with its own endpoints.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import logging
@@ -22,6 +23,7 @@ import os
 import time
 from typing import Any
 
+from core.site_api import get_site_ai_provider_secret
 from plugins.ai_image.providers.base import GenerationRequest, ProviderError
 from plugins.ai_image.registry import get_provider, list_providers
 from plugins.wordpress.client import WordPressClient
@@ -106,6 +108,10 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                         "type": "string",
                         "description": "Text prompt describing the image to generate.",
                     },
+                    "connection_id": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "OpenAI-compatible connection ID configured for this site.",
+                    },
                     "size": {
                         "type": "string",
                         "default": "1024x1024",
@@ -123,6 +129,11 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                     "negative_prompt": {
                         "anyOf": [{"type": "string"}, {"type": "null"}],
                     },
+                    "input_images_b64": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Optional base64 images for providers/models that support image editing.",
+                    },
                     "filename": {
                         "anyOf": [{"type": "string"}, {"type": "null"}],
                         "description": "Optional filename hint for the WP library.",
@@ -134,6 +145,16 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                         "anyOf": [{"type": "integer", "minimum": 1}, {"type": "null"}],
                     },
                     "set_featured": {"type": "boolean", "default": False},
+                    "generate_og_variant": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": (
+                            "Also upload a 1200x630 Open Graph crop (JPEG) for social "
+                            "cards. With attach_to_post on a Rank Math site, the post's "
+                            "Facebook/Twitter image is pointed at the crop while the "
+                            "original stays the featured/hero image."
+                        ),
+                    },
                     "skip_optimize": {"type": "boolean", "default": False},
                     "convert_to": {
                         "anyOf": [
@@ -152,6 +173,33 @@ def get_tool_specifications() -> list[dict[str, Any]]:
             "scope": "write",
         }
     ]
+
+
+OG_SIZE = (1200, 630)
+
+
+def make_og_variant(data: bytes, size: tuple[int, int] = OG_SIZE) -> bytes:
+    """Return a centre-cropped JPEG of ``size`` (Open Graph 1.91:1) from image bytes.
+
+    Transparent images are flattened onto white (JPEG has no alpha).
+    """
+    import io
+
+    from PIL import Image, ImageOps
+
+    with Image.open(io.BytesIO(data)) as src:
+        img = ImageOps.exif_transpose(src)
+        if img.mode in ("RGBA", "LA", "P"):
+            rgba = img.convert("RGBA")
+            flat = Image.new("RGB", rgba.size, (255, 255, 255))
+            flat.paste(rgba, mask=rgba.split()[-1])
+            img = flat
+        else:
+            img = img.convert("RGB")
+        fitted = ImageOps.fit(img, size, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
+        buf = io.BytesIO()
+        fitted.save(buf, "JPEG", quality=88, optimize=True, progressive=True)
+        return buf.getvalue()
 
 
 class AIMediaHandler:
@@ -190,6 +238,7 @@ class AIMediaHandler:
         quality: str = "standard",
         model: str | None = None,
         negative_prompt: str | None = None,
+        input_images_b64: list[str] | None = None,
         filename: str | None = None,
         title: str | None = None,
         alt_text: str | None = None,
@@ -198,6 +247,8 @@ class AIMediaHandler:
         set_featured: bool = False,
         skip_optimize: bool = False,
         convert_to: str | None = None,
+        connection_id: str | None = None,
+        generate_og_variant: bool = False,
     ) -> str:
         started = time.time()
         try:
@@ -209,7 +260,34 @@ class AIMediaHandler:
                 return json.dumps(e.to_dict(), indent=2)
 
             provider_impl = get_provider(provider)
-            api_key = await self._resolve_api_key(provider)
+            provider_extras: dict[str, Any] = {}
+            if provider == "openai_compatible":
+                if not self.site_id or not connection_id:
+                    return json.dumps(
+                        {
+                            "error_code": "NO_PROVIDER_CONFIG",
+                            "message": "Select a compatible provider connection.",
+                        },
+                        indent=2,
+                    )
+                secret = await get_site_ai_provider_secret(self.site_id, connection_id)
+                if secret is None:
+                    return json.dumps(
+                        {
+                            "error_code": "NO_PROVIDER_CONFIG",
+                            "message": "Compatible provider connection not found.",
+                        },
+                        indent=2,
+                    )
+                row, api_key = secret
+                provider_extras = {
+                    "base_url": row["base_url"],
+                    "api_type": row["api_type"],
+                    "model_id": row.get("model_id"),
+                    "connection_id": connection_id,
+                }
+            else:
+                api_key = await self._resolve_api_key(provider)
             # F.X.fix-pass3 — when caller omitted ``model``, fall back
             # to the per-site default the operator pinned in the
             # dashboard. Keeps MCP call sites short and lets the user
@@ -250,12 +328,31 @@ class AIMediaHandler:
                     payload["dashboard_url"] = dashboard_url
                 return json.dumps(payload, indent=2)
 
+            input_images: list[bytes] = []
+            input_image_mimes: list[str] = []
+            for encoded in input_images_b64 or []:
+                try:
+                    header, value = (
+                        encoded.split(",", 1) if encoded.startswith("data:") else ("", encoded)
+                    )
+                    input_images.append(base64.b64decode(value, validate=True))
+                    input_image_mimes.append(
+                        header.split(";", 1)[0].removeprefix("data:") or "image/png"
+                    )
+                except (ValueError, base64.binascii.Error) as exc:
+                    raise UploadError("BAD_BASE64", f"Invalid input image base64: {exc}") from exc
+
+            if model is None and provider_extras.get("model_id"):
+                model = provider_extras["model_id"]
             request = GenerationRequest(
                 prompt=prompt,
                 size=size,
                 quality=quality,
                 model=model,
                 negative_prompt=negative_prompt,
+                input_images=input_images,
+                input_image_mimes=input_image_mimes,
+                extras=provider_extras,
             )
             result = await provider_impl.generate(api_key, request)
 
@@ -342,7 +439,17 @@ class AIMediaHandler:
                 "featured_set": attach_status.get("featured_set", False),
                 "featured_context": attach_status.get("featured_context"),
             }
-            warnings = attach_status.get("warnings") or []
+            warnings = list(attach_status.get("warnings") or [])
+            if generate_og_variant:
+                payload["og_variant"] = await self._upload_og_variant(
+                    data,
+                    base_filename=filename or result.filename,
+                    title=title,
+                    alt_text=alt_text,
+                    attach_to_post=attach_to_post,
+                    idempotency_key=f"{idempotency_key}:og",
+                    warnings=warnings,
+                )
             if warnings:
                 payload["warnings"] = warnings
             return json.dumps(payload, indent=2)
@@ -418,6 +525,77 @@ class AIMediaHandler:
         # 2. Admin / env-var fallback (no site context)
         env_var = f"{provider.upper()}_API_KEY"
         return os.environ.get(env_var)
+
+    async def _upload_og_variant(
+        self,
+        data: bytes,
+        *,
+        base_filename: str | None,
+        title: str | None,
+        alt_text: str | None,
+        attach_to_post: int | None,
+        idempotency_key: str,
+        warnings: list[str],
+    ) -> dict[str, Any]:
+        """Upload a 1200x630 Open Graph crop and point Rank Math at it (#93).
+
+        Social cards want ~1.91:1; AI covers are often square, so Rank Math
+        correctly reported og:image 1024x1024 for a square cover. The crop is
+        a separate attachment; the original stays the featured/hero image.
+        Failures are reported as warnings — the main upload already succeeded.
+        """
+        out: dict[str, Any] = {"width": OG_SIZE[0], "height": OG_SIZE[1]}
+        try:
+            og_bytes = make_og_variant(data)
+        except Exception as exc:  # noqa: BLE001
+            warnings.append(f"OG variant not created: {exc}")
+            out["error"] = str(exc)
+            return out
+        stem = (base_filename or "image").rsplit(".", 1)[0]
+        media = await wp_raw_upload(
+            self.client,
+            og_bytes,
+            filename=f"{stem}-og-1200x630.jpg",
+            mime_hint="image/jpeg",
+            title=f"{title} (Open Graph)" if title else None,
+            alt_text=alt_text,
+            idempotency_key=idempotency_key,
+        )
+        out.update(media_id=media.get("id"), source_url=media.get("source_url"))
+        out["rank_math_og_set"] = False
+        if attach_to_post and media.get("id"):
+            out["rank_math_og_set"] = await self._set_rank_math_og_image(
+                attach_to_post, media["id"], media.get("source_url") or "", warnings
+            )
+        return out
+
+    async def _set_rank_math_og_image(
+        self, post_id: int, media_id: int, url: str, warnings: list[str]
+    ) -> bool:
+        """Set Rank Math's Facebook image meta on a post or page.
+
+        WordPress silently ignores unregistered meta keys, so success is read
+        back from the response (the companion registers Rank Math meta).
+        """
+        meta = {"rank_math_facebook_image": url, "rank_math_facebook_image_id": int(media_id)}
+        for endpoint in (f"posts/{post_id}", f"pages/{post_id}"):
+            try:
+                resp = await self.client.post(endpoint, json_data={"meta": meta})
+            except Exception as exc:  # noqa: BLE001
+                if "NOT_FOUND" in str(exc) or "rest_post_invalid_id" in str(exc):
+                    continue
+                warnings.append(f"Rank Math OG image not set: {exc}")
+                return False
+            saved = (resp or {}).get("meta") or {}
+            if str(saved.get("rank_math_facebook_image_id")) == str(media_id):
+                return True
+            warnings.append(
+                "Rank Math OG image meta was not saved (Rank Math inactive or the "
+                "Airano MCP Bridge companion that registers its meta is missing)."
+            )
+            return False
+        warnings.append(f"Rank Math OG image not set: post {post_id} is not a post or page")
+        return False
 
     def _audit(
         self,

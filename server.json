@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.airano-ir/mcphub",
-  "description": "Unified MCP server for managing WordPress, WooCommerce, Gitea, n8n, Supabase, OpenPanel, Appwrite, and Directus with 596 tools, multi-site support, and OAuth 2.1 authentication.",
+  "description": "Unified MCP server for managing WordPress, WooCommerce, WordPress Specialist, Gitea, n8n, Supabase, OpenPanel, and Coolify with multi-site support and OAuth 2.1 authentication.",
   "title": "MCP Hub",
   "websiteUrl": "https://github.com/airano-ir/mcphub",
   "repository": {

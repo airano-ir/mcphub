@@ -51,7 +51,7 @@ export function fmtDateTime(iso: string | null | undefined, lang: Lang, fallback
 // bridges the vocabulary AND folds the `last_tested_at + untested` race
 // into a dedicated `unknown` bucket so the UI never says "untested" next
 // to a real timestamp.
-export type SiteDisplayStatus = "healthy" | "warning" | "error" | "unknown" | "untested";
+export type SiteDisplayStatus = "healthy" | "warning" | "error" | "unknown" | "untested" | "reauth_required";
 
 export function normalizeSiteStatus(
   status: string | null | undefined,
@@ -61,5 +61,6 @@ export function normalizeSiteStatus(
   if (status === "warning") return "warning";
   if (status === "error") return "error";
   if (status === "unknown") return "unknown";
+  if (status === "reauth_required") return "reauth_required";
   return lastTestedAt ? "unknown" : "untested";
 }

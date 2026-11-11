@@ -24,6 +24,8 @@ DEFAULT_PUBLIC_PLUGINS = {
     "gitea",
     "n8n",
     "coolify",
+    "google_search_console",
+    "cloudflare",
 }
 
 

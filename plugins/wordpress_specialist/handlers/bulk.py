@@ -1,11 +1,11 @@
 """F.19.3.2-.3 — Bulk fan-out surface (post + term updates).
 
 Stock-REST-backed: each item dispatches to ``wp/v2/posts/{id}`` or
-``wp/v2/{taxonomy}/{id}`` — no companion routes are added for these
-because the stock REST endpoints already exist and handle their own
-permission checks. Per-item permission gating happens at the WP layer
-(``edit_post`` / ``manage_terms`` per id), so partial successes are
-the expected shape.
+``wp/v2/{taxonomy}/{id}``. Term updates keep a narrow companion fallback
+for translated-term slug conflicts where WPML can make the stock endpoint
+reject an unchanged slug as already used. Per-item permission gating
+happens at the WP layer (``edit_post`` / taxonomy-specific term caps), so
+partial successes are the expected shape.
 
 Surface map:
 
@@ -14,7 +14,9 @@ Surface map:
   bulk pattern). 50-item cap.
 * **wp_bulk_term_update** — ``POST wp/v2/{taxonomy}/{id}`` per item,
   same shape. 50-item cap. ``taxonomy`` is the REST base
-  (``categories`` / ``tags`` / custom rest_base).
+  (``categories`` / ``tags`` / custom rest_base). Stock REST is tried
+  first; ``airano-mcp/v1/term-update`` is used only for translated-term
+  slug duplicate failures.
 
 Both tools sit on the ``editor`` tier — same risk class as bulk page
 edits. Caller needs ``edit_posts`` / ``manage_terms`` (or the
@@ -50,6 +52,7 @@ _UPDATE_METHOD = "POST"
 # Acceptable taxonomy slug shape — must look like ``sanitize_key``
 # would have produced it server-side. Lowercased, digits, ``_``, ``-``.
 _TAXONOMY_RE = re.compile(r"^[a-z0-9][a-z0-9_\-]{0,63}$")
+_TERM_UPDATE_ROUTE = "airano-mcp/v1/term-update"
 
 # Concurrency bound for the fan-out. Matches the legacy
 # ``wordpress_advanced`` pattern; keeps the WP server from getting
@@ -211,6 +214,13 @@ def _validate_taxonomy(value: Any) -> str:
     return stripped
 
 
+def _looks_like_term_slug_conflict(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return "slug" in message and (
+        "already in use" in message or "term_exists" in message or "term exists" in message
+    )
+
+
 class BulkHandler:
     """Bulk fan-out surface (F.19.3.2-.3) — post + term updates.
 
@@ -228,6 +238,9 @@ class BulkHandler:
         self,
         endpoint_template: str,
         updates: list[dict[str, Any]],
+        *,
+        taxonomy: str | None = None,
+        term_update_fallback: bool = False,
     ) -> list[dict[str, Any]]:
         """Run the per-item fan-out with bounded concurrency.
 
@@ -250,6 +263,28 @@ class BulkHandler:
                     )
                     results[idx] = {"id": item_id, "status": "ok"}
                 except Exception as exc:  # noqa: BLE001 — relay any per-item failure
+                    if term_update_fallback and taxonomy and _looks_like_term_slug_conflict(exc):
+                        try:
+                            await self.client.request(
+                                _UPDATE_METHOD,
+                                _TERM_UPDATE_ROUTE,
+                                json_data={"taxonomy": taxonomy, "term_id": item_id, **body},
+                                use_custom_namespace=True,
+                            )
+                            results[idx] = {
+                                "id": item_id,
+                                "status": "ok",
+                                "fallback": "term_update",
+                            }
+                            return
+                        except Exception as fallback_exc:  # noqa: BLE001
+                            results[idx] = {
+                                "id": item_id,
+                                "status": "error",
+                                "error": str(fallback_exc),
+                                "fallback": "term_update",
+                            }
+                            return
                     results[idx] = {
                         "id": item_id,
                         "status": "error",
@@ -282,7 +317,12 @@ class BulkHandler:
     ) -> dict[str, Any]:
         tax = _validate_taxonomy(taxonomy)
         clean = _validate_updates(updates)
-        results = await self._fanout(tax + "/{id}", clean)
+        results = await self._fanout(
+            tax + "/{id}",
+            clean,
+            taxonomy=tax,
+            term_update_fallback=True,
+        )
         ok = sum(1 for r in results if r["status"] == "ok")
         return {
             "taxonomy": tax,

@@ -76,6 +76,28 @@ class TestServiceHandlers:
         client.list_services.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_list_services_filters_and_compacts(self, client):
+        """list_services should trim large Coolify payloads by default."""
+        mock_services = [
+            {
+                "uuid": "svc-1",
+                "name": "plausible",
+                "status": "running",
+                "docker_compose_raw": "x" * 1000,
+            },
+            {"uuid": "svc-2", "name": "minio", "status": "stopped"},
+        ]
+        client.list_services = AsyncMock(return_value=mock_services)
+
+        result = await services.list_services(client, name="plausible", fields=["uuid", "name"])
+        data = json.loads(result)
+
+        assert data["success"] is True
+        assert data["count"] == 1
+        assert data["total"] == 1
+        assert data["services"] == [{"uuid": "svc-1", "name": "plausible"}]
+
+    @pytest.mark.asyncio
     async def test_get_service(self, client):
         """Test get_service handler."""
         mock_service = {"uuid": "svc-1", "name": "plausible", "status": "running"}
@@ -191,6 +213,7 @@ class TestServiceEnvHandlers:
     async def test_create_service_env(self, client):
         """Test create_service_env handler."""
         mock_response = {"uuid": "env-123"}
+        client.get_service = AsyncMock(return_value={"uuid": "svc-1"})
         client.create_service_env = AsyncMock(return_value=mock_response)
 
         result = await services.create_service_env(
@@ -200,11 +223,13 @@ class TestServiceEnvHandlers:
 
         assert data["success"] is True
         assert "NEW_VAR" in data["message"]
+        client.get_service.assert_called_once_with("svc-1")
 
     @pytest.mark.asyncio
     async def test_update_service_env(self, client):
         """Test update_service_env handler."""
         mock_response = {"uuid": "env-123"}
+        client.get_service = AsyncMock(return_value={"uuid": "svc-1"})
         client.update_service_env = AsyncMock(return_value=mock_response)
 
         result = await services.update_service_env(
@@ -214,11 +239,57 @@ class TestServiceEnvHandlers:
 
         assert data["success"] is True
         assert "EXISTING_VAR" in data["message"]
+        client.get_service.assert_called_once_with("svc-1")
+
+    @pytest.mark.asyncio
+    async def test_update_service_env_blocks_compose_environment_collision(self, client):
+        """Service env writes should fail when compose hardcodes the same key."""
+        client.get_service = AsyncMock(
+            return_value={
+                "uuid": "svc-1",
+                "docker_compose_raw": """
+services:
+  app:
+    image: example/app
+    environment:
+      EXISTING_VAR: hardcoded
+      - OTHER_VAR=value
+""",
+            }
+        )
+        client.update_service_env = AsyncMock(return_value={"uuid": "env-123"})
+
+        with pytest.raises(ValueError, match="docker_compose_raw already hardcodes"):
+            await services.update_service_env(
+                client, uuid="svc-1", key="EXISTING_VAR", value="new_val"
+            )
+
+        client.update_service_env.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_update_service_env_can_bypass_compose_collision_guard(self, client):
+        """The explicit bypass should preserve existing advanced workflows."""
+        client.get_service = AsyncMock(return_value={"uuid": "svc-1"})
+        client.update_service_env = AsyncMock(return_value={"uuid": "env-123"})
+
+        result = await services.update_service_env(
+            client,
+            uuid="svc-1",
+            key="EXISTING_VAR",
+            value="new_val",
+            allow_compose_environment_override=True,
+        )
+        data = json.loads(result)
+
+        assert data["success"] is True
+        client.get_service.assert_not_called()
+        client.update_service_env.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_update_service_envs_bulk(self, client):
         """Test update_service_envs_bulk handler."""
         mock_response = {"message": "Updated."}
+        client.get_service = AsyncMock(return_value={"uuid": "svc-1"})
         client.update_service_envs_bulk = AsyncMock(return_value=mock_response)
 
         env_data = [{"key": "A", "value": "1"}, {"key": "B", "value": "2"}]

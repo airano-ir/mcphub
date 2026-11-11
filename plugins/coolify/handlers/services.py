@@ -4,6 +4,22 @@ import json
 from typing import Any
 
 from plugins.coolify.client import CoolifyClient
+from plugins.coolify.handlers._utils import (
+    compose_raw_from_service,
+    extract_compose_environment_keys,
+    summarize_items,
+)
+
+SERVICE_COMPACT_FIELDS = [
+    "uuid",
+    "name",
+    "status",
+    "type",
+    "project_uuid",
+    "environment_name",
+    "fqdn",
+    "domains",
+]
 
 
 def get_tool_specifications() -> list[dict[str, Any]]:
@@ -13,10 +29,41 @@ def get_tool_specifications() -> list[dict[str, Any]]:
             "name": "list_services",
             "category": "read",
             "method_name": "list_services",
-            "description": "List all Coolify services.",
+            "description": (
+                "List Coolify services with compact output by default. "
+                "Use include_details=true for full Coolify payloads."
+            ),
             "schema": {
                 "type": "object",
-                "properties": {},
+                "properties": {
+                    "name": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Case-insensitive filter matched against name, UUID, fqdn, or domains",
+                    },
+                    "limit": {
+                        "anyOf": [{"type": "integer"}, {"type": "null"}],
+                        "description": "Maximum number of services to return after filtering",
+                        "minimum": 1,
+                        "maximum": 200,
+                    },
+                    "fields": {
+                        "anyOf": [
+                            {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "minItems": 1,
+                                "maxItems": 50,
+                            },
+                            {"type": "null"},
+                        ],
+                        "description": "Specific fields to return. Ignored when include_details=true.",
+                    },
+                    "include_details": {
+                        "type": "boolean",
+                        "description": "Return full Coolify service objects instead of compact summaries",
+                        "default": False,
+                    },
+                },
             },
             "scope": "read",
         },
@@ -262,6 +309,14 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                         "description": "Preview deployment only",
                         "default": False,
                     },
+                    "allow_compose_environment_override": {
+                        "type": "boolean",
+                        "description": (
+                            "Allow writing even when docker_compose_raw hardcodes the same "
+                            "environment key. Default false prevents silent overrides."
+                        ),
+                        "default": False,
+                    },
                 },
                 "required": ["uuid", "key", "value"],
             },
@@ -294,6 +349,14 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                         "anyOf": [{"type": "boolean"}, {"type": "null"}],
                         "description": "Preview deployment only",
                     },
+                    "allow_compose_environment_override": {
+                        "type": "boolean",
+                        "description": (
+                            "Allow writing even when docker_compose_raw hardcodes the same "
+                            "environment key. Default false prevents silent overrides."
+                        ),
+                        "default": False,
+                    },
                 },
                 "required": ["uuid", "key", "value"],
             },
@@ -325,6 +388,14 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                             },
                             "required": ["key", "value"],
                         },
+                    },
+                    "allow_compose_environment_override": {
+                        "type": "boolean",
+                        "description": (
+                            "Allow writing even when docker_compose_raw hardcodes the same "
+                            "environment keys. Default false prevents silent overrides."
+                        ),
+                        "default": False,
                     },
                 },
                 "required": ["uuid", "data"],
@@ -361,10 +432,59 @@ def get_tool_specifications() -> list[dict[str, Any]]:
 # --- Handler Functions ---
 
 
-async def list_services(client: CoolifyClient) -> str:
+def _get_colliding_compose_env_keys(service: dict[str, Any], keys: set[str]) -> set[str]:
+    compose_raw = compose_raw_from_service(service)
+    compose_keys = extract_compose_environment_keys(compose_raw)
+    return keys & compose_keys
+
+
+async def _guard_service_env_overrides(
+    client: CoolifyClient,
+    uuid: str,
+    keys: set[str],
+    allow_compose_environment_override: bool,
+) -> None:
+    if allow_compose_environment_override or not keys:
+        return
+
+    service = await client.get_service(uuid)
+    colliding = _get_colliding_compose_env_keys(service, keys)
+    if not colliding:
+        return
+
+    joined = ", ".join(sorted(colliding))
+    raise ValueError(
+        "Refusing to update service env because docker_compose_raw already hardcodes "
+        f"these environment keys: {joined}. The Compose environment block would override "
+        "the .env value Coolify writes. Update docker_compose_raw instead, or pass "
+        "allow_compose_environment_override=true to bypass this guard."
+    )
+
+
+async def list_services(
+    client: CoolifyClient,
+    name: str | None = None,
+    limit: int | None = None,
+    fields: list[str] | None = None,
+    include_details: bool = False,
+) -> str:
     """List all services."""
     services = await client.list_services()
-    result = {"success": True, "count": len(services), "services": services}
+    summarized_services, total, truncated = summarize_items(
+        services,
+        compact_fields=SERVICE_COMPACT_FIELDS,
+        fields=fields,
+        limit=limit,
+        name=name,
+        include_details=include_details,
+    )
+    result = {
+        "success": True,
+        "count": len(summarized_services),
+        "total": total,
+        "truncated": truncated,
+        "services": summarized_services,
+    }
     return json.dumps(result, indent=2, ensure_ascii=False)
 
 
@@ -451,8 +571,10 @@ async def create_service_env(
     key: str,
     value: str,
     is_preview: bool = False,
+    allow_compose_environment_override: bool = False,
 ) -> str:
     """Create service environment variable."""
+    await _guard_service_env_overrides(client, uuid, {key}, allow_compose_environment_override)
     data = {"key": key, "value": value, "is_preview": is_preview}
     result_data = await client.create_service_env(uuid, data)
     result = {
@@ -469,9 +591,11 @@ async def update_service_env(
     key: str,
     value: str,
     is_preview: bool | None = None,
+    allow_compose_environment_override: bool = False,
 ) -> str:
     """Update service environment variable."""
-    data = {"key": key, "value": value}
+    await _guard_service_env_overrides(client, uuid, {key}, allow_compose_environment_override)
+    data: dict[str, Any] = {"key": key, "value": value}
     if is_preview is not None:
         data["is_preview"] = is_preview
     result_data = await client.update_service_env(uuid, data)
@@ -483,8 +607,15 @@ async def update_service_env(
     return json.dumps(result, indent=2, ensure_ascii=False)
 
 
-async def update_service_envs_bulk(client: CoolifyClient, uuid: str, data: list[dict]) -> str:
+async def update_service_envs_bulk(
+    client: CoolifyClient,
+    uuid: str,
+    data: list[dict],
+    allow_compose_environment_override: bool = False,
+) -> str:
     """Bulk update service environment variables."""
+    keys = {str(item.get("key")) for item in data if item.get("key")}
+    await _guard_service_env_overrides(client, uuid, keys, allow_compose_environment_override)
     result_data = await client.update_service_envs_bulk(uuid, data)
     result = {
         "success": True,

@@ -14,6 +14,8 @@ from typing import Any
 
 import aiohttp
 
+from core import net_guard
+
 
 class ConfigurationError(Exception):
     """Raised when site configuration is invalid or incomplete."""
@@ -198,7 +200,7 @@ class WordPressClient:
         for attempt in range(_MAX_RETRIES + 1):
             try:
                 async with (
-                    aiohttp.ClientSession(timeout=timeout) as session,
+                    net_guard.client_session(timeout=timeout) as session,
                     session.request(
                         method, url, params=params, json=json_data, data=data, headers=headers
                     ) as response,
@@ -307,6 +309,16 @@ class WordPressClient:
                     ),
                     install_hint=self._site_unreachable_install_hint(),
                     reason="site_connection_refused",
+                ) from e
+
+            except net_guard.SSRFBlockedError as e:
+                # Destination rejected by the SSRF guard (private/internal
+                # address, possibly via redirect or DNS rebinding). Never
+                # retried and never followed.
+                raise SiteUnreachableError(
+                    f"Request to {self.site_url} was blocked: {e}. "
+                    "Site URLs must resolve to public addresses.",
+                    reason="site_destination_blocked",
                 ) from e
 
             except aiohttp.InvalidURL:
@@ -612,7 +624,7 @@ class WordPressClient:
         """
         timeout = aiohttp.ClientTimeout(total=10)
         try:
-            async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with net_guard.client_session(timeout=timeout) as session:
                 async with session.get(f"{self.site_url}/wp-json") as response:
                     if response.status == 200:
                         data = await response.json()

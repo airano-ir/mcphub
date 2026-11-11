@@ -10,6 +10,7 @@ from core.site_api import (
     delete_user_site,
     get_credential_fields,
     get_user_sites,
+    guard_site_url_ssrf,
     validate_credentials,
     validate_site_connection,
 )
@@ -89,8 +90,6 @@ class TestCredentialFields:
             "n8n",
             "supabase",
             "openpanel",
-            "appwrite",
-            "directus",
             "coolify",
         ]
         for plugin_type in expected_plugins:
@@ -237,6 +236,22 @@ class TestSiteCreation:
             )
 
     @pytest.mark.unit
+    async def test_create_site_admin_bypasses_limit(self, mock_db, mock_encryption):
+        """Admin users should bypass the MAX_SITES_PER_USER limit."""
+        mock_db.count_sites_by_user.return_value = get_cached_max_sites()
+        # Should NOT raise — admin bypasses the limit
+        site = await create_user_site(
+            user_id="user-uuid-001",
+            plugin_type="wordpress",
+            alias="admin-extra",
+            url="https://example.com",
+            credentials={"username": "admin", "app_password": "xxxx"},
+            skip_validation=True,
+            is_admin=True,
+        )
+        assert site is not None
+
+    @pytest.mark.unit
     async def test_create_site_duplicate_alias(self, mock_db, mock_encryption):
         """Duplicate alias for the same user should raise ValueError."""
         mock_db.get_site_by_alias.return_value = {"id": "existing-site", "alias": "myblog"}
@@ -301,7 +316,12 @@ class TestConnectionValidation:
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("core.site_api.aiohttp.ClientSession", return_value=mock_session):
+        # Stub the SSRF guard so this test stays hermetic (no real DNS for the
+        # example hostname); the guard has its own dedicated tests below.
+        with (
+            patch("core.site_api.aiohttp.ClientSession", return_value=mock_session),
+            patch("core.site_api.guard_site_url_ssrf", return_value=(True, "")),
+        ):
             ok, msg = await validate_site_connection(
                 "wordpress",
                 "https://myblog.example.com",
@@ -319,7 +339,10 @@ class TestConnectionValidation:
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("core.site_api.aiohttp.ClientSession", return_value=mock_session):
+        with (
+            patch("core.site_api.aiohttp.ClientSession", return_value=mock_session),
+            patch("core.site_api.guard_site_url_ssrf", return_value=(True, "")),
+        ):
             ok, msg = await validate_site_connection(
                 "wordpress",
                 "https://slow-site.example.com",
@@ -343,7 +366,10 @@ class TestConnectionValidation:
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("core.site_api.aiohttp.ClientSession", return_value=mock_session):
+        with (
+            patch("core.site_api.aiohttp.ClientSession", return_value=mock_session),
+            patch("core.site_api.guard_site_url_ssrf", return_value=(True, "")),
+        ):
             ok, msg = await validate_site_connection(
                 "wordpress",
                 "https://myblog.example.com",
@@ -352,3 +378,56 @@ class TestConnectionValidation:
 
         assert ok is False
         assert "authentication" in msg.lower()
+
+
+class TestSiteUrlSsrfGuard:
+    """SSRF guard on user-supplied site URLs (connection test is the sink)."""
+
+    @pytest.mark.unit
+    @pytest.mark.security
+    def test_loopback_blocked(self, monkeypatch):
+        monkeypatch.delenv("ALLOW_PRIVATE_SITE_URLS", raising=False)
+        ok, reason = guard_site_url_ssrf("http://127.0.0.1:8080/wp-json")
+        assert ok is False
+        assert "127.0.0.1" in reason or "disallowed" in reason.lower()
+
+    @pytest.mark.unit
+    @pytest.mark.security
+    def test_private_range_blocked(self, monkeypatch):
+        monkeypatch.delenv("ALLOW_PRIVATE_SITE_URLS", raising=False)
+        ok, _ = guard_site_url_ssrf("http://10.0.0.5/wp-json")
+        assert ok is False
+
+    @pytest.mark.unit
+    @pytest.mark.security
+    def test_cloud_metadata_blocked(self, monkeypatch):
+        monkeypatch.delenv("ALLOW_PRIVATE_SITE_URLS", raising=False)
+        ok, _ = guard_site_url_ssrf("http://169.254.169.254/latest/meta-data/")
+        assert ok is False
+
+    @pytest.mark.unit
+    @pytest.mark.security
+    def test_escape_hatch_allows_private(self, monkeypatch):
+        monkeypatch.setenv("ALLOW_PRIVATE_SITE_URLS", "true")
+        ok, reason = guard_site_url_ssrf("http://127.0.0.1:8080/wp-json")
+        assert ok is True
+        assert reason == ""
+
+    @pytest.mark.unit
+    @pytest.mark.security
+    async def test_validate_connection_blocks_internal_without_request(self, monkeypatch):
+        """An internal site URL must be rejected before any HTTP request is made."""
+        monkeypatch.delenv("ALLOW_PRIVATE_SITE_URLS", raising=False)
+        # If the guard fails open, this mock would be called and the test fails.
+        session_factory = MagicMock(
+            side_effect=AssertionError("HTTP client must not be created for a blocked URL")
+        )
+        with patch("core.site_api.aiohttp.ClientSession", session_factory):
+            ok, msg = await validate_site_connection(
+                "n8n",
+                "http://127.0.0.1:5678/admin/secret?",
+                {"api_key": "x"},
+            )
+        assert ok is False
+        assert "not allowed" in msg.lower()
+        session_factory.assert_not_called()

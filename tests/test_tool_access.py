@@ -313,6 +313,108 @@ class TestScopeFilter:
 
 
 class TestSiteToggles:
+    async def test_get_visible_tool_for_site_matches_list_pipeline(
+        self, db, coolify_site, access_mgr, fresh_registry
+    ):
+        await access_mgr.toggle_tool(coolify_site["id"], "coolify_start_application", enabled=False)
+
+        visible = await access_mgr.get_visible_tools(
+            site_id=coolify_site["id"], key_scopes=["admin"], plugin_type="coolify"
+        )
+        selected = await access_mgr.get_visible_tool_for_site(
+            site_id=coolify_site["id"],
+            key_scopes=["admin"],
+            plugin_type="coolify",
+            tool_name="coolify_start_application",
+        )
+
+        assert "coolify_start_application" not in {tool.name for tool in visible}
+        assert selected is None
+
+    @pytest.mark.asyncio
+    async def test_authorize_tool_for_site_uses_central_decision_service(
+        self, db, coolify_site, access_mgr, fresh_registry, monkeypatch
+    ):
+        from core.tool_policy import AuthorizationDecision
+
+        expected = AuthorizationDecision(
+            allow=True,
+            reason_code="ALLOW",
+            reason="central",
+            required_scope="read",
+            plugin_type="coolify",
+            site_id=coolify_site["id"],
+            correlation_id="corr-1",
+            risk="low",
+            category="read",
+            principal={
+                "authentication_type": "bearer",
+                "principal_id_safe": "user-1",
+                "granted_scopes": ["admin"],
+                "site_ids": [coolify_site["id"]],
+            },
+            endpoint={"name": "user", "kind": "user"},
+            site={
+                "site_id": coolify_site["id"],
+                "plugin_type": "coolify",
+                "tool_scope": "admin",
+            },
+        )
+
+        async def fake_authorize(**kwargs):
+            assert kwargs["tool_definition"].name == "coolify_list_applications"
+            assert kwargs["principal"].granted_scopes == ["admin"]
+            return expected
+
+        monkeypatch.setattr("core.tool_authorization.authorize_tool_call", fake_authorize)
+        tool, decision = await access_mgr.authorize_tool_for_site(
+            site_id=coolify_site["id"],
+            key_scopes=["admin"],
+            plugin_type="coolify",
+            tool_name="coolify_list_applications",
+            principal_id_safe="user-1",
+            correlation_id="corr-1",
+        )
+
+        assert tool is not None
+        assert decision is expected
+
+    @pytest.mark.asyncio
+    async def test_authorize_tool_for_site_denies_central_decision(
+        self, db, coolify_site, access_mgr, fresh_registry, monkeypatch
+    ):
+        from core.tool_policy import AuthorizationDecision
+
+        async def fake_authorize(**kwargs):
+            return AuthorizationDecision(
+                allow=False,
+                reason_code="SITE_BOUNDARY_VIOLATION",
+                reason="central denial",
+                required_scope=kwargs["tool_definition"].required_scope,
+                plugin_type=kwargs["tool_definition"].plugin_type,
+                site_id=coolify_site["id"],
+                correlation_id="corr-2",
+                risk="low",
+                category="read",
+                principal=kwargs["principal"],
+                endpoint=kwargs["endpoint"],
+                site=kwargs["site"],
+            )
+
+        monkeypatch.setattr("core.tool_authorization.authorize_tool_call", fake_authorize)
+        tool, decision = await access_mgr.authorize_tool_for_site(
+            site_id=coolify_site["id"],
+            key_scopes=["admin"],
+            plugin_type="coolify",
+            tool_name="coolify_list_applications",
+            principal_id_safe="user-1",
+            correlation_id="corr-2",
+        )
+
+        assert tool is None
+        assert decision.allow is False
+        assert decision.reason_code == "SITE_BOUNDARY_VIOLATION"
+
     async def test_disable_hides_tool(self, db, coolify_site, access_mgr, fresh_registry):
         await access_mgr.toggle_tool(coolify_site["id"], "coolify_list_applications", enabled=False)
         tools = await access_mgr.get_visible_tools(

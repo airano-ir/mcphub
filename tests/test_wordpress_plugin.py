@@ -594,11 +594,7 @@ class TestWordPressPluginInit:
         assert plugin.site is not None
         assert plugin.seo is not None
         assert plugin.menus is not None
-
-    def test_wp_cli_none_without_container(self):
-        """WP-CLI handler should be None without container config."""
-        plugin = WordPressPlugin(self.VALID_CONFIG)
-        assert plugin.wp_cli is None
+        assert plugin.legacy_admin_handler is not None
 
     def test_missing_url_raises(self):
         """Should raise ValueError for missing URL."""
@@ -687,6 +683,18 @@ class TestWordPressToolSpecifications:
         expected = {"list_posts", "create_post", "get_post", "update_post", "delete_post"}
         assert expected.issubset(names), f"Missing core tools: {expected - names}"
 
+    def test_page_tools_present(self):
+        """Should include page read/write tools."""
+        specs = WordPressPlugin.get_tool_specifications()
+        names = {s["name"] for s in specs}
+        assert "get_page" in names
+
+    def test_navigation_tools_present(self):
+        """Should include block-navigation CRUD helpers."""
+        specs = WordPressPlugin.get_tool_specifications()
+        names = {s["name"] for s in specs}
+        assert "delete_navigation" in names
+
     def test_media_tools_present(self):
         """Should include media tools."""
         specs = WordPressPlugin.get_tool_specifications()
@@ -700,13 +708,20 @@ class TestWordPressToolSpecifications:
         names = {s["name"] for s in specs}
         assert "list_categories" in names
         assert "list_tags" in names
+        assert "set_term_language" in names
 
-    def test_wp_cli_tools_present(self):
-        """Should include WP-CLI tools."""
+    def test_legacy_maintenance_tools_present(self):
+        """Should include companion-backed legacy maintenance names."""
         specs = WordPressPlugin.get_tool_specifications()
         names = {s["name"] for s in specs}
-        assert "wp_cache_flush" in names
-        assert "wp_db_check" in names
+        assert {"wp_cache_flush", "wp_transient_list", "wp_db_check", "wp_db_optimize"}.issubset(
+            names
+        )
+        assert "wp_cache_type" not in names
+        assert "wp_db_export" not in names
+        assert "wp_plugin_verify_checksums" not in names
+        assert "wp_core_verify_checksums" not in names
+        assert "wp_search_replace_dry_run" not in names
 
 
 class TestWordPressHandlerDelegation:
@@ -760,10 +775,38 @@ class TestWordPressHandlerDelegation:
         plugin.comments.list_comments.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_wp_cli_not_available(self, plugin):
-        """WP-CLI methods should return error when not configured."""
+    async def test_cache_flush_uses_companion(self, plugin):
+        """Cache flush should use the companion path."""
+        plugin.cache_purge_handler.cache_purge = AsyncMock(
+            return_value='{"ok": true, "scope": "all", "purged": ["object_cache"]}'
+        )
+
         result = await plugin.wp_cache_flush()
-        assert "error" in result.lower() or "error" in json.loads(result)
+        plugin.cache_purge_handler.cache_purge.assert_called_once_with()
+        assert json.loads(result)["ok"] is True
+
+    @pytest.mark.asyncio
+    async def test_legacy_transient_delete_uses_companion_flush(self, plugin):
+        plugin.transient_flush_handler.transient_flush = AsyncMock(
+            return_value='{"ok": true, "scope": "expired", "deleted_count": 3}'
+        )
+
+        result = await plugin.wp_transient_delete_all()
+        plugin.transient_flush_handler.transient_flush.assert_called_once_with(
+            scope="expired",
+            include_site_transients=True,
+        )
+        assert json.loads(result)["deleted_count"] == 3
+
+    @pytest.mark.asyncio
+    async def test_legacy_db_check_uses_companion(self, plugin):
+        plugin.legacy_admin_handler.wp_db_check = AsyncMock(
+            return_value='{"ok": true, "action": "check"}'
+        )
+
+        result = await plugin.wp_db_check()
+        plugin.legacy_admin_handler.wp_db_check.assert_called_once_with()
+        assert json.loads(result)["action"] == "check"
 
     @pytest.mark.asyncio
     async def test_health_check_delegates(self, plugin):

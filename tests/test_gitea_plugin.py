@@ -129,9 +129,9 @@ class TestGiteaToolSpecifications:
 
         Base v3.6.0 count was 58. F.17 ergonomics (2026-04-16) added 7
         tools: create_files, get_tree, search_code, compare, list_releases,
-        create_release, fork_repository.
+        create_release, fork_repository. Issue #130 added 6 upload tools.
         """
-        assert len(specs) == 65
+        assert len(specs) == 71
 
     def test_all_specs_have_required_keys(self, specs):
         """Every spec must have name, method_name, description, schema, scope."""
@@ -159,6 +159,19 @@ class TestGiteaToolSpecifications:
         """All schemas must be type: object."""
         for spec in specs:
             assert spec["schema"]["type"] == "object", f"Tool '{spec['name']}' schema not object"
+
+    def test_gitea_upload_tools_present(self, specs):
+        """Should expose release asset upload and binary handoff tools."""
+        upload_tools = {
+            "upload_release_asset",
+            "upload_start",
+            "upload_chunk",
+            "upload_status",
+            "upload_abort",
+            "upload_finish",
+        }
+        names = {s["name"] for s in specs}
+        assert upload_tools.issubset(names), f"Missing upload tools: {upload_tools - names}"
 
     def test_repository_tools_present(self, specs):
         """Should have all 16 repository tools."""

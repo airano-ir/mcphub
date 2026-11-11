@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING, Any
 from fastmcp import FastMCP
 from fastmcp.server.middleware import Middleware
 
+from core.project_identifiers import parse_tool_identifier, plugin_type_for_tool
+
 from .config import EndpointConfig
 
 if TYPE_CHECKING:
@@ -162,40 +164,7 @@ class MCPEndpointFactory:
         Returns:
             Plugin type or None for system tools
         """
-        # Check the multi-word WordPress variant BEFORE the bare
-        # ``wordpress_`` prefix — tool names are
-        # ``wordpress_specialist_wp_plugin_list``,
-        # ``wordpress_create_post`` etc. (``wordpress_advanced`` was
-        # sunset in F.19.3.2-.3 / 2026-05-04.)
-        if tool_name.startswith("wordpress_specialist_"):
-            return "wordpress_specialist"
-
-        if tool_name.startswith("wordpress_"):
-            return "wordpress"
-
-        elif tool_name.startswith("woocommerce_"):
-            return "woocommerce"
-
-        elif tool_name.startswith("gitea_"):
-            return "gitea"
-
-        elif tool_name.startswith("n8n_"):
-            return "n8n"
-
-        elif tool_name.startswith("supabase_"):
-            return "supabase"
-
-        elif tool_name.startswith("openpanel_"):
-            return "openpanel"
-
-        elif tool_name.startswith("appwrite_"):
-            return "appwrite"
-
-        elif tool_name.startswith("directus_"):
-            return "directus"
-
-        # System tools have no plugin type
-        return None
+        return plugin_type_for_tool(tool_name)
 
     def _register_tool(self, mcp: FastMCP, tool_info: dict[str, Any], config: EndpointConfig):
         """
@@ -240,18 +209,9 @@ class MCPEndpointFactory:
             # For project endpoints, always inject site filter
             # This locks all tools to the specific project's site
             if config.site_filter:
-                # Extract site_id from project's site_filter (format: plugin_type_site_id)
-                # The site parameter expects just the site identifier (site_id or alias)
-                if "_" in config.site_filter:
-                    # site_filter is full_id like "wordpress_site1"
-                    parts = config.site_filter.split("_", 1)
-                    if len(parts) == 2:
-                        # Use the site_id part (site1)
-                        kwargs["site"] = parts[1]
-                    else:
-                        kwargs["site"] = config.site_filter
-                else:
-                    kwargs["site"] = config.site_filter
+                # Parse the project identifier canonically; malformed values
+                # fail closed instead of guessing at an underscore boundary.
+                kwargs["site"] = parse_tool_identifier(config.site_filter).identifier
 
             # Call original handler
             return await handler(*args, **kwargs)

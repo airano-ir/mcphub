@@ -136,6 +136,85 @@ class TestWordPressProbe:
         assert "reason" in out
 
 
+@pytest.fixture
+def wp_specialist_plugin():
+    """Build a WordPress Specialist plugin instance with a stubbed client."""
+    from plugins.wordpress_specialist.plugin import WordPressSpecialistPlugin
+
+    return WordPressSpecialistPlugin(
+        config={
+            "url": "https://wp.example.com",
+            "username": "admin",
+            "app_password": "xxxx xxxx xxxx",
+        },
+        project_id="wordpress_specialist_probe_test",
+    )
+
+
+class TestWordPressSpecialistProbe:
+    @pytest.mark.asyncio
+    async def test_happy_path_extracts_granted_caps(self, wp_specialist_plugin, monkeypatch):
+        companion_payload = {
+            "companion_available": True,
+            "plugin_version": "2.20.2",
+            "user": {
+                "roles": ["administrator"],
+                "capabilities": {
+                    "edit_posts": True,
+                    "manage_options": True,
+                    "read": True,
+                    "publish_pages": False,
+                },
+            },
+            "features": {"rank_math": True},
+            "routes": {"admin_db_size": True},
+        }
+        monkeypatch.setattr(
+            wp_specialist_plugin.capabilities,
+            "_fetch_capabilities",
+            AsyncMock(return_value=companion_payload),
+        )
+
+        out = await wp_specialist_plugin.probe_credential_capabilities()
+        assert out["probe_available"] is True
+        assert out["source"] == "wordpress_specialist"
+        assert set(out["granted"]) == {"edit_posts", "manage_options", "read"}
+        assert out["roles"] == ["administrator"]
+        assert out["routes"]["admin_db_size"] is True
+
+    @pytest.mark.asyncio
+    async def test_companion_unavailable_returns_probe_false(
+        self, wp_specialist_plugin, monkeypatch
+    ):
+        monkeypatch.setattr(
+            wp_specialist_plugin.capabilities,
+            "_fetch_capabilities",
+            AsyncMock(
+                return_value={
+                    "companion_available": False,
+                    "reason": "companion_unreachable: 404",
+                    "site_url": "https://wp.example.com",
+                }
+            ),
+        )
+
+        out = await wp_specialist_plugin.probe_credential_capabilities()
+        assert out["probe_available"] is False
+        assert out["granted"] == []
+        assert "companion_unreachable" in out["reason"]
+
+    @pytest.mark.asyncio
+    async def test_probe_call_failure_does_not_raise(self, wp_specialist_plugin, monkeypatch):
+        async def _boom(*_a, **_kw):
+            raise RuntimeError("network collapsed")
+
+        monkeypatch.setattr(wp_specialist_plugin.capabilities, "_fetch_capabilities", _boom)
+
+        out = await wp_specialist_plugin.probe_credential_capabilities()
+        assert out["probe_available"] is False
+        assert "reason" in out
+
+
 # ---------------------------------------------------------------------------
 # Cache behaviour
 # ---------------------------------------------------------------------------

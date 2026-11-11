@@ -58,8 +58,6 @@ class TestPluginDisplayNames:
         assert get_plugin_display_name("gitea") == "Gitea"
         assert get_plugin_display_name("supabase") == "Supabase"
         assert get_plugin_display_name("openpanel") == "OpenPanel"
-        assert get_plugin_display_name("appwrite") == "Appwrite"
-        assert get_plugin_display_name("directus") == "Directus"
 
     def test_wordpress_specialist(self):
         """Should handle underscore-separated names."""
@@ -79,8 +77,6 @@ class TestPluginDisplayNames:
             "n8n",
             "supabase",
             "openpanel",
-            "appwrite",
-            "directus",
             "coolify",
         }
         assert expected == set(PLUGIN_DISPLAY_NAMES.keys())
@@ -425,6 +421,29 @@ async def test_dashboard_connect_page(monkeypatch):
 
     assert response.status_code == 301
     assert response.headers["location"] == "/dashboard-legacy/keys"
+
+
+@pytest.mark.asyncio
+async def test_dashboard_registers_openai_compatible_routes():
+    from core.dashboard.routes import register_dashboard_routes
+
+    class FakeMCP:
+        def __init__(self):
+            self.routes = {}
+
+        def custom_route(self, path, methods=None):
+            def decorator(func):
+                self.routes[(path, tuple(methods or []))] = func
+                return func
+
+            return decorator
+
+    mcp = FakeMCP()
+    register_dashboard_routes(mcp)
+    assert ("/api/sites/{id}/ai-providers", ("GET",)) in mcp.routes
+    assert ("/api/sites/{id}/ai-providers", ("POST",)) in mcp.routes
+    assert ("/api/sites/{id}/ai-providers/{config_id}/models", ("GET",)) in mcp.routes
+    assert ("/api/sites/{id}/ai-providers/{config_id}/model", ("PATCH",)) in mcp.routes
 
 
 @pytest.mark.asyncio

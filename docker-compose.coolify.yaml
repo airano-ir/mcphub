@@ -12,7 +12,7 @@
 #   4. Deploy
 #
 # Source mirror note (2026-04-16):
-#   Primary repo:  github.com/airano-ir/coolify-mcp-hub  (public)
+#   Primary repo:  github.com/airano-ir/mcphub  (public)
 #   Gitea mirror:  gitea.palebluedot.live/atlatl/mcphub-internal  (private)
 #
 #   If Coolify cannot reach api.github.com (e.g. cURL error 28 on the
@@ -45,6 +45,8 @@ services:
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
       - PUBLIC_URL=${PUBLIC_URL:-}
+      - MCPHUB_UPLOAD_TOKEN_SECRET=${MCPHUB_UPLOAD_TOKEN_SECRET:-}
+      - MCPHUB_UPLOAD_TOKEN_TTL_SEC=${MCPHUB_UPLOAD_TOKEN_TTL_SEC:-900}
       - SESSION_EXPIRY_HOURS=${SESSION_EXPIRY_HOURS:-168}
 
       # === ADMIN SYSTEM (F.4) ===
@@ -80,11 +82,6 @@ services:
     volumes:
       - mcp-data:/app/data          # SQLite DB, API keys, OAuth data
       - mcp-logs:/app/logs          # Audit logs, health reports
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-
-    # Coolify uses GID 988 for Docker socket
-    group_add:
-      - "988"
 
 volumes:
   mcp-data:

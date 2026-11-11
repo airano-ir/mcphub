@@ -140,6 +140,29 @@ def get_tool_specifications() -> list[dict[str, Any]]:
             },
             "scope": "write",
         },
+        {
+            "name": "delete_customer",
+            "method_name": "delete_customer",
+            "description": "Permanently delete a WooCommerce customer (customers cannot be trashed). Their past orders are kept. Optionally reassign the user's posts to another user ID.",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "customer_id": {
+                        "type": "integer",
+                        "description": "Customer ID to delete",
+                        "minimum": 1,
+                    },
+                    "reassign": {
+                        "anyOf": [{"type": "integer", "minimum": 1}, {"type": "null"}],
+                        "description": "User ID to reassign the deleted user's posts to (optional)",
+                    },
+                },
+                "required": ["customer_id"],
+            },
+            "scope": "write",
+            "destructive": True,
+            "sensitivity": "sensitive",
+        },
     ]
 
 
@@ -371,5 +394,33 @@ class CustomersHandler:
         except Exception as e:
             return json.dumps(
                 {"error": str(e), "message": f"Failed to update customer {customer_id}: {str(e)}"},
+                indent=2,
+            )
+
+    async def delete_customer(self, customer_id: int, reassign: int | None = None) -> str:
+        """Permanently delete a customer (issue #75; WC requires force=true).
+
+        Only the customer ID is echoed back — never the deleted record's
+        personal data.
+        """
+        try:
+            params: dict[str, str] = {"force": "true"}
+            if reassign is not None:
+                params["reassign"] = str(int(reassign))
+            await self.client.delete(
+                f"customers/{customer_id}", params=params, use_woocommerce=True
+            )
+            return json.dumps(
+                {
+                    "success": True,
+                    "message": f"Customer {customer_id} permanently deleted",
+                    "customer_id": customer_id,
+                    "reassigned_to": reassign,
+                },
+                indent=2,
+            )
+        except Exception as e:
+            return json.dumps(
+                {"error": str(e), "message": f"Failed to delete customer {customer_id}: {str(e)}"},
                 indent=2,
             )

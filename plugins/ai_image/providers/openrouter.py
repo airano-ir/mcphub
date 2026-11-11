@@ -118,6 +118,16 @@ class OpenRouterProvider(BaseImageProvider):
     name = "openrouter"
 
     async def generate(self, api_key: str, request: GenerationRequest) -> GenerationResult:
+        if request.input_images:
+            raise ProviderError(
+                "PROVIDER_EDIT_UNSUPPORTED",
+                "OpenRouter image generation does not support image editing here.",
+                {
+                    "provider": self.name,
+                    "model": request.model or _DEFAULT_MODEL,
+                    "capabilities": {"supports_image_input": False, "supports_image_output": True},
+                },
+            )
         if not api_key:
             raise ProviderError("PROVIDER_AUTH", "OpenRouter API key is missing.")
 

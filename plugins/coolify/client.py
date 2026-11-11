@@ -8,7 +8,7 @@ Separates API communication from business logic.
 import logging
 from typing import Any
 
-import aiohttp
+from core import net_guard
 
 
 class CoolifyClient:
@@ -73,7 +73,7 @@ class CoolifyClient:
         self.logger.debug(f"{method} {url}")
 
         async with (
-            aiohttp.ClientSession() as session,
+            net_guard.client_session() as session,
             session.request(
                 method=method,
                 url=url,
@@ -99,6 +99,9 @@ class CoolifyClient:
 
             if response.status >= 400:
                 error_msg = response_data.get("message", "Unknown error")
+                error_details = response_data.get("errors")
+                if error_details:
+                    error_msg = f"{error_msg}; errors={error_details}"
                 raise Exception(f"Coolify API error (status {response.status}): {error_msg}")
 
             return response_data
@@ -118,6 +121,10 @@ class CoolifyClient:
         """Create application from public repository."""
         return await self.request("POST", "applications/public", json_data=data)
 
+    async def create_application_private_github_app(self, data: dict) -> dict:
+        """Create application from a private repository via a configured GitHub App."""
+        return await self.request("POST", "applications/private-github-app", json_data=data)
+
     async def create_application_dockerfile(self, data: dict) -> dict:
         """Create application from Dockerfile."""
         return await self.request("POST", "applications/dockerfile", json_data=data)
@@ -127,8 +134,17 @@ class CoolifyClient:
         return await self.request("POST", "applications/dockerimage", json_data=data)
 
     async def create_application_docker_compose(self, data: dict) -> dict:
-        """Create application from Docker Compose."""
-        return await self.request("POST", "applications/dockercompose", json_data=data)
+        """Create application from Docker Compose.
+
+        Removed upstream: Coolify no longer routes `POST /applications/dockercompose`.
+        Raised here as a clear error rather than letting it surface as an opaque 404.
+        """
+        raise Exception(
+            "Coolify removed POST /api/v1/applications/dockercompose. Raw Compose YAML is no "
+            "longer accepted through the applications API. Either create a Service "
+            "(coolify_create_service), or create a git-backed application "
+            "(coolify_create_application_public) with build_pack='dockercompose'."
+        )
 
     async def update_application(self, uuid: str, data: dict) -> dict:
         """Update application by UUID."""
@@ -160,16 +176,16 @@ class CoolifyClient:
             params["force"] = "true"
         if instant_deploy:
             params["instant_deploy"] = "true"
-        return await self.request("GET", f"applications/{uuid}/start", params=params)
+        return await self.request("POST", f"applications/{uuid}/start", params=params)
 
     async def stop_application(self, uuid: str, docker_cleanup: bool = True) -> dict:
         """Stop application."""
         params = {"docker_cleanup": str(docker_cleanup).lower()}
-        return await self.request("GET", f"applications/{uuid}/stop", params=params)
+        return await self.request("POST", f"applications/{uuid}/stop", params=params)
 
     async def restart_application(self, uuid: str) -> dict:
         """Restart application."""
-        return await self.request("GET", f"applications/{uuid}/restart")
+        return await self.request("POST", f"applications/{uuid}/restart")
 
     async def get_application_logs(self, uuid: str, lines: int = 100) -> dict:
         """Get application logs."""
@@ -199,6 +215,12 @@ class CoolifyClient:
         """Delete application environment variable."""
         return await self.request("DELETE", f"applications/{uuid}/envs/{env_uuid}")
 
+    # --- GitHub Apps ---
+
+    async def list_github_apps(self) -> list[dict]:
+        """List configured Coolify GitHub Apps."""
+        return await self.request("GET", "github-apps")
+
     # --- Deployments ---
 
     async def list_deployments(self) -> list[dict]:
@@ -218,16 +240,30 @@ class CoolifyClient:
         tag: str | None = None,
         uuid: str | None = None,
         force: bool = False,
+        pr: int | None = None,
+        pull_request_id: int | None = None,
+        docker_tag: str | None = None,
     ) -> dict:
-        """Deploy by tag or UUID."""
-        params = {}
+        """Deploy by tag or UUID.
+
+        `pr` deploys a specific PR preview build and cannot be combined with `tag`.
+        `docker_tag` selects the image tag for a Docker Image preview and requires
+        `pull_request_id`.
+        """
+        params: dict[str, Any] = {}
         if tag:
             params["tag"] = tag
         if uuid:
             params["uuid"] = uuid
         if force:
             params["force"] = "true"
-        return await self.request("GET", "deploy", params=params)
+        if pr is not None:
+            params["pr"] = pr
+        if pull_request_id is not None:
+            params["pull_request_id"] = pull_request_id
+        if docker_tag:
+            params["docker_tag"] = docker_tag
+        return await self.request("POST", "deploy", params=params)
 
     async def list_app_deployments(self, uuid: str, skip: int = 0, take: int = 10) -> list[dict]:
         """List deployments for a specific application."""
@@ -264,9 +300,14 @@ class CoolifyClient:
         """Get domains configured on a server."""
         return await self.request("GET", f"servers/{uuid}/domains")
 
-    async def validate_server(self, uuid: str) -> dict:
-        """Validate server connectivity and configuration."""
-        return await self.request("GET", f"servers/{uuid}/validate")
+    async def validate_server(self, uuid: str, install: bool = False) -> dict:
+        """Validate server connectivity and configuration.
+
+        `install=True` lets Coolify install missing prerequisites and Docker itself,
+        which can restart the Docker daemon on that server.
+        """
+        json_data = {"install": True} if install else None
+        return await self.request("POST", f"servers/{uuid}/validate", json_data=json_data)
 
     # --- Projects ---
 
@@ -297,8 +338,12 @@ class CoolifyClient:
         return await self.request("GET", f"projects/{project_uuid}/environments")
 
     async def get_environment(self, project_uuid: str, environment_name: str) -> dict:
-        """Get environment by name."""
-        return await self.request("GET", f"projects/{project_uuid}/environments/{environment_name}")
+        """Get environment by name or UUID.
+
+        Coolify serves environment reads from `/projects/{uuid}/{name_or_uuid}`, not from
+        `/projects/{uuid}/environments/{name}` — that path only accepts PATCH and DELETE.
+        """
+        return await self.request("GET", f"projects/{project_uuid}/{environment_name}")
 
     async def create_environment(self, project_uuid: str, data: dict) -> dict:
         """Create environment in a project."""
@@ -335,15 +380,15 @@ class CoolifyClient:
 
     async def start_database(self, uuid: str) -> dict:
         """Start database."""
-        return await self.request("GET", f"databases/{uuid}/start")
+        return await self.request("POST", f"databases/{uuid}/start")
 
     async def stop_database(self, uuid: str) -> dict:
         """Stop database."""
-        return await self.request("GET", f"databases/{uuid}/stop")
+        return await self.request("POST", f"databases/{uuid}/stop")
 
     async def restart_database(self, uuid: str) -> dict:
         """Restart database."""
-        return await self.request("GET", f"databases/{uuid}/restart")
+        return await self.request("POST", f"databases/{uuid}/restart")
 
     async def create_database(self, db_type: str, data: dict) -> dict:
         """Create a database of given type (postgresql, mysql, mariadb, mongodb, redis, clickhouse)."""
@@ -357,9 +402,15 @@ class CoolifyClient:
         """Create a manual database backup."""
         return await self.request("POST", f"databases/{uuid}/backups")
 
-    async def list_backup_executions(self) -> list[dict]:
-        """List all backup executions."""
-        return await self.request("GET", "databases/backup-executions")
+    async def list_backup_executions(self, uuid: str, scheduled_backup_uuid: str) -> dict:
+        """List executions for one scheduled backup of one database.
+
+        Coolify has no instance-wide `databases/backup-executions` route; executions are
+        scoped to a database and one of its scheduled backups.
+        """
+        return await self.request(
+            "GET", f"databases/{uuid}/backups/{scheduled_backup_uuid}/executions"
+        )
 
     # --- Services ---
 
@@ -396,15 +447,15 @@ class CoolifyClient:
 
     async def start_service(self, uuid: str) -> dict:
         """Start service."""
-        return await self.request("GET", f"services/{uuid}/start")
+        return await self.request("POST", f"services/{uuid}/start")
 
     async def stop_service(self, uuid: str) -> dict:
         """Stop service."""
-        return await self.request("GET", f"services/{uuid}/stop")
+        return await self.request("POST", f"services/{uuid}/stop")
 
     async def restart_service(self, uuid: str) -> dict:
         """Restart service."""
-        return await self.request("GET", f"services/{uuid}/restart")
+        return await self.request("POST", f"services/{uuid}/restart")
 
     # --- Service Environment Variables ---
 

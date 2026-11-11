@@ -85,6 +85,8 @@ class TestStatusLookup:
         assert out["received_bytes"] == 0
         assert out["next_chunk"] == 0
         assert out["total_bytes"] == 1_000_000
+        assert out["recommended_chunk_bytes"] == 1024 * 1024
+        assert out["handoff"] == "stream_base64_chunks"
 
     @pytest.mark.asyncio
     async def test_partial_session_reports_progress(self, _handler):

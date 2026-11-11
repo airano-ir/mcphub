@@ -24,6 +24,31 @@ export function useSession() {
   });
 }
 
+// ---------- Config health (admin) ----------
+// GET /api/dashboard/config-health → operator-facing soft-misconfiguration
+// warnings (missing MASTER_API_KEY, ephemeral session secret, etc.). Each
+// entry carries bilingual copy so the banner renders without extra i18n keys.
+export type ConfigWarning = {
+  code: string;
+  severity: "critical" | "warning";
+  env: string;
+  title_en: string;
+  title_fa: string;
+  detail_en: string;
+  detail_fa: string;
+};
+
+export function useConfigHealth(enabled: boolean) {
+  return useQuery({
+    queryKey: ["config-health"],
+    queryFn: () => api.get<{ warnings: ConfigWarning[] }>("/api/dashboard/config-health"),
+    select: (data) => data?.warnings ?? [],
+    enabled,
+    staleTime: 60_000,
+    retry: 0,
+  });
+}
+
 // ---------- i18n ----------
 export function useTranslations(lang: "en" | "fa") {
   return useQuery({
@@ -279,6 +304,12 @@ export function useDeleteSite() {
   });
 }
 
+// Plugin types that use the OAuth credential model (no static credential
+// fields).  The form renders a "Connect with Google" button instead.
+export const OAUTH_PLUGIN_TYPES: ReadonlySet<string> = new Set([
+  "google_search_console",
+]);
+
 export function useTestSite() {
   return useMutation({
     // Backend response shape (core/dashboard/routes.py:api_test_site):
@@ -291,6 +322,31 @@ export function useTestSite() {
         response_time?: number;
         last_tested_at?: string;
       }>(`/api/sites/${id}/test`),
+  });
+}
+
+// ---------- Site OAuth (E.3+ — OAuth site-connection flow) ----------
+// POST /api/sites/{id}/oauth/init → returns { auth_url, state, provider }
+// The frontend redirects the browser to auth_url; Google calls back to
+// /oauth/site/callback, which exchanges the code and redirects to /dashboard/sites.
+export function useInitSiteOAuth() {
+  return useMutation({
+    mutationFn: (siteId: string) =>
+      api.post<{ auth_url: string; state: string; provider: string }>(
+        `/api/sites/${siteId}/oauth/init`,
+      ),
+  });
+}
+
+// POST /api/sites/{id}/oauth/refresh → manually refresh the stored access token.
+export function useRefreshSiteToken() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (siteId: string) =>
+      api.post<{ ok: boolean; message: string; site_id: string }>(
+        `/api/sites/${siteId}/oauth/refresh`,
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["sites"] }),
   });
 }
 
@@ -382,11 +438,15 @@ export type PluginFieldDef = {
   required: boolean;
   hint?: string;
   advanced?: boolean;
+  internal?: boolean;
 };
 export type PluginCatalogEntry = {
   type: string;
   name: string;
   fields: PluginFieldDef[];
+  /** Plugins with a fixed third-party API base (e.g. Cloudflare) hide the
+   *  URL field and send this value on create/edit. */
+  fixedUrl?: string;
 };
 
 export function usePluginCatalog() {
@@ -512,6 +572,104 @@ export function useDeleteSiteProviderKey(siteId: string | undefined) {
       qc.invalidateQueries({ queryKey: ["site-provider-keys", siteId] });
       qc.invalidateQueries({ queryKey: ["site-tools", siteId] });
       qc.invalidateQueries({ queryKey: ["site-capabilities", siteId] });
+    },
+  });
+}
+
+export type OpenAICompatibleConfig = {
+  id: string;
+  site_id: string;
+  provider: "openai_compatible";
+  name: string;
+  api_type: "openai_compatible" | "openai_images" | "openai_responses" | string;
+  base_url: string;
+  model_id?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type OpenAICompatibleModel = {
+  id: string;
+  name: string;
+  description?: string;
+  input_modalities?: string[];
+  output_modalities?: string[];
+  supports_image_input?: boolean;
+  supports_image_output?: boolean;
+  supports_image_edit?: boolean;
+};
+
+export function useOpenAICompatibleConfigs(siteId: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: ["site-ai-providers", siteId],
+    queryFn: () =>
+      api.get<{ ok: boolean; configs: OpenAICompatibleConfig[] }>(
+        `/api/sites/${siteId}/ai-providers`,
+      ),
+    select: (data) => data?.configs ?? [],
+    enabled: !!siteId && enabled,
+  });
+}
+
+export function useAddOpenAICompatibleConfig(siteId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: {
+      name: string;
+      api_type: "openai_compatible" | "openai_images" | "openai_responses";
+      base_url: string;
+      api_key: string;
+      model_id?: string | null;
+    }) => api.post<{ ok: boolean; config: OpenAICompatibleConfig }>(`/api/sites/${siteId}/ai-providers`, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["site-ai-providers", siteId] });
+      qc.invalidateQueries({ queryKey: ["site-tools", siteId] });
+      qc.invalidateQueries({ queryKey: ["site-capabilities", siteId] });
+    },
+  });
+}
+
+export function useDeleteOpenAICompatibleConfig(siteId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (configId: string) =>
+      api.del<{ ok: boolean; deleted: boolean }>(`/api/sites/${siteId}/ai-providers/${configId}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["site-ai-providers", siteId] });
+      qc.invalidateQueries({ queryKey: ["site-tools", siteId] });
+      qc.invalidateQueries({ queryKey: ["site-capabilities", siteId] });
+    },
+  });
+}
+
+export function useOpenAICompatibleModels(
+  siteId: string | undefined,
+  configId: string | undefined,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: ["site-ai-provider-models", siteId, configId],
+    queryFn: () =>
+      api.get<{ ok: boolean; models: OpenAICompatibleModel[] }>(
+        `/api/sites/${siteId}/ai-providers/${configId}/models`,
+      ),
+    select: (data) => data?.models ?? [],
+    enabled: !!siteId && !!configId && enabled,
+    staleTime: 60 * 60_000,
+  });
+}
+
+export function useSetOpenAICompatibleModel(siteId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ configId, modelId }: { configId: string; modelId: string | null }) =>
+      api.patch<{ ok: boolean; updated: boolean; model_id: string | null }>(
+        `/api/sites/${siteId}/ai-providers/${configId}/model`,
+        { model_id: modelId },
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["site-ai-providers", siteId] });
+      qc.invalidateQueries({ queryKey: ["site-tools", siteId] });
     },
   });
 }

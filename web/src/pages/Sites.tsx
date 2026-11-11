@@ -4,7 +4,8 @@ import { Topbar } from "../components/Topbar";
 import { Card, Badge, Btn, Seg, EmptyState } from "../components/primitives";
 import { Icons } from "../components/icons";
 import { SiteFormDialog } from "../components/SiteFormDialog";
-import { useDeleteSite, useSiteLimit, useSites, useTestSite } from "../lib/queries";
+import { useDeleteSite, useSiteLimit, useSites, useTestSite, useInitSiteOAuth, useRefreshSiteToken, OAUTH_PLUGIN_TYPES } from "../lib/queries";
+import { useSession } from "../lib/queries";
 import { useUiStore } from "../lib/store";
 import { useT } from "../lib/i18n";
 import { fmtDateTime, fmtInt, normalizeSiteStatus } from "../lib/format";
@@ -29,9 +30,10 @@ const PLUGIN_DISPLAY: Record<string, string> = {
   n8n: "n8n",
   supabase: "Supabase",
   openpanel: "OpenPanel",
-  appwrite: "Appwrite",
-  directus: "Directus",
   coolify: "Coolify",
+  gmail: "Gmail",
+  google_search_console: "Google Search Console",
+  cloudflare: "Cloudflare",
 };
 
 function formatTested(
@@ -94,13 +96,15 @@ export function SitesPage() {
   >(null);
   const sites = useSites();
   const siteLimit = useSiteLimit();
+  const session = useSession();
   const testSite = useTestSite();
   const deleteSite = useDeleteSite();
   const setToast = useUiStore((s) => s.setToast);
   const lang = useUiStore((s) => s.lang);
+  const isAdmin = session.data?.is_admin ?? false;
   const limit = siteLimit.data?.limit;
   const remaining = siteLimit.data?.remaining;
-  const atSiteLimit = typeof remaining === "number" && remaining <= 0;
+  const atSiteLimit = !isAdmin && typeof remaining === "number" && remaining <= 0;
   const siteLimitMessage =
     typeof limit === "number"
       ? t(
@@ -374,6 +378,11 @@ type CardProps = {
   onDelete: () => void;
 };
 
+// Whether a site's plugin type uses the OAuth credential model.
+function isOAuthSite(pluginType: string): boolean {
+  return OAUTH_PLUGIN_TYPES.has(pluginType);
+}
+
 function StatusBadge({ site, t }: { site: Site; t: ReturnType<typeof useT> }) {
   const status = normalizeSiteStatus(site.status, site.last_tested_at);
   if (status === "healthy")
@@ -392,6 +401,12 @@ function StatusBadge({ site, t }: { site: Site; t: ReturnType<typeof useT> }) {
     return (
       <Badge variant="danger" dot className="badge-fixed">
         {t("status_error", "error")}
+      </Badge>
+    );
+  if (status === "reauth_required")
+    return (
+      <Badge variant="danger" dot className="badge-fixed">
+        {t("sites.oauth.status_reauth_required", "Re-authorization required")}
       </Badge>
     );
   if (status === "unknown")
@@ -414,6 +429,39 @@ function TierBadge({ scope }: { scope: string | undefined }) {
 
 function SiteCard({ site: s, t, lang, pendingTest, pendingDelete, onTest, onDelete, onEdit }: CardProps) {
   const pluginLabel = PLUGIN_DISPLAY[s.plugin_type] ?? s.plugin_type;
+  const oauthSite = isOAuthSite(s.plugin_type);
+  const initOAuth = useInitSiteOAuth();
+  const refreshToken = useRefreshSiteToken();
+  const setToast = useUiStore((s) => s.setToast);
+  const sites = useSites();
+  const [oauthPending, setOauthPending] = useState(false);
+  const [refreshPending, setRefreshPending] = useState(false);
+
+  const onReauthorize = async () => {
+    setOauthPending(true);
+    try {
+      const r = await initOAuth.mutateAsync(s.id);
+      // Redirect the browser to Google's OAuth consent screen
+      window.location.href = r.auth_url;
+    } catch (e: any) {
+      setToast(`${t("sites.oauth.reauthorize", "Re-authorize")}: ${e.message}`);
+      setOauthPending(false);
+    }
+  };
+
+  const onRefreshToken = async () => {
+    setRefreshPending(true);
+    try {
+      await refreshToken.mutateAsync(s.id);
+      setToast(t("sites.oauth.refresh_token", "Token refreshed"));
+      sites.refetch();
+    } catch (e: any) {
+      setToast(`${t("sites.oauth.refresh_token", "Refresh token")}: ${e.message}`);
+    } finally {
+      setRefreshPending(false);
+    }
+  };
+
   return (
     <div className="tile" style={{ display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14, gap: 8 }}>
@@ -439,7 +487,7 @@ function SiteCard({ site: s, t, lang, pendingTest, pendingDelete, onTest, onDele
       {s.status_msg ? (
         <div
           className="caption"
-          style={{ marginTop: 6, color: s.status === "error" ? "var(--danger)" : "var(--text-muted)" }}
+          style={{ marginTop: 6, color: s.status === "error" || s.status === "reauth_required" ? "var(--danger)" : "var(--text-muted)" }}
         >
           {s.status_msg.slice(0, 80)}
         </div>
@@ -447,11 +495,35 @@ function SiteCard({ site: s, t, lang, pendingTest, pendingDelete, onTest, onDele
       <div className="caption" style={{ marginTop: 6, color: "var(--text-subtle)" }}>
         {formatTested(s.last_tested_at, lang, t)}
       </div>
-      <div style={{ display: "flex", gap: 6, marginTop: 14 }}>
+      <div style={{ display: "flex", gap: 6, marginTop: 14, flexWrap: "wrap" }}>
+        {oauthSite ? (
+          <>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={onReauthorize}
+              disabled={oauthPending}
+              title={t("sites.oauth.reauthorize", "Re-authorize")}
+            >
+              {oauthPending ? <Spinner /> : <Icons.refresh style={{ width: 14, height: 14 }} />}
+              {" "}
+              {t("sites.oauth.reauthorize", "Re-authorize")}
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={onRefreshToken}
+              disabled={refreshPending}
+              title={t("sites.oauth.refresh_token", "Refresh token")}
+            >
+              {refreshPending ? <Spinner /> : <Icons.key style={{ width: 14, height: 14 }} />}
+            </button>
+          </>
+        ) : null}
         <Link
           to={`/connect?site=${encodeURIComponent(s.alias)}`}
           className="btn btn-secondary btn-sm"
-          style={{ flex: 1, textAlign: "center" }}
+          style={{ flex: oauthSite ? undefined : 1, textAlign: "center" }}
         >
           {t("connect", "Connect")}
         </Link>
@@ -499,6 +571,22 @@ function SiteCard({ site: s, t, lang, pendingTest, pendingDelete, onTest, onDele
 
 function SiteRow({ site: s, t, lang, pendingTest, pendingDelete, onTest, onDelete, onEdit }: CardProps) {
   const pluginLabel = PLUGIN_DISPLAY[s.plugin_type] ?? s.plugin_type;
+  const oauthSite = isOAuthSite(s.plugin_type);
+  const initOAuth = useInitSiteOAuth();
+  const setToast = useUiStore((st) => st.setToast);
+  const [oauthPending, setOauthPending] = useState(false);
+
+  const onReauthorize = async () => {
+    setOauthPending(true);
+    try {
+      const r = await initOAuth.mutateAsync(s.id);
+      window.location.href = r.auth_url;
+    } catch (e: any) {
+      setToast(`${t("sites.oauth.reauthorize", "Re-authorize")}: ${e.message}`);
+      setOauthPending(false);
+    }
+  };
+
   return (
     <tr>
       <td className="row-head" data-label={t("site_alias", "Alias")} style={{ fontWeight: 500 }}>
@@ -521,6 +609,18 @@ function SiteRow({ site: s, t, lang, pendingTest, pendingDelete, onTest, onDelet
       </td>
       <td className="cell-actions" style={{ textAlign: "right" }}>
         <div style={{ display: "inline-flex", gap: 4 }}>
+          {oauthSite ? (
+            <Btn
+              variant="primary"
+              size="sm"
+              onClick={onReauthorize}
+              disabled={oauthPending}
+              title={t("sites.oauth.reauthorize", "Re-authorize")}
+              style={{ padding: "6px 10px" }}
+            >
+              {oauthPending ? <Spinner /> : t("sites.oauth.reauthorize", "Re-authorize")}
+            </Btn>
+          ) : null}
           <Btn
             variant="ghost"
             size="sm"

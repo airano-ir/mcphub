@@ -738,3 +738,30 @@ class TestModuleHelpers:
         finally:
             await db.close()
             monkeypatch.setattr(db_module, "_database", None)
+
+
+@pytest.mark.unit
+async def test_openai_compatible_connections_are_site_scoped_without_ciphertext(db, site_row):
+    await db.create_site_ai_provider_config(
+        config_id="connection-1",
+        site_id=site_row["id"],
+        name="OpenRouter",
+        api_type="openai_compatible",
+        base_url="https://openrouter.ai/api/v1",
+        api_key_ciphertext=b"encrypted-key",
+        model_id="google/gemini-image",
+    )
+    await db.create_site_ai_provider_config(
+        config_id="connection-2",
+        site_id=site_row["id"],
+        name="Local gateway",
+        api_type="openai_images",
+        base_url="https://images.example/v1",
+        api_key_ciphertext=b"encrypted-key-2",
+        model_id=None,
+    )
+    rows = await db.list_site_ai_provider_configs(site_row["id"])
+    assert {row["name"] for row in rows} == {"OpenRouter", "Local gateway"}
+    assert all("api_key_ciphertext" not in row for row in rows)
+    stored = await db.get_site_ai_provider_config(site_row["id"], "connection-1")
+    assert stored is not None and stored["api_key_ciphertext"] == b"encrypted-key"

@@ -250,6 +250,32 @@ def get_tool_specifications() -> list[dict[str, Any]]:
             },
             "scope": "write",
         },
+        {
+            "name": "delete_navigation",
+            "method_name": "delete_navigation",
+            "description": (
+                "Delete or trash a wp_navigation post (block-theme menu). "
+                "Use this for Site Editor navigation records; classic menus "
+                "remain separate."
+            ),
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "navigation_id": {
+                        "type": "integer",
+                        "description": "wp_navigation post ID",
+                        "minimum": 1,
+                    },
+                    "force": {
+                        "type": "boolean",
+                        "description": "Permanently delete (true) or move to trash (false)",
+                        "default": False,
+                    },
+                },
+                "required": ["navigation_id"],
+            },
+            "scope": "write",
+        },
     ]
 
 
@@ -621,6 +647,36 @@ class MenusHandler:
                 {
                     "error": str(e),
                     "message": f"Failed to update navigation {navigation_id}: {str(e)}",
+                },
+                indent=2,
+            )
+
+    async def delete_navigation(self, navigation_id: int, force: bool = False) -> str:
+        """Delete or trash a wp_navigation post."""
+        try:
+            params = {"force": "true" if force else "false"}
+            result = await self.client.delete(f"navigation/{navigation_id}", params=params)
+
+            message = (
+                f"Navigation {navigation_id} permanently deleted"
+                if force
+                else f"Navigation {navigation_id} moved to trash"
+            )
+            return json.dumps(
+                {
+                    "success": True,
+                    "id": navigation_id,
+                    "force": force,
+                    "message": message,
+                    "result": result,
+                },
+                indent=2,
+            )
+        except Exception as e:
+            return json.dumps(
+                {
+                    "error": str(e),
+                    "message": f"Failed to delete navigation {navigation_id}: {str(e)}",
                 },
                 indent=2,
             )

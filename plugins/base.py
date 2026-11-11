@@ -315,6 +315,23 @@ class PluginRegistry:
         # Option B signature: config first, project_id optional
         return plugin_class(config, project_id=project_id)
 
+    def get_plugin_class(self, plugin_type: str) -> type:
+        """
+        Get the class registered for a plugin type.
+
+        Args:
+            plugin_type: Plugin type identifier
+
+        Returns:
+            The registered plugin class
+
+        Raises:
+            ValueError: If the plugin type is not registered
+        """
+        if plugin_type not in self._plugin_classes:
+            raise ValueError(f"Unknown plugin type: {plugin_type}")
+        return self._plugin_classes[plugin_type]
+
     def get_registered_types(self) -> list[str]:
         """Get list of registered plugin types."""
         return list(self._plugin_classes.keys())

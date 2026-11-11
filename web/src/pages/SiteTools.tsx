@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { Topbar } from "../components/Topbar";
 import { Card, CardHead, Badge } from "../components/primitives";
 import { Icons } from "../components/icons";
+import { OpenAICompatibleCard } from "../components/OpenAICompatibleCard";
 import {
   useDeleteSiteProviderKey,
   useOpenRouterImageModels,
@@ -346,6 +347,7 @@ export function SiteToolsPage() {
           </Card>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {supportsProviderKeys ? <OpenAICompatibleCard siteId={siteId} t={t} /> : null}
             {supportsProviderKeys ? (
               <ProviderKeysCard
                 siteId={siteId}

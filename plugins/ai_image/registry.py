@@ -8,12 +8,14 @@ from __future__ import annotations
 
 from plugins.ai_image.providers.base import BaseImageProvider, ProviderError
 from plugins.ai_image.providers.openai import OpenAIProvider
+from plugins.ai_image.providers.openai_compatible import OpenAICompatibleProvider
 from plugins.ai_image.providers.openrouter import OpenRouterProvider
 from plugins.ai_image.providers.replicate import ReplicateProvider
 from plugins.ai_image.providers.stability import StabilityProvider
 
 _PROVIDERS: dict[str, BaseImageProvider] = {
     "openai": OpenAIProvider(),
+    "openai_compatible": OpenAICompatibleProvider(),
     "stability": StabilityProvider(),
     "replicate": ReplicateProvider(),
     "openrouter": OpenRouterProvider(),

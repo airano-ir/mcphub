@@ -12,7 +12,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         {
             "name": "list_orders",
             "method_name": "list_orders",
-            "description": "List WooCommerce orders. Returns paginated order list with customer details, totals, and status.",
+            "description": "List WooCommerce orders. Defaults to a privacy-safe summary for analytics/content workflows. Set summary=false only for explicit operational needs that require customer/billing/payment details.",
             "schema": {
                 "type": "object",
                 "properties": {
@@ -60,6 +60,21 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                     "before": {
                         "anyOf": [{"type": "string"}, {"type": "null"}],
                         "description": "Filter orders before this date (ISO 8601 format)",
+                    },
+                    "summary": {
+                        "type": "boolean",
+                        "description": "Privacy-safe mode. When true, omits billing/shipping names, email, phone, address, customer notes, transaction IDs, and payment details.",
+                        "default": True,
+                    },
+                    "include_line_items": {
+                        "type": "boolean",
+                        "description": "In summary mode, include safe product line item fields for analytics/content use: product_id, variation_id, name, sku, quantity, subtotal, total.",
+                        "default": False,
+                    },
+                    "anonymize_ids": {
+                        "type": "boolean",
+                        "description": "In summary mode, omit order id/number when callers only need aggregate order facts.",
+                        "default": False,
                     },
                 },
             },
@@ -218,6 +233,9 @@ class OrdersHandler:
         customer: int | None = None,
         after: str | None = None,
         before: str | None = None,
+        summary: bool = True,
+        include_line_items: bool = False,
+        anonymize_ids: bool = False,
     ) -> str:
         """
         List WooCommerce orders with filters.
@@ -229,6 +247,9 @@ class OrdersHandler:
             customer: Filter by customer ID
             after: Filter orders after this date (ISO 8601 format)
             before: Filter orders before this date (ISO 8601 format)
+            summary: Return privacy-safe summary fields only
+            include_line_items: Include safe product line items in summary mode
+            anonymize_ids: Omit order id/number in summary mode
 
         Returns:
             JSON string with orders list
@@ -250,39 +271,98 @@ class OrdersHandler:
             # Make request to WooCommerce API
             orders = await self.client.get("orders", params=params, use_woocommerce=True)
 
-            # Format response
-            result = {
-                "total": len(orders),
-                "page": page,
-                "per_page": per_page,
-                "orders": [
-                    {
-                        "id": order["id"],
-                        "number": order["number"],
-                        "status": order["status"],
-                        "date_created": order["date_created"],
-                        "date_modified": order.get("date_modified", ""),
-                        "total": order["total"],
-                        "currency": order["currency"],
-                        "customer_id": order["customer_id"],
-                        "billing": {
-                            "first_name": order["billing"].get("first_name", ""),
-                            "last_name": order["billing"].get("last_name", ""),
-                            "email": order["billing"].get("email", ""),
-                        },
-                        "line_items_count": len(order.get("line_items", [])),
-                        "payment_method_title": order.get("payment_method_title", ""),
-                        "transaction_id": order.get("transaction_id", ""),
-                    }
-                    for order in orders
-                ],
-            }
+            if summary:
+                result = {
+                    "total": len(orders),
+                    "page": page,
+                    "per_page": per_page,
+                    "privacy": "summary_no_pii",
+                    "pii_included": False,
+                    "include_line_items": include_line_items,
+                    "orders": [
+                        self._format_order_summary(
+                            order,
+                            include_line_items=include_line_items,
+                            anonymize_ids=anonymize_ids,
+                        )
+                        for order in orders
+                    ],
+                }
+            else:
+                result = {
+                    "total": len(orders),
+                    "page": page,
+                    "per_page": per_page,
+                    "privacy": "full_order_details",
+                    "pii_included": True,
+                    "warning": "Full mode can include customer billing/shipping contact data, payment labels, transaction IDs, and customer notes.",
+                    "orders": [self._format_order_full(order) for order in orders],
+                }
 
             return json.dumps(result, indent=2)
         except Exception as e:
             return json.dumps(
                 {"error": str(e), "message": f"Failed to list orders: {str(e)}"}, indent=2
             )
+
+    def _format_order_summary(
+        self,
+        order: dict[str, Any],
+        *,
+        include_line_items: bool,
+        anonymize_ids: bool,
+    ) -> dict[str, Any]:
+        item: dict[str, Any] = {
+            "status": order.get("status", ""),
+            "date_created": order.get("date_created", ""),
+            "date_modified": order.get("date_modified", ""),
+            "total": order.get("total", ""),
+            "currency": order.get("currency", ""),
+            "line_items_count": len(order.get("line_items", [])),
+        }
+        if anonymize_ids:
+            item["anonymized_ids"] = True
+        else:
+            item["id"] = order.get("id")
+            item["number"] = order.get("number", "")
+
+        if include_line_items:
+            item["line_items"] = [
+                {
+                    "product_id": line.get("product_id"),
+                    "variation_id": line.get("variation_id"),
+                    "name": line.get("name", ""),
+                    "sku": line.get("sku", ""),
+                    "quantity": line.get("quantity", 0),
+                    "subtotal": line.get("subtotal", ""),
+                    "total": line.get("total", ""),
+                }
+                for line in order.get("line_items", [])
+                if isinstance(line, dict)
+            ]
+
+        return item
+
+    def _format_order_full(self, order: dict[str, Any]) -> dict[str, Any]:
+        billing = order.get("billing") or {}
+        return {
+            "id": order.get("id"),
+            "number": order.get("number", ""),
+            "status": order.get("status", ""),
+            "date_created": order.get("date_created", ""),
+            "date_modified": order.get("date_modified", ""),
+            "total": order.get("total", ""),
+            "currency": order.get("currency", ""),
+            "customer_id": order.get("customer_id"),
+            "billing": {
+                "first_name": billing.get("first_name", ""),
+                "last_name": billing.get("last_name", ""),
+                "email": billing.get("email", ""),
+            },
+            "line_items_count": len(order.get("line_items", [])),
+            "payment_method_title": order.get("payment_method_title", ""),
+            "transaction_id": order.get("transaction_id", ""),
+        }
 
     async def get_order(self, order_id: int) -> str:
         """

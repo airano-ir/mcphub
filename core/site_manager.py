@@ -48,7 +48,6 @@ class SiteConfig(BaseModel):
     url: str | None = Field(None, description="Site URL")
     username: str | None = Field(None, description="Username for authentication")
     app_password: str | None = Field(None, description="Application password")
-    container: str | None = Field(None, description="Docker container name (for WP-CLI)")
 
     # Allow additional fields for plugin-specific configuration
     model_config = ConfigDict(extra="allow")

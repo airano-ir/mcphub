@@ -10,7 +10,7 @@ The companion-backed surface that replaced the deprecated
   only ``url`` + ``username`` + ``app_password`` (the WP user needs
   ``manage_options``). No Docker socket dependency.
 
-Tool surface (51 tools across read / editor / install / settings /
+Tool surface (58 tools across read / editor / install / settings /
 admin tiers — see ``get_tool_specifications`` for the per-section
 breakdown). Plugin remains admin-only by default — not in
 ``ENABLED_PLUGINS`` until F.19.4 (companion v3.0 wp.org republish)
@@ -24,6 +24,7 @@ from typing import Any
 
 from plugins.base import BasePlugin
 from plugins.wordpress.client import WordPressClient
+from plugins.wordpress.handlers import CapabilitiesHandler
 from plugins.wordpress_specialist import handlers
 
 
@@ -64,6 +65,14 @@ class WordPressSpecialistPlugin(BasePlugin):
         # Bridge v2.15.0+). First handler to use the install + admin
         # tiers introduced by F.19.2.0.
         self.plugins = handlers.PluginsHandler(self.client)
+        # F.19.2.2: chunked zip staging for plugin/theme installs when
+        # the zip lives in an agent workspace that MCPHub cannot read as
+        # a local path.
+        self.zip_install_chunked = handlers.ZipInstallChunkedHandler(
+            user_id=config.get("user_id"),
+            site_id=config.get("site_id"),
+            alias=config.get("alias"),
+        )
         # F.19.6.A: site config — identity / reading / permalinks.
         # Companion-backed (Airano MCP Bridge v2.16.0+). First consumer
         # of the ``settings`` tier introduced by F.19.2.0.
@@ -73,10 +82,17 @@ class WordPressSpecialistPlugin(BasePlugin):
         # ``settings`` tier as site config — closes the Settings →
         # Menus + Appearance → Widgets + Customizer gaps.
         self.site_layout = handlers.SiteLayoutHandler(self.client)
-        # F.19.3.2-.3: database inspection (companion v2.18.0+) — three
-        # read-only tools (db/size, db/tables, db/search). Bundled with
-        # the wordpress_advanced sunset; no SQL exposure (S-25).
+        # F.19.3.2-.4: database inspection + bounded maintenance
+        # (companion v2.18.0+ / v2.18.5+) — size, tables, search, check,
+        # optimize. No Docker/WP-CLI transport.
         self.database = handlers.DatabaseHandler(self.client)
+        # F.X — companion capability probe (mirrors WordPressPlugin). Enables
+        # probe_credential_capabilities() below so the dashboard + the
+        # tool-prerequisites resolver in core/tool_access can auto-enable the
+        # admin_db_* companion routes (wp_db_{size,tables,search,check,optimize}).
+        # Was missing → tool_access saw empty routes → every companion-gated
+        # wp_db_* tool falsely reported "probe_not_implemented / در دسترس نیست".
+        self.capabilities = CapabilitiesHandler(self.client)
         # F.19.3.2-.3: bulk fan-out — post + term updates via stock
         # REST batch. No companion route needed; per-item permission
         # checks happen at the WP layer (S-26 caps at 50 items/call).
@@ -92,21 +108,23 @@ class WordPressSpecialistPlugin(BasePlugin):
           * F.19.3.1 ports — 3 tools (system_info / phpinfo / disk_usage)
           * F.19.5 page editing — 11 tools (4 Gutenberg + 6 Elementor + 1
             Classic)
-          * F.19.7 theme dev surface — 7 tools (3 management + 4 file CRUD)
+          * F.19.7 theme dev surface — 8 tools (3 management + 5 file CRUD)
           * F.19.2.1 plugin write management — 6 tools (4 install-tier +
             2 admin-tier)
+          * F.19.2.2 install zip staging — 4 tools (start + chunk + status + abort)
           * F.19.6.A site config — 6 tools (identity + reading + permalinks)
           * F.19.6.B site layout — 7 tools (3 menu + 3 widget + 1 customizer)
-          * F.19.3.2 database inspection — 3 tools (db/size + db/tables + db/search)
+          * F.19.3.2-.4 database — 5 tools (size/tables/search/check/optimize)
           * F.19.3.3 bulk fan-out — 2 tools (post + term updates)
 
-        Total: 51 tools.
+        Total: 58 tools.
         """
         return [
             *handlers.get_management_specs(),
             *handlers.get_pages_specs(),
             *handlers.get_themes_specs(),
             *handlers.get_plugins_specs(),
+            *handlers.get_zip_install_chunked_specs(),
             *handlers.get_site_config_specs(),
             *handlers.get_site_layout_specs(),
             *handlers.get_database_specs(),
@@ -140,6 +158,65 @@ class WordPressSpecialistPlugin(BasePlugin):
                     "user with manage_options."
                 ),
             }
+
+    async def probe_credential_capabilities(self) -> dict[str, Any]:
+        """Return the capabilities the saved app_password grants.
+
+        Mirrors ``WordPressPlugin.probe_credential_capabilities``: delegates
+        to the companion-plugin-backed ``CapabilitiesHandler``
+        (``GET /airano-mcp/v1/capabilities``) — the WordPress user's effective
+        capability map. When the companion isn't installed we return an
+        empty-granted payload marked unavailable so the dashboard shows the
+        "Airano MCP Bridge را نصب یا به‌روزرسانی کنید" hint rather than
+        falsely claiming the key is under-privileged.
+
+        Surfacing ``routes`` + ``features`` here lets
+        ``core/tool_access.check_tool_prerequisites`` auto-enable the
+        ``admin_db_{size,tables,search,check,optimize}`` companion routes for
+        the ``wordpress_specialist_wp_db_*`` tools — previously every one of
+        those tools read "در دسترس نیست" because this override was missing
+        and ``probe_payload.routes`` stayed empty.
+        """
+        from plugins.wordpress.client import SiteUnreachableError
+        from plugins.wordpress.handlers.capabilities import _empty_capabilities_payload
+
+        try:
+            payload = await self.capabilities._fetch_capabilities()
+        except SiteUnreachableError as exc:
+            out: dict[str, Any] = {
+                "probe_available": False,
+                "granted": [],
+                "source": "wordpress_specialist",
+                "reason": f"site_unreachable: {exc.reason}",
+            }
+            if exc.install_hint:
+                out["install_hint"] = exc.install_hint
+            return out
+        except Exception as exc:  # noqa: BLE001
+            payload = _empty_capabilities_payload(
+                self.client.site_url, reason=f"probe_failed: {exc}"
+            )
+
+        if not payload.get("companion_available"):
+            return {
+                "probe_available": False,
+                "granted": [],
+                "source": "wordpress_specialist",
+                "reason": (payload.get("reason") or "companion_not_installed"),
+            }
+
+        user_caps = (payload.get("user") or {}).get("capabilities") or {}
+        granted = sorted(k for k, v in user_caps.items() if v)
+        roles = list((payload.get("user") or {}).get("roles") or [])
+        return {
+            "probe_available": True,
+            "granted": granted,
+            "source": "wordpress_specialist",
+            "roles": roles,
+            "plugin_version": payload.get("plugin_version"),
+            "routes": dict(payload.get("routes") or {}),
+            "features": dict(payload.get("features") or {}),
+        }
 
     # ----------------------------------------------------------
     # Method delegation — one per tool spec, mirrored to handlers
@@ -227,6 +304,19 @@ class WordPressSpecialistPlugin(BasePlugin):
         result = await self.pages.wp_classic_html_replace(**kwargs)
         return json.dumps(result, indent=2) if isinstance(result, dict) else result
 
+    # F.19.2.2 — Chunked install zip staging for plugin/theme installs
+    async def wp_zip_install_chunked_start(self, **kwargs):
+        return await self.zip_install_chunked.wp_zip_install_chunked_start(**kwargs)
+
+    async def wp_zip_install_chunked_chunk(self, **kwargs):
+        return await self.zip_install_chunked.wp_zip_install_chunked_chunk(**kwargs)
+
+    async def wp_zip_install_chunked_status(self, **kwargs):
+        return await self.zip_install_chunked.wp_zip_install_chunked_status(**kwargs)
+
+    async def wp_zip_install_chunked_abort(self, **kwargs):
+        return await self.zip_install_chunked.wp_zip_install_chunked_abort(**kwargs)
+
     # F.19.7 — Theme dev surface (install + file CRUD, companion v2.14.0+)
     async def wp_theme_install_from_zip(self, **kwargs):
         result = await self.themes.wp_theme_install_from_zip(**kwargs)
@@ -250,6 +340,10 @@ class WordPressSpecialistPlugin(BasePlugin):
 
     async def wp_theme_file_write(self, **kwargs):
         result = await self.themes.wp_theme_file_write(**kwargs)
+        return json.dumps(result, indent=2) if isinstance(result, dict) else result
+
+    async def wp_theme_file_patch(self, **kwargs):
+        result = await self.themes.wp_theme_file_patch(**kwargs)
         return json.dumps(result, indent=2) if isinstance(result, dict) else result
 
     async def wp_theme_file_delete(self, **kwargs):
@@ -288,6 +382,10 @@ class WordPressSpecialistPlugin(BasePlugin):
 
     async def wp_site_identity_set(self, **kwargs):
         result = await self.site_config.wp_site_identity_set(**kwargs)
+        return json.dumps(result, indent=2) if isinstance(result, dict) else result
+
+    async def wp_rank_math_sync_identity(self, **kwargs):
+        result = await self.site_config.wp_rank_math_sync_identity(**kwargs)
         return json.dumps(result, indent=2) if isinstance(result, dict) else result
 
     async def wp_reading_settings_get(self, **kwargs):
@@ -335,7 +433,7 @@ class WordPressSpecialistPlugin(BasePlugin):
         result = await self.site_layout.wp_customizer_changeset(**kwargs)
         return json.dumps(result, indent=2) if isinstance(result, dict) else result
 
-    # F.19.3.2 — Database inspection (read-only, companion v2.18.0+)
+    # F.19.3.2-.4 — Database inspection + bounded maintenance.
     async def wp_db_size(self, **kwargs):
         result = await self.database.wp_db_size(**kwargs)
         return json.dumps(result, indent=2) if isinstance(result, dict) else result
@@ -346,6 +444,14 @@ class WordPressSpecialistPlugin(BasePlugin):
 
     async def wp_db_search(self, **kwargs):
         result = await self.database.wp_db_search(**kwargs)
+        return json.dumps(result, indent=2) if isinstance(result, dict) else result
+
+    async def wp_db_check(self, **kwargs):
+        result = await self.database.wp_db_check(**kwargs)
+        return json.dumps(result, indent=2) if isinstance(result, dict) else result
+
+    async def wp_db_optimize(self, **kwargs):
+        result = await self.database.wp_db_optimize(**kwargs)
         return json.dumps(result, indent=2) if isinstance(result, dict) else result
 
     # F.19.3.3 — Bulk fan-out (editor tier, stock REST batch)

@@ -64,6 +64,7 @@ route on any error here, so these codes usually surface in logs, not to end user
 | `CHUNK_CHECKSUM`    | Per-chunk sha256 does not match the value supplied with the chunk.           |
 | `CHUNK_ORDER`       | Chunk index does not match `next_chunk`.                                     |
 | `CHUNK_OVERFLOW`    | Appending this chunk would exceed declared `total_bytes`.                    |
+| `EMPTY_CHUNK`       | HTTP intake stream closed without sending any bytes for the next chunk.      |
 | `EXPIRED`           | Session's TTL has elapsed.                                                   |
 | `INCOMPLETE`        | Finalize called before all declared bytes arrived.                           |
 | `NO_SESSION`        | `session_id` is unknown.                                                     |
@@ -75,10 +76,13 @@ route on any error here, so these codes usually surface in logs, not to end user
 | Code                    | When it fires                                                          |
 | ----------------------- | ---------------------------------------------------------------------- |
 | `GENERATION_FAILED`     | Generic provider failure not covered by a more specific code.          |
+| `NO_PROVIDER_CONFIG`    | No selected OpenAI-compatible connection exists for the site/tool call. |
 | `NO_PROVIDER_KEY`       | No per-user key stored and no env fallback for the selected provider.  |
 | `PROVIDER_AUTH`         | Provider rejected the supplied API key.                                |
 | `PROVIDER_BAD_REQUEST`  | Provider returned 4xx — prompt or size was invalid.                    |
 | `PROVIDER_BAD_RESPONSE` | Provider returned a 2xx with an unexpected shape.                      |
+| `PROVIDER_EDIT_UNSUPPORTED` | Input images were supplied, but the provider/model does not have verified image-input and image-output capabilities. Details include provider, model, observed capabilities, and the required capabilities. |
+| `PROVIDER_MODEL_REQUIRED` | The compatible provider returned no model and the caller did not select one. |
 | `PROVIDER_QUOTA`        | Provider returned 429 / quota error.                                   |
 | `PROVIDER_TIMEOUT`      | Provider timed out.                                                    |
 | `PROVIDER_UNAVAILABLE`  | Provider returned 5xx / circuit open.                                  |

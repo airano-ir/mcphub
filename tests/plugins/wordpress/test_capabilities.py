@@ -31,7 +31,7 @@ def cache():
 @pytest.fixture
 def companion_payload():
     return {
-        "plugin_version": "2.1.0",
+        "plugin_version": "2.20.0",
         "companion": True,
         "user": {
             "id": 1,
@@ -60,6 +60,19 @@ def companion_payload():
             "yoast": False,
             "woocommerce": False,
             "multisite": False,
+            "multilingual": {
+                "provider": "wpml",
+                "can_link": True,
+                "languages": ["en", "fa"],
+                "default": "en",
+                "posts": {"can_link": True},
+                "terms": {"can_link": True},
+            },
+            "meta_passthrough": {
+                "create_post": True,
+                "create_page": True,
+                "update_post": True,
+            },
         },
         "routes": {
             "seo_meta": True,
@@ -67,6 +80,9 @@ def companion_payload():
             "upload_chunk": True,
             "capabilities": True,
             "bulk_meta": False,
+            "post_language": True,
+            "term_language": True,
+            "term_update": True,
             "export": False,
             "cache_purge": False,
             "transient_flush": False,
@@ -93,14 +109,20 @@ async def test_companion_endpoint_parses_and_caches(
     out = json.loads(out_json)
 
     assert out["companion_available"] is True
-    assert out["plugin_version"] == "2.1.0"
+    assert out["plugin_version"] == "2.20.0"
     assert out["cached"] is False
     assert out["user"]["login"] == "mcphub"
     assert out["user"]["capabilities"]["upload_files"] is True
     assert out["user"]["capabilities"]["manage_woocommerce"] is False
     assert out["routes"]["upload_chunk"] is True
     assert out["routes"]["bulk_meta"] is False
+    assert out["routes"]["post_language"] is True
+    assert out["routes"]["term_language"] is True
+    assert out["routes"]["term_update"] is True
     assert out["features"]["rank_math"] is True
+    assert out["features"]["multilingual"]["provider"] == "wpml"
+    assert out["features"]["multilingual"]["terms"]["can_link"] is True
+    assert out["features"]["meta_passthrough"]["create_post"] is True
     assert out["wordpress"]["version"] == "6.5.3"
 
     get_mock.assert_called_once_with("airano-mcp/v1/capabilities", use_custom_namespace=True)
@@ -211,6 +233,30 @@ async def test_extra_caps_preserved_under_extra_key(wp_client, monkeypatch, cach
     out = json.loads(await handler.probe_capabilities())
     assert out["user"]["capabilities"]["upload_files"] is True
     assert out["user"]["extra_capabilities"] == {"some_future_cap": True}
+
+
+@pytest.mark.asyncio
+async def test_future_routes_are_preserved(wp_client, monkeypatch, cache):
+    """Future companion routes should not disappear from the probe payload."""
+    handler = CapabilitiesHandler(wp_client, cache=cache)
+    payload = {
+        "plugin_version": "2.20.0",
+        "user": {
+            "id": 1,
+            "login": "x",
+            "roles": ["administrator"],
+            "capabilities": {"upload_files": True},
+        },
+        "routes": {"post_language": True, "some_future_route": True},
+        "features": {},
+        "wordpress": {},
+    }
+    monkeypatch.setattr(wp_client, "get", AsyncMock(return_value=payload))
+
+    out = json.loads(await handler.probe_capabilities())
+    assert out["routes"]["post_language"] is True
+    assert out["routes"]["some_future_route"] is True
+    assert out["routes"]["bulk_meta"] is False
 
 
 @pytest.mark.asyncio

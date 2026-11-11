@@ -108,12 +108,23 @@ The following items are documented and tracked for improvement:
 - Use firewall rules to limit access
 - Consider VPN for remote access
 
+#### Outbound Requests (SSRF)
+
+Site URLs are user input. Every request to a user-supplied site goes through
+`core/net_guard.py`, which refuses non-public destinations (loopback, RFC 1918,
+link-local / cloud metadata, CGNAT `100.64.0.0/10`, unique-local IPv6,
+IPv4-mapped forms) **at connect time** — so HTTP redirects and DNS rebinding
+cannot reach the hub's internal network either. Admin-owned sites are exempt.
+`ALLOW_PRIVATE_SITE_URLS=true` disables the guard for everyone and is intended
+only for single-tenant self-hosted deployments.
+
 #### Docker Security
 
 - Containers run as non-root user
 - Use read-only volume mounts where possible
 - Keep base images updated
-- Docker socket mount (`/var/run/docker.sock`) is needed for WP-CLI only — remove if not used
+- Do not mount the host Docker socket for WordPress tools; MCPHub uses
+  WordPress Application Passwords plus companion REST routes instead.
 
 #### Monitoring
 

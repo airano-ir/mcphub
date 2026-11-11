@@ -102,13 +102,6 @@ class TestIsPluginPublic:
             os.environ.pop("ENABLED_PLUGINS", None)
             assert is_plugin_public("coolify") is True
 
-    def test_default_directus_and_appwrite_not_public(self):
-        """Directus and Appwrite stay disabled by default."""
-        with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("ENABLED_PLUGINS", None)
-            assert is_plugin_public("directus") is False
-            assert is_plugin_public("appwrite") is False
-
     def test_case_insensitive_check(self):
         """Plugin type check is case insensitive."""
         with patch.dict(os.environ, {"ENABLED_PLUGINS": "wordpress"}):
@@ -142,8 +135,6 @@ class TestSiteApiIntegration:
         assert "wordpress_specialist" in fields
         assert "n8n" in fields
         assert "coolify" in fields
-        assert "directus" not in fields
-        assert "appwrite" not in fields
 
     def test_get_user_plugin_names_filtered(self):
         """get_user_plugin_names only returns enabled plugins."""
@@ -161,8 +152,6 @@ class TestSiteApiIntegration:
         assert "wordpress_specialist" in names
         assert "n8n" in names
         assert "coolify" in names
-        assert "directus" not in names
-        assert "appwrite" not in names
 
     def test_custom_env_changes_fields(self):
         """Custom ENABLED_PLUGINS changes which credential fields are returned."""

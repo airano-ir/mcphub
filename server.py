@@ -3,7 +3,7 @@
 MCP Hub Server
 
 Universal MCP server for managing self-hosted services through plugins.
-Supports WordPress, WooCommerce, Gitea, n8n, Supabase, OpenPanel, Appwrite, and Directus.
+Supports WordPress, WooCommerce, Gitea, n8n, Supabase, OpenPanel, and Coolify.
 
 Usage:
     # With stdio transport (Claude Desktop)
@@ -103,6 +103,7 @@ from core.dashboard.routes import (
     dashboard_api_stats,
     # K.4: Audit Logs routes
     dashboard_audit_logs_list,
+    dashboard_config_health,
     # E.3: Dashboard pages
     dashboard_health_page,
     dashboard_health_projects_partial,
@@ -137,12 +138,20 @@ from core.dashboard.routes import (
     dashboard_user_oauth_clients_create,
     dashboard_user_oauth_clients_delete,
     dashboard_user_oauth_clients_list,
+    register_dashboard_routes,
 )
 from core.database import get_database, initialize_database
 from core.i18n import detect_language, get_all_translations
 
 # OAuth and CSRF (Phase E)
 from core.oauth import get_csrf_manager
+from core.project_identifiers import (
+    IdentifierParseError,
+    normalize_tool_name,
+    parse_tool_identifier,
+    plugin_type_for_tool,
+)
+from core.tool_authorization import is_system_tool_name, resolve_required_scope
 from plugins.ai_image.providers.openrouter import api_openrouter_models
 
 # Configure logging
@@ -553,33 +562,9 @@ def extract_plugin_type_from_tool(tool_name: str) -> str | None:
     Returns:
         Plugin type string or None for system tools
     """
-    # Remove MCP namespace prefix if present (e.g., "mcp__mcp-hub__wordpress_...")
-    clean_name = tool_name
-    if tool_name.startswith("mcp__") and "__" in tool_name[5:]:
-        # Strip "mcp__{server-name}__" prefix
-        clean_name = tool_name.split("__", 2)[-1]
-
-    # Check for plugin types (order matters - check more specific first).
-    # The two-word ``wordpress_specialist`` variant must be checked
-    # before the bare ``wordpress_`` prefix. (``wordpress_advanced`` was
-    # sunset in F.19.3.2-.3.)
-    if clean_name.startswith("wordpress_specialist_"):
-        return "wordpress_specialist"
-    elif clean_name.startswith("wordpress_") or clean_name.startswith("woocommerce_"):
-        return "wordpress"
-    elif clean_name.startswith("gitea_"):
-        return "gitea"
-    elif clean_name.startswith("n8n_"):
-        return "n8n"
-    elif clean_name.startswith("supabase_"):
-        return "supabase"
-    elif clean_name.startswith("openpanel_"):
-        return "openpanel"
-    elif clean_name.startswith("ghost_"):
-        return "ghost"
-
-    # System tools (no plugin type)
-    return None
+    # Plugin classification is derived from the registered plugin types with
+    # longest-prefix matching. System tools intentionally return None.
+    return plugin_type_for_tool(tool_name)
 
 
 def check_tool_visibility(tool_name: str, api_key_project_id: str) -> bool:
@@ -621,63 +606,15 @@ def check_tool_visibility(tool_name: str, api_key_project_id: str) -> bool:
     if tool_plugin_type is None:
         return False
 
-    # Extract plugin type from API key project_id
-    # project_id format: "{plugin_type}_{site_id}" e.g. "wordpress_site1" or
-    # "wordpress_specialist_site1".
-    # IMPORTANT: list multi-word variants BEFORE the bare ``wordpress`` so the
-    # prefix match doesn't claim them as plain wordpress.
-    known_plugin_types = [
-        "wordpress_specialist",
-        "wordpress",
-        "gitea",
-        "n8n",
-        "supabase",
-        "ghost",
-    ]
+    # Project identifiers use the same registered longest-prefix parser as
+    # tool names. Invalid identifiers fail closed instead of becoming a
+    # guessed first-underscore plugin type.
+    try:
+        key_plugin_type = parse_tool_identifier(api_key_project_id).plugin_type
+    except IdentifierParseError:
+        return False
 
-    key_plugin_type = None
-    for ptype in known_plugin_types:
-        if api_key_project_id.startswith(ptype + "_"):
-            key_plugin_type = ptype
-            break
-
-    if key_plugin_type is None:
-        # Fallback: extract first part before underscore
-        if "_" in api_key_project_id:
-            key_plugin_type = api_key_project_id.split("_")[0]
-        else:
-            key_plugin_type = api_key_project_id
-
-    # Check if plugin types match
     return tool_plugin_type == key_plugin_type
-
-
-def determine_required_scope(tool_name: str) -> str:
-    """
-    Determine required scope for a tool.
-
-    Read operations: list, get, check
-    Write operations: create, update, delete, revoke, rotate
-    Admin operations: manage keys, system operations
-
-    Returns:
-        "read", "write", or "admin"
-    """
-    tool_lower = tool_name.lower()
-
-    # Admin operations
-    if any(x in tool_lower for x in ["manage_api_keys", "reset_rate_limit", "export_"]):
-        return "admin"
-
-    # Write operations
-    if any(
-        x in tool_lower
-        for x in ["create", "update", "delete", "revoke", "rotate", "upload", "flush"]
-    ):
-        return "write"
-
-    # Everything else is read
-    return "read"
 
 
 class UserAuthMiddleware(Middleware):
@@ -742,45 +679,23 @@ class UserAuthMiddleware(Middleware):
             except Exception as e:
                 logger.warning(f"Failed to extract tool name: {e}")
 
-            project_id = extract_project_from_tool(tool_name)
-            required_scope = determine_required_scope(tool_name)
+            try:
+                clean_tool_name = normalize_tool_name(tool_name)
+                required_scope = resolve_required_scope(clean_tool_name)
+            except (IdentifierParseError, ValueError):
+                logger.warning("Tool authorization metadata unavailable", exc_info=True)
+                raise ToolError("Tool authorization policy unavailable")
+
+            project_id = extract_project_from_tool(clean_tool_name)
 
             # Determine if this is a unified tool (takes site parameter)
             # Unified tools will validate project access at execution time
             # Note: FastMCP adds namespace prefix to tool names
 
-            # Check if this is a system tool first
-            SYSTEM_TOOLS = [
-                "list_projects",
-                "get_project_info",
-                "check_all_projects_health",
-                "get_project_health",
-                "get_system_metrics",
-                "get_system_uptime",
-                "get_rate_limit_stats",
-                "export_health_metrics",
-                "manage_api_keys_list",
-                "manage_api_keys_get_info",
-            ]
-            is_system_tool = any(tool_name.endswith(st) for st in SYSTEM_TOOLS)
-
-            # FALLBACK: If extraction fails, assume unified tool for safety
-            # This allows per-project API keys to work even if extraction fails
-            if tool_name == "unknown":
-                is_unified_tool = True
-            else:
-                # All plugin tools that have a 'site' parameter are unified tools
-                # They defer project access check to execution time
-                # Clean any MCP namespace prefix before checking
-                check_name = tool_name
-                if tool_name.startswith("mcp__") and "__" in tool_name[5:]:
-                    check_name = tool_name.split("__", 2)[-1]
-                is_unified_tool = (
-                    check_name.startswith("wordpress_")
-                    or check_name.startswith("wordpress_specialist_")
-                    or check_name.startswith("woocommerce_")
-                    or check_name.startswith("gitea_")
-                )
+            # System tools are identified by exact canonical names. Unknown
+            # tools already failed metadata resolution above; never fail open.
+            is_system_tool = is_system_tool_name(clean_tool_name)
+            is_unified_tool = plugin_type_for_tool(clean_tool_name) is not None
 
             logger.debug(
                 f"Auth check: tool={tool_name}, project={project_id}, "
@@ -924,10 +839,11 @@ class UserAuthMiddleware(Middleware):
         except ToolError:
             # Re-raise ToolError as-is (already has proper message)
             raise
-        except Exception as e:
-            # Catch any unexpected errors during authentication
-            logger.error(f"Authentication error: {e}", exc_info=True)
-            raise ToolError(f"Authentication error: {str(e)}")
+        except Exception as exc:
+            # Do not expose upstream exception text through the MCP error
+            # surface or logs; it may contain credentials or response bodies.
+            logger.error("Authentication service failure: %s", type(exc).__name__)
+            raise ToolError("Authentication service unavailable") from exc
 
 
 # Add authentication middleware to MCP server
@@ -957,48 +873,35 @@ class AuditLoggingMiddleware(Middleware):
         Returns:
             Result from the tool
         """
-        # Access tool information from context.message.params
+        # Access only non-sensitive tool metadata from the call envelope.
         tool_name = "unknown"
-        tool_args = {}
+        site = None
 
         try:
             if hasattr(context, "message") and hasattr(context.message, "params"):
                 params = context.message.params
                 tool_name = params.name if hasattr(params, "name") else "unknown"
-                tool_args = params.arguments if hasattr(params, "arguments") else {}
-        except Exception as e:
-            logger.warning(f"Failed to extract tool info from context: {e}")
-
-        # Extract site info from unified tools
-        site = tool_args.get("site") if "site" in tool_args else None
-
-        # Extract project_id from per-site tools
-        project_id = None
-        if "_site" in tool_name or "_" in tool_name:
-            # Per-site tool format: wordpress_site1_get_post
-            parts = tool_name.split("_")
-            if len(parts) >= 2 and parts[1].startswith("site"):
-                project_id = f"{parts[0]}_{parts[1]}"
+                arguments = params.arguments if hasattr(params, "arguments") else {}
+                candidate_site = arguments.get("site") if isinstance(arguments, dict) else None
+                if isinstance(candidate_site, str) and len(candidate_site) <= 128:
+                    site = candidate_site
+        except Exception:
+            logger.warning("Failed to extract tool metadata from context")
 
         start_time = time.time()
-        error_msg = None
-        result_summary = None
+        error_type = None
+        result_type = None
 
         try:
             # Call the tool
             result = await call_next(context)
 
-            # Extract brief summary from result
-            if isinstance(result, str):
-                # Limit summary to first 100 characters
-                result_summary = result[:100] + "..." if len(result) > 100 else result
-            else:
-                result_summary = f"Result type: {type(result).__name__}"
-
+            # Record only the result type; result contents may contain secrets.
+            result_type = type(result).__name__
             return result
 
-        except Exception as e:
-            error_msg = str(e)
+        except Exception as exc:
+            error_type = type(exc).__name__
             raise
 
         finally:
@@ -1010,10 +913,10 @@ class AuditLoggingMiddleware(Middleware):
                 audit_logger.log_tool_call(
                     tool_name=tool_name,
                     site=site,
-                    project_id=project_id,
-                    params=tool_args,
-                    result_summary=result_summary,
-                    error=error_msg,
+                    project_id=None,
+                    params=None,
+                    result_summary=result_type,
+                    error=error_type,
                     duration_ms=duration_ms,
                 )
             except Exception as log_error:
@@ -1078,15 +981,8 @@ class RateLimitMiddleware(Middleware):
                 params = context.message.params
                 tool_name = params.name if hasattr(params, "name") else "unknown"
 
-                # Determine plugin type from tool name
-                # Clean any MCP namespace prefix
-                tn = tool_name
-                if tool_name.startswith("mcp__") and "__" in tool_name[5:]:
-                    tn = tool_name.split("__", 2)[-1]
-                if tn.startswith("wordpress_"):
-                    plugin_type = "wordpress"
-                elif tool_name.startswith("woocommerce_"):
-                    plugin_type = "woocommerce"
+                # Resolve plugin type from canonical registered metadata.
+                plugin_type = plugin_type_for_tool(tool_name)
         except Exception as e:
             logger.warning(f"Failed to extract tool info: {e}")
 
@@ -1172,24 +1068,16 @@ class HealthMetricsMiddleware(Middleware):
         except Exception as e:
             logger.warning(f"Failed to extract tool info: {e}")
 
-        # Extract project_id from unified tools (site parameter)
-        if "site" in tool_args:
+        # Resolve unified-tool site aliases through canonical plugin metadata.
+        if isinstance(tool_args, dict) and "site" in tool_args:
             site = tool_args["site"]
-            # Resolve alias to full_id using site_manager
-            try:
-                # Try to determine plugin type from tool name
-                plugin_type = tool_name.split("_")[0] if "_" in tool_name else "wordpress"
-                site_config = site_manager.get_site_config(plugin_type, site)
-                project_id = site_config.get_full_id()
-            except (ValueError, Exception):
-                # Fallback to site value if resolution fails
-                pass
-
-        # Extract project_id from per-site tools (tool name)
-        if not project_id and "_" in tool_name:
-            parts = tool_name.split("_")
-            if len(parts) >= 2 and parts[1].startswith("site"):
-                project_id = f"{parts[0]}_{parts[1]}"
+            plugin_type = plugin_type_for_tool(tool_name)
+            if plugin_type and isinstance(site, str):
+                try:
+                    site_config = site_manager.get_site_config(plugin_type, site)
+                    project_id = site_config.get_full_id()
+                except ValueError:
+                    project_id = None
 
         # Skip tracking for system tools (no project_id)
         if not project_id:
@@ -1205,8 +1093,8 @@ class HealthMetricsMiddleware(Middleware):
             success = True
             return result
 
-        except Exception as e:
-            error_msg = str(e)
+        except Exception as exc:
+            error_msg = type(exc).__name__
             raise
 
         finally:
@@ -1242,6 +1130,17 @@ except Exception as e:
     logger.info("User auth not initialized (OAuth not configured): %s", e)
 
 
+# === SITE OAUTH MANAGER (E.3+: OAuth site-connection flow) ===
+
+try:
+    from core.site_oauth import initialize_site_oauth_manager
+
+    initialize_site_oauth_manager()
+    logger.info("Site OAuth manager initialized")
+except Exception as e:
+    logger.info("Site OAuth manager not initialized (Google OAuth not configured): %s", e)
+
+
 # === ENCRYPTION KEY VALIDATION (E.1: Credential Encryption) ===
 
 _encryption_key_raw = os.getenv("ENCRYPTION_KEY", "")
@@ -1272,7 +1171,17 @@ if _encryption_key_raw:
         )
         sys.exit(1)
 else:
-    logger.info("ENCRYPTION_KEY not set — user site management disabled")
+    logger.warning("ENCRYPTION_KEY not set — user site management disabled")
+
+# Consolidated, operator-facing config-health warnings (missing MASTER_API_KEY,
+# ephemeral session secret, disabled site management, etc.). Logged once here
+# and surfaced in the admin dashboard banner via /api/dashboard/config-health.
+try:
+    from core.config_health import log_startup_config_health
+
+    log_startup_config_health(logger)
+except Exception as e:  # never let a diagnostic block startup
+    logger.debug("config health check skipped: %s", e)
 
 
 # === USER API KEY MANAGER (E.3: Site Management) ===
@@ -1726,6 +1635,32 @@ def create_dynamic_tool(name: str, description: str, handler, input_schema: dict
     return dynamic_wrapper
 
 
+def register_tool_on(mcp_instance, tool_def, *, handler=None, input_schema=None) -> None:
+    """Register a registry ToolDefinition on a FastMCP instance with annotations.
+
+    Every FastMCP endpoint (``/mcp``, ``/{plugin}/mcp``, ``/project/{id}/mcp``)
+    goes through here, so they all emit the same ``title`` and MCP safety
+    hints (readOnlyHint / destructiveHint / idempotentHint) as the per-user
+    endpoint — see ``core/tool_annotations.py``.
+
+    Args:
+        mcp_instance: FastMCP server to register on.
+        tool_def: Registry tool definition.
+        handler: Optional replacement handler (e.g. site-locked).
+        input_schema: Optional replacement schema (e.g. without ``site``).
+    """
+    from core.tool_annotations import tool_annotations
+
+    wrapped = create_dynamic_tool(
+        tool_def.name,
+        tool_def.description,
+        handler if handler is not None else tool_def.handler,
+        input_schema if input_schema is not None else tool_def.input_schema,
+    )
+    annotations = tool_annotations(tool_def)
+    mcp_instance.tool(title=annotations["title"], annotations=annotations)(wrapped)
+
+
 def register_project_tools():
     """
     Dynamically register all project tools from plugins.
@@ -1742,157 +1677,14 @@ def register_project_tools():
 
     logger.info("Generating tools with ToolGenerator...")
 
-    from plugins.wordpress.plugin import WordPressPlugin
+    # One pass per registered plugin type: registering a plugin in
+    # plugins/__init__.py is now sufficient for its tools to appear on every
+    # endpoint (see core/tool_registration.py for why this replaced the old
+    # hand-written per-plugin blocks).
+    from core.tool_registration import register_all_plugin_tools
+    from plugins import registry as plugin_registry
 
-    # Generate tools for WordPress
-    logger.info("Generating WordPress tools from plugin specifications...")
-    try:
-        wordpress_tools = tool_generator.generate_tools(WordPressPlugin, "wordpress")
-        logger.info(f"Generated {len(wordpress_tools)} WordPress tools from ToolGenerator")
-
-        # Register WordPress tools in ToolRegistry
-        for tool_def in wordpress_tools:
-            try:
-                tool_registry.register(tool_def)
-            except Exception as e:
-                logger.error(f"Failed to register WordPress tool {tool_def.name}: {e}")
-
-    except Exception as e:
-        logger.error(f"Failed to generate WordPress tools: {e}", exc_info=True)
-
-    # Generate tools for WooCommerce (Phase D.1 - Split from WordPress Core)
-    logger.info("Generating WooCommerce tools from plugin specifications...")
-    try:
-        from plugins.woocommerce.plugin import WooCommercePlugin
-
-        woocommerce_tools = tool_generator.generate_tools(WooCommercePlugin, "woocommerce")
-        logger.info(f"Generated {len(woocommerce_tools)} WooCommerce tools from ToolGenerator")
-
-        # Register WooCommerce tools in ToolRegistry
-        for tool_def in woocommerce_tools:
-            try:
-                tool_registry.register(tool_def)
-            except Exception as e:
-                logger.error(f"Failed to register WooCommerce tool {tool_def.name}: {e}")
-
-    except Exception as e:
-        logger.error(f"Failed to generate WooCommerce tools: {e}", exc_info=True)
-
-    # F.19.1: Generate tools for WordPress Specialist (companion-backed,
-    # no Docker socket). Each registered plugin needs its own explicit
-    # tool-generation pass; the plugin registry alone doesn't trigger
-    # ToolGenerator. (The legacy wordpress_advanced plugin was sunset
-    # in F.19.3.2-.3 — wordpress_specialist now owns db inspection +
-    # bulk fan-out via companion v2.18.0.)
-    logger.info("Generating WordPress Specialist tools from plugin specifications...")
-    try:
-        from plugins.wordpress_specialist.plugin import WordPressSpecialistPlugin
-
-        wordpress_specialist_tools = tool_generator.generate_tools(
-            WordPressSpecialistPlugin, "wordpress_specialist"
-        )
-        logger.info(
-            f"Generated {len(wordpress_specialist_tools)} WordPress Specialist tools from ToolGenerator"
-        )
-
-        for tool_def in wordpress_specialist_tools:
-            try:
-                tool_registry.register(tool_def)
-            except Exception as e:
-                logger.error(f"Failed to register WordPress Specialist tool {tool_def.name}: {e}")
-
-    except Exception as e:
-        logger.error(f"Failed to generate WordPress Specialist tools: {e}", exc_info=True)
-
-    # Generate tools for Gitea (Phase C)
-    logger.info("Generating Gitea tools from plugin specifications...")
-    try:
-        from plugins.gitea.plugin import GiteaPlugin
-
-        gitea_tools = tool_generator.generate_tools(GiteaPlugin, "gitea")
-        logger.info(f"Generated {len(gitea_tools)} Gitea tools from ToolGenerator")
-
-        # Register Gitea tools in ToolRegistry
-        for tool_def in gitea_tools:
-            try:
-                tool_registry.register(tool_def)
-            except Exception as e:
-                logger.error(f"Failed to register Gitea tool {tool_def.name}: {e}")
-
-    except Exception as e:
-        logger.error(f"Failed to generate Gitea tools: {e}", exc_info=True)
-
-    # Generate tools for n8n (Phase F)
-    logger.info("Generating n8n tools from plugin specifications...")
-    try:
-        from plugins.n8n.plugin import N8nPlugin
-
-        n8n_tools = tool_generator.generate_tools(N8nPlugin, "n8n")
-        logger.info(f"Generated {len(n8n_tools)} n8n tools from ToolGenerator")
-
-        # Register n8n tools in ToolRegistry
-        for tool_def in n8n_tools:
-            try:
-                tool_registry.register(tool_def)
-            except Exception as e:
-                logger.error(f"Failed to register n8n tool {tool_def.name}: {e}")
-
-    except Exception as e:
-        logger.error(f"Failed to generate n8n tools: {e}", exc_info=True)
-
-    # Generate tools for Supabase (Phase G - Self-Hosted)
-    logger.info("Generating Supabase tools from plugin specifications...")
-    try:
-        from plugins.supabase.plugin import SupabasePlugin
-
-        supabase_tools = tool_generator.generate_tools(SupabasePlugin, "supabase")
-        logger.info(f"Generated {len(supabase_tools)} Supabase tools from ToolGenerator")
-
-        # Register Supabase tools in ToolRegistry
-        for tool_def in supabase_tools:
-            try:
-                tool_registry.register(tool_def)
-            except Exception as e:
-                logger.error(f"Failed to register Supabase tool {tool_def.name}: {e}")
-
-    except Exception as e:
-        logger.error(f"Failed to generate Supabase tools: {e}", exc_info=True)
-
-    # Generate tools for OpenPanel (Phase H - Product Analytics)
-    logger.info("Generating OpenPanel tools from plugin specifications...")
-    try:
-        from plugins.openpanel.plugin import OpenPanelPlugin
-
-        openpanel_tools = tool_generator.generate_tools(OpenPanelPlugin, "openpanel")
-        logger.info(f"Generated {len(openpanel_tools)} OpenPanel tools from ToolGenerator")
-
-        # Register OpenPanel tools in ToolRegistry
-        for tool_def in openpanel_tools:
-            try:
-                tool_registry.register(tool_def)
-            except Exception as e:
-                logger.error(f"Failed to register OpenPanel tool {tool_def.name}: {e}")
-
-    except Exception as e:
-        logger.error(f"Failed to generate OpenPanel tools: {e}", exc_info=True)
-
-    # Generate tools for Coolify (Phase F.17 - Deployment Management)
-    logger.info("Generating Coolify tools from plugin specifications...")
-    try:
-        from plugins.coolify.plugin import CoolifyPlugin
-
-        coolify_tools = tool_generator.generate_tools(CoolifyPlugin, "coolify")
-        logger.info(f"Generated {len(coolify_tools)} Coolify tools from ToolGenerator")
-
-        # Register Coolify tools in ToolRegistry
-        for tool_def in coolify_tools:
-            try:
-                tool_registry.register(tool_def)
-            except Exception as e:
-                logger.error(f"Failed to register Coolify tool {tool_def.name}: {e}")
-
-    except Exception as e:
-        logger.error(f"Failed to generate Coolify tools: {e}", exc_info=True)
+    register_all_plugin_tools(tool_generator, tool_registry, plugin_registry)
 
     logger.info(f"Registered {tool_registry.get_count()} tools in ToolRegistry")
 
@@ -1902,13 +1694,8 @@ def register_project_tools():
 
     for tool_def in tool_registry.get_all():
         try:
-            # Create a wrapper function compatible with FastMCP
-            wrapped_tool = create_dynamic_tool(
-                tool_def.name, tool_def.description, tool_def.handler, tool_def.input_schema
-            )
-
-            # Register with FastMCP
-            mcp.tool()(wrapped_tool)
+            # Wrap for FastMCP and register with title + safety annotations
+            register_tool_on(mcp, tool_def)
 
             fastmcp_count += 1
             logger.debug(f"Registered tool with FastMCP: {tool_def.name}")
@@ -3233,6 +3020,13 @@ async def _get_endpoints_impl() -> dict:
                 "require_master_key": False,
                 "plugin_types": ["openpanel"],
             },
+            {
+                "path": "/cloudflare/mcp",
+                "name": "Cloudflare Manager",
+                "description": "Cloudflare DNS, Workers, KV, R2 and cache",
+                "require_master_key": False,
+                "plugin_types": ["cloudflare"],
+            },
         ]
         project_endpoints = []
         for site_info in all_sites:
@@ -3899,10 +3693,7 @@ def create_wordpress_mcp():
         # Include wordpress_ tools only (woocommerce_ moved to /woocommerce/mcp in Phase D.1)
         if tool_name.startswith("wordpress_"):
             try:
-                wrapped = create_dynamic_tool(
-                    tool_def.name, tool_def.description, tool_def.handler, tool_def.input_schema
-                )
-                wp_mcp.tool()(wrapped)
+                register_tool_on(wp_mcp, tool_def)
                 count += 1
             except Exception as e:
                 logger.error(f"Failed to register {tool_def.name}: {e}")
@@ -3947,10 +3738,7 @@ def create_wordpress_specialist_mcp():
         tool_name = tool_def.name
         if tool_name.startswith("wordpress_specialist_"):
             try:
-                wrapped = create_dynamic_tool(
-                    tool_def.name, tool_def.description, tool_def.handler, tool_def.input_schema
-                )
-                wp_spec_mcp.tool()(wrapped)
+                register_tool_on(wp_spec_mcp, tool_def)
                 count += 1
             except Exception as e:
                 logger.error(f"Failed to register {tool_def.name}: {e}")
@@ -3980,10 +3768,7 @@ def create_woocommerce_mcp():
     for tool_def in tool_registry.get_all():
         if tool_def.name.startswith("woocommerce_"):
             try:
-                wrapped = create_dynamic_tool(
-                    tool_def.name, tool_def.description, tool_def.handler, tool_def.input_schema
-                )
-                woo_mcp.tool()(wrapped)
+                register_tool_on(woo_mcp, tool_def)
                 count += 1
             except Exception as e:
                 logger.error(f"Failed to register {tool_def.name}: {e}")
@@ -4022,10 +3807,7 @@ def create_gitea_mcp():
     for tool_def in tool_registry.get_all():
         if tool_def.name.startswith("gitea_"):
             try:
-                wrapped = create_dynamic_tool(
-                    tool_def.name, tool_def.description, tool_def.handler, tool_def.input_schema
-                )
-                gitea_mcp.tool()(wrapped)
+                register_tool_on(gitea_mcp, tool_def)
                 count += 1
             except Exception as e:
                 logger.error(f"Failed to register {tool_def.name}: {e}")
@@ -4064,10 +3846,7 @@ def create_openpanel_mcp():
     for tool_def in tool_registry.get_all():
         if tool_def.name.startswith("openpanel_"):
             try:
-                wrapped = create_dynamic_tool(
-                    tool_def.name, tool_def.description, tool_def.handler, tool_def.input_schema
-                )
-                openpanel_mcp.tool()(wrapped)
+                register_tool_on(openpanel_mcp, tool_def)
                 count += 1
             except Exception as e:
                 logger.error(f"Failed to register {tool_def.name}: {e}")
@@ -4106,10 +3885,7 @@ def create_n8n_mcp():
     for tool_def in tool_registry.get_all():
         if tool_def.name.startswith("n8n_"):
             try:
-                wrapped = create_dynamic_tool(
-                    tool_def.name, tool_def.description, tool_def.handler, tool_def.input_schema
-                )
-                n8n_mcp.tool()(wrapped)
+                register_tool_on(n8n_mcp, tool_def)
                 count += 1
             except Exception as e:
                 logger.error(f"Failed to register {tool_def.name}: {e}")
@@ -4148,10 +3924,7 @@ def create_supabase_mcp():
     for tool_def in tool_registry.get_all():
         if tool_def.name.startswith("supabase_"):
             try:
-                wrapped = create_dynamic_tool(
-                    tool_def.name, tool_def.description, tool_def.handler, tool_def.input_schema
-                )
-                supabase_mcp.tool()(wrapped)
+                register_tool_on(supabase_mcp, tool_def)
                 count += 1
             except Exception as e:
                 logger.error(f"Failed to register {tool_def.name}: {e}")
@@ -4254,10 +4027,9 @@ def create_project_mcp(project_id: str, plugin_type: str, site_id: str, alias: s
             project_schema["required"].remove("site")
 
         try:
-            wrapped = create_dynamic_tool(
-                tool_def.name, tool_def.description, site_locked_handler, project_schema
+            register_tool_on(
+                project_mcp, tool_def, handler=site_locked_handler, input_schema=project_schema
             )
-            project_mcp.tool()(wrapped)
             count += 1
         except Exception as e:
             logger.error(f"Failed to register {tool_def.name} for project {project_id}: {e}")
@@ -4319,6 +4091,11 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
     from starlette.middleware.base import BaseHTTPMiddleware
     from starlette.responses import Response
     from starlette.routing import Mount, Route
+
+    # Dashboard API/custom routes live on the main FastMCP instance.  Register
+    # them before materialising ``http_app``; FastMCP 3.x snapshots the route
+    # table when the ASGI app is created.
+    register_dashboard_routes(mcp)
 
     # ========================================
     # OAuth 401 Middleware for MCP Endpoints
@@ -4805,6 +4582,7 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
         Route("/dashboard-legacy/health", dashboard_health_page, methods=["GET"]),
         Route("/api/dashboard/health", dashboard_api_health, methods=["GET"]),
         Route("/api/dashboard/health/projects", dashboard_health_projects_partial, methods=["GET"]),
+        Route("/api/dashboard/config-health", dashboard_config_health, methods=["GET"]),
         # Dashboard Settings routes (Phase K.5 + 4C.3)
         Route("/dashboard-legacy/settings", dashboard_settings_page, methods=["GET"]),
         Route("/api/dashboard/settings", api_get_settings, methods=["GET"]),
@@ -4916,7 +4694,15 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
     try:
         from starlette.routing import Route
 
+        from core.gitea_intake import user_gitea_upload_handler
+        from core.media_intake import (
+            admin_media_browser_page,
+            admin_media_upload_handler,
+            user_media_browser_page,
+            user_media_upload_handler,
+        )
         from core.user_endpoints import user_mcp_handler
+        from core.zip_install_intake import user_zip_install_upload_handler
 
         routes.append(
             Route(
@@ -4926,9 +4712,67 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
                 name="user_mcp_endpoint",
             )
         )
+        routes.append(
+            Route(
+                "/admin/media-upload/{session_id}",
+                endpoint=admin_media_upload_handler,
+                methods=["PUT", "POST"],
+                name="admin_media_upload_endpoint",
+            )
+        )
+        routes.append(
+            Route(
+                "/admin/media-upload/{session_id}/browser",
+                endpoint=admin_media_browser_page,
+                methods=["GET"],
+                name="admin_media_browser_endpoint",
+            )
+        )
+        routes.append(
+            Route(
+                "/u/{user_id}/{alias}/media-upload/{session_id}",
+                endpoint=user_media_upload_handler,
+                methods=["PUT", "POST"],
+                name="user_media_upload_endpoint",
+            )
+        )
+        routes.append(
+            Route(
+                "/u/{user_id}/{alias}/media-upload/{session_id}/browser",
+                endpoint=user_media_browser_page,
+                methods=["GET"],
+                name="user_media_browser_endpoint",
+            )
+        )
+        routes.append(
+            Route(
+                "/u/{user_id}/{alias}/zip-install-upload/{session_id}",
+                endpoint=user_zip_install_upload_handler,
+                methods=["PUT", "POST"],
+                name="user_zip_install_upload_endpoint",
+            )
+        )
+        routes.append(
+            Route(
+                "/u/{user_id}/{alias}/gitea-upload/{session_id}",
+                endpoint=user_gitea_upload_handler,
+                methods=["PUT", "POST"],
+                name="user_gitea_upload_endpoint",
+            )
+        )
         logger.info("Per-user MCP endpoint registered at /u/{user_id}/{alias}/mcp")
+        logger.info(
+            "Per-user media intake registered at /u/{user_id}/{alias}/media-upload/{session_id}"
+        )
+        logger.info(
+            "Per-user zip install intake registered at "
+            "/u/{user_id}/{alias}/zip-install-upload/{session_id}"
+        )
+        logger.info(
+            "Per-user Gitea intake registered at " "/u/{user_id}/{alias}/gitea-upload/{session_id}"
+        )
     except Exception as e:
-        logger.warning("Per-user MCP endpoint not registered: %s", e)
+        logger.warning("Per-user MCP/media endpoints not registered: %s", e)
 
     # Static files (favicon, logo, SPA dist)
     _static_dir = os.path.join(os.path.dirname(__file__), "core", "templates", "static")
@@ -4967,17 +4811,21 @@ def create_multi_endpoint_app(transport: str = "streamable-http"):
     except Exception as e:  # pragma: no cover — defensive
         logger.warning("Track G SPA routes not registered: %s", e)
 
-    # Catch-all for unmatched GET requests — serve the same React shell as the
-    # public landing page so the SPA NotFound route owns the visual treatment.
+    # Main admin endpoint — the FastMCP app (its ~40 GET custom_routes, incl.
+    # /api/sites/{id}/ai-providers, live here). Registered BEFORE the catch-all
+    # so its GET custom_routes are reachable; the catch-all only handles the
+    # genuinely-unmatched GETs that fall past both main_app and the explicit
+    # /dashboard / /api/me / legacy top-level routes above.
+    routes.append(Mount("/", app=main_app, name="mcp_admin"))
+
+    # Catch-all for unmatched GET requests — serve the React shell as the
+    # public 404 so react-router's NotFound owns the visual treatment.
     async def catch_all_404(request):
         from core.dashboard.spa_routes import serve_spa
 
         return await serve_spa(request, status_code=404)
 
     routes.append(Route("/{path:path}", catch_all_404, methods=["GET"]))
-
-    # Main admin endpoint (must be last - catches all remaining non-GET routes)
-    routes.append(Mount("/", app=main_app, name="mcp_admin"))
 
     # Add middlewares
     middleware = [

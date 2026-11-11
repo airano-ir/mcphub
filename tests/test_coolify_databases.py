@@ -4,6 +4,7 @@ Tests for Coolify Databases Handler
 Unit tests with mocked HTTP responses.
 """
 
+import base64
 import json
 from unittest.mock import AsyncMock
 
@@ -50,6 +51,18 @@ class TestDatabaseToolSpecs:
         for db_type in ["postgresql", "mysql", "mariadb", "mongodb", "redis", "clickhouse"]:
             assert f"create_{db_type}" in names
 
+    def test_update_database_exposes_config_fields(self):
+        """update_database should expose Coolify config and resource limit fields."""
+        spec = next(
+            s for s in databases.get_tool_specifications() if s["name"] == "update_database"
+        )
+        props = spec["schema"]["properties"]
+
+        assert "redis_conf" in props
+        assert "postgres_conf" in props
+        assert "limits_memory" in props
+        assert "limits_cpus" in props
+
     def test_scope_distribution(self):
         """Test correct scope assignments."""
         specs = databases.get_tool_specifications()
@@ -83,7 +96,13 @@ class TestDatabaseHandlers:
     @pytest.mark.asyncio
     async def test_get_database(self, client):
         """Test get_database handler."""
-        mock_db = {"uuid": "db-1", "name": "postgres-main", "type": "postgresql"}
+        conf = "max_connections = 200\n"
+        mock_db = {
+            "uuid": "db-1",
+            "name": "postgres-main",
+            "type": "postgresql",
+            "postgres_conf": base64.b64encode(conf.encode()).decode(),
+        }
         client.get_database = AsyncMock(return_value=mock_db)
 
         result = await databases.get_database(client, uuid="db-1")
@@ -91,6 +110,8 @@ class TestDatabaseHandlers:
 
         assert data["success"] is True
         assert data["database"]["name"] == "postgres-main"
+        assert data["database"]["postgres_conf"] == conf
+        assert data["database"]["postgres_conf_base64"] == mock_db["postgres_conf"]
         client.get_database.assert_called_once_with("db-1")
 
     @pytest.mark.asyncio
@@ -105,6 +126,27 @@ class TestDatabaseHandlers:
         assert data["success"] is True
         assert "updated" in data["message"].lower()
         client.update_database.assert_called_once_with("db-1", {"name": "renamed-db"})
+
+    @pytest.mark.asyncio
+    async def test_update_database_encodes_config_fields(self, client):
+        """Database *_conf fields should be accepted as plain text and sent as base64."""
+        redis_conf = "appendonly yes\n"
+        encoded = base64.b64encode(redis_conf.encode()).decode()
+        client.update_database = AsyncMock(return_value={"uuid": "db-1", "redis_conf": encoded})
+
+        result = await databases.update_database(
+            client,
+            uuid="db-1",
+            redis_conf=redis_conf,
+            limits_memory="256m",
+        )
+        data = json.loads(result)
+
+        client.update_database.assert_called_once_with(
+            "db-1", {"redis_conf": encoded, "limits_memory": "256m"}
+        )
+        assert data["database"]["redis_conf"] == redis_conf
+        assert data["database"]["redis_conf_base64"] == encoded
 
     @pytest.mark.asyncio
     async def test_delete_database(self, client):
@@ -224,14 +266,19 @@ class TestDatabaseHandlers:
     @pytest.mark.asyncio
     async def test_list_backup_executions(self, client):
         """Test list_backup_executions handler."""
-        mock_executions = [
-            {"id": 1, "database_uuid": "db-1", "status": "success"},
-            {"id": 2, "database_uuid": "db-1", "status": "failed"},
-        ]
+        mock_executions = {
+            "executions": [
+                {"uuid": "exec-1", "status": "success"},
+                {"uuid": "exec-2", "status": "failed"},
+            ]
+        }
         client.list_backup_executions = AsyncMock(return_value=mock_executions)
 
-        result = await databases.list_backup_executions(client)
+        result = await databases.list_backup_executions(
+            client, uuid="db-1", scheduled_backup_uuid="sb-1"
+        )
         data = json.loads(result)
 
         assert data["success"] is True
         assert data["count"] == 2
+        client.list_backup_executions.assert_called_once_with("db-1", "sb-1")

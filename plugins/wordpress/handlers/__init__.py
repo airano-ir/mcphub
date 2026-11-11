@@ -29,8 +29,19 @@ from plugins.wordpress.handlers.coupons import CouponsHandler
 from plugins.wordpress.handlers.coupons import get_tool_specifications as get_coupons_specs
 from plugins.wordpress.handlers.customers import CustomersHandler
 from plugins.wordpress.handlers.customers import get_tool_specifications as get_customers_specs
+from plugins.wordpress.handlers.diagnostics import DiagnosticsHandler, StoreDiagnosticsHandler
+from plugins.wordpress.handlers.diagnostics import (
+    get_tool_specifications as get_diagnostics_specs,
+)
+from plugins.wordpress.handlers.diagnostics import (
+    get_wc_tool_specifications as get_store_diagnostics_specs,
+)
 from plugins.wordpress.handlers.export import ExportHandler
 from plugins.wordpress.handlers.export import get_tool_specifications as get_export_specs
+from plugins.wordpress.handlers.legacy_admin import LegacyAdminHandler
+from plugins.wordpress.handlers.legacy_admin import (
+    get_tool_specifications as get_legacy_admin_specs,
+)
 from plugins.wordpress.handlers.media import MediaHandler
 from plugins.wordpress.handlers.media import get_tool_specifications as get_media_specs
 from plugins.wordpress.handlers.media_attach import MediaAttachHandler
@@ -51,6 +62,10 @@ from plugins.wordpress.handlers.media_probe import (
 )
 from plugins.wordpress.handlers.menus import MenusHandler
 from plugins.wordpress.handlers.menus import get_tool_specifications as get_menus_specs
+from plugins.wordpress.handlers.opcache import OpcacheHandler
+from plugins.wordpress.handlers.opcache import (
+    get_tool_specifications as get_opcache_specs,
+)
 from plugins.wordpress.handlers.orders import OrdersHandler
 from plugins.wordpress.handlers.orders import get_tool_specifications as get_orders_specs
 from plugins.wordpress.handlers.posts import PostsHandler
@@ -79,10 +94,12 @@ from plugins.wordpress.handlers.transient_flush import (
 )
 from plugins.wordpress.handlers.users import UsersHandler
 from plugins.wordpress.handlers.users import get_tool_specifications as get_users_specs
-from plugins.wordpress.handlers.wp_cli import WPCLIHandler
-from plugins.wordpress.handlers.wp_cli import get_tool_specifications as get_wp_cli_specs
 
 __all__ = [
+    "DiagnosticsHandler",
+    "StoreDiagnosticsHandler",
+    "get_diagnostics_specs",
+    "get_store_diagnostics_specs",
     # Core Handlers
     "PostsHandler",
     "MediaHandler",
@@ -99,6 +116,7 @@ __all__ = [
     "ExportHandler",
     "SiteHealthHandler",
     "TransientFlushHandler",
+    "LegacyAdminHandler",
     "TaxonomyHandler",
     "CommentsHandler",
     "UsersHandler",
@@ -111,8 +129,8 @@ __all__ = [
     "CouponsHandler",
     # Advanced Handlers
     "SEOHandler",
-    "WPCLIHandler",
     "MenusHandler",
+    "OpcacheHandler",
     # Tool specifications
     "get_posts_specs",
     "get_media_specs",
@@ -129,6 +147,7 @@ __all__ = [
     "get_export_specs",
     "get_site_health_specs",
     "get_transient_flush_specs",
+    "get_legacy_admin_specs",
     "get_taxonomy_specs",
     "get_comments_specs",
     "get_users_specs",
@@ -139,6 +158,6 @@ __all__ = [
     "get_reports_specs",
     "get_coupons_specs",
     "get_seo_specs",
-    "get_wp_cli_specs",
     "get_menus_specs",
+    "get_opcache_specs",
 ]

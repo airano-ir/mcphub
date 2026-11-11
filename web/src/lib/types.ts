@@ -54,10 +54,12 @@ export type Site = {
   alias: string;
   plugin_type: string;
   url?: string;
-  // Backend persists `"active"` for sites passing the connection test (see
+  // Backend persists `status="active"` for sites passing the connection test (see
   // core/site_api.py). Keep both vocabularies so the type matches reality;
   // use `normalizeSiteStatus` from `lib/format.ts` before rendering.
-  status?: "healthy" | "active" | "warning" | "error" | "unknown" | "untested";
+  // `reauth_required` is used by OAuth-based plugins when the refresh token
+  // is no longer valid and the user must re-authorize.
+  status?: "healthy" | "active" | "warning" | "error" | "unknown" | "untested" | "reauth_required";
   status_msg?: string;
   last_tested_at?: string | null;
   created_at?: string;
@@ -66,6 +68,19 @@ export type Site = {
   // settings, install, write, admin, custom). Returned by /api/sites
   // since the field is on the sites table; defaults to "admin".
   tool_scope?: string;
+};
+
+// OAuth provider name — extensible to Microsoft, etc.
+export type OAuthProvider = "google";
+
+// Configuration for the OAuth site-connection flow per plugin type.
+export type OAuthFlowConfig = {
+  provider: OAuthProvider;
+  scope: string;
+  // Whether this plugin type uses the OAuth credential model (no static
+  // credential fields).  The form renders a "Connect with Google" button
+  // instead of credential inputs when true.
+  oauth: boolean;
 };
 
 export type UserKey = {

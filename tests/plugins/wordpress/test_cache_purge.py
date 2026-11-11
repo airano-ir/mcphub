@@ -45,7 +45,7 @@ async def test_happy_path(handler, wp_client, monkeypatch):
 
     post_mock.assert_called_once_with(
         "airano-mcp/v1/cache-purge",
-        json_data={},
+        json_data={"scope": "all"},
         use_custom_namespace=True,
     )
 
@@ -65,7 +65,7 @@ async def test_no_cache_plugins_detected(handler, wp_client, monkeypatch):
     out = json.loads(await handler.cache_purge())
     assert out["ok"] is True
     assert out["detected"] == []
-    # Object cache still flushed unconditionally.
+    # Default scope=all still flushes object cache.
     assert "object_cache" in out["purged"]
 
 
@@ -121,8 +121,46 @@ async def test_ok_inferred_from_empty_errors_if_missing(handler, wp_client, monk
     assert out["ok"] is True
 
 
+@pytest.mark.asyncio
+async def test_scope_is_forwarded(handler, wp_client, monkeypatch):
+    companion_response = {
+        "scope": "page",
+        "detected": ["wp_super_cache"],
+        "purged": ["wp_super_cache_all"],
+        "skipped": [],
+        "errors": [],
+        "ok": True,
+        "plugin_version": "2.18.2",
+    }
+    post_mock = AsyncMock(return_value=companion_response)
+    monkeypatch.setattr(wp_client, "post", post_mock)
+
+    out = json.loads(await handler.cache_purge(scope="page"))
+    assert out["ok"] is True
+    assert out["scope"] == "page"
+    assert out["purged"] == ["wp_super_cache_all"]
+
+    post_mock.assert_called_once_with(
+        "airano-mcp/v1/cache-purge",
+        json_data={"scope": "page"},
+        use_custom_namespace=True,
+    )
+
+
+@pytest.mark.asyncio
+async def test_invalid_scope_rejected_without_call(handler, wp_client, monkeypatch):
+    post_mock = AsyncMock()
+    monkeypatch.setattr(wp_client, "post", post_mock)
+
+    out = json.loads(await handler.cache_purge(scope="everything"))
+    assert out["ok"] is False
+    assert out["error"] == "invalid_scope"
+    post_mock.assert_not_called()
+
+
 def test_tool_spec_is_admin_scope():
     specs = get_tool_specifications()
     assert len(specs) == 1
     assert specs[0]["name"] == "cache_purge"
     assert specs[0]["scope"] == "admin"
+    assert specs[0]["schema"]["properties"]["scope"]["enum"] == ["object", "page", "all"]

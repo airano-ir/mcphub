@@ -7,6 +7,7 @@ import {
   useAdminApiKeys,
   useCreateAdminApiKey,
   useCreateUserKey,
+  useDashboardStats,
   useDeleteAdminApiKey,
   useDeleteUserKey,
   useRevokeAdminApiKey,
@@ -61,6 +62,7 @@ export function ApiKeysPage() {
 function AdminApiKeys() {
   const t = useT();
   const keys = useAdminApiKeys();
+  const stats = useDashboardStats();
   const create = useCreateAdminApiKey();
   const revoke = useRevokeAdminApiKey();
   const del = useDeleteAdminApiKey();
@@ -69,6 +71,12 @@ function AdminApiKeys() {
   const [showCreate, setShowCreate] = useState(false);
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
+
+  // An API key must be scoped to a service, so creation is blocked until at
+  // least one site/project exists (server enforces this too with HTTP 409).
+  const hasAnySite =
+    ((stats.data?.user_sites_count ?? 0) + (stats.data?.projects_count ?? 0)) > 0;
+  const canCreate = hasAnySite || stats.isLoading;
 
   const onCreate = async (description: string, scope: string) => {
     try {
@@ -84,7 +92,14 @@ function AdminApiKeys() {
       <Topbar
         crumbs={[t("workspace", "Workspace"), t("api_keys", "API keys")]}
         actions={
-          <Btn variant="primary" size="sm" icon="plus" onClick={() => setShowCreate(true)}>
+          <Btn
+            variant="primary"
+            size="sm"
+            icon="plus"
+            disabled={!canCreate}
+            title={!canCreate ? t("api_keys.no_services_title", "Add a service first") : undefined}
+            onClick={() => setShowCreate(true)}
+          >
             {t("generate_key", "New key")}
           </Btn>
         }
@@ -104,7 +119,27 @@ function AdminApiKeys() {
 
         {createdKey && <CreatedKeyAlert value={createdKey} t={t} onDismiss={() => setCreatedKey(null)} />}
 
-        {showCreate && (
+        {!stats.isLoading && !hasAnySite && (
+          <Card style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+              <Icons.sites style={{ width: 18, height: 18, color: "var(--brand-400)", flexShrink: 0 }} />
+              <div>
+                <div style={{ fontWeight: 600 }}>{t("api_keys.no_services_title", "Add a service first")}</div>
+                <div className="body" style={{ color: "var(--text-muted)", marginTop: 4 }}>
+                  {t(
+                    "api_keys.admin_no_services_body",
+                    "API keys must be scoped to a service. Add your first service, then create a key for it.",
+                  )}
+                </div>
+                <Link to="/sites?create=1" className="btn btn-primary btn-sm" style={{ marginTop: 10 }}>
+                  {t("sites.add_first", "Add a service")}
+                </Link>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {showCreate && canCreate && (
           <CreateKeyDialog
             t={t}
             onCancel={() => setShowCreate(false)}

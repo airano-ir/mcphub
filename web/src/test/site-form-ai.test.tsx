@@ -33,6 +33,8 @@ vi.mock("../lib/queries", () => ({
   }),
   useTranslations: () => ({ data: undefined }),
   useUpdateSite: () => ({ mutateAsync: vi.fn() }),
+  useInitSiteOAuth: () => ({ mutateAsync: vi.fn() }),
+  OAUTH_PLUGIN_TYPES: new Set<string>(),
 }));
 
 const noop = vi.fn();

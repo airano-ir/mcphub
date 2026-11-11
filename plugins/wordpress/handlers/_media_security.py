@@ -219,22 +219,20 @@ def ssrf_check(url: str, *, allow_http: bool = False) -> SSRFCheck:
     except socket.gaierror as e:
         return SSRFCheck(False, f"DNS resolution failed: {e}")
 
+    # One predicate for every SSRF decision in the hub (pre-flight here and the
+    # connect-time guard in core.net_guard): anything not globally routable —
+    # including CGNAT/Tailscale 100.64.0.0/10 and IPv4-mapped IPv6 — is denied.
+    from core import net_guard
+
     seen: list[str] = []
     for info in infos:
-        ip_str = info[4][0]
+        ip_str = str(info[4][0])
         seen.append(ip_str)
         try:
             ip = ipaddress.ip_address(ip_str)
         except ValueError:
             return SSRFCheck(False, f"Unparseable IP '{ip_str}'.")
-        if (
-            ip.is_private
-            or ip.is_loopback
-            or ip.is_link_local
-            or ip.is_reserved
-            or ip.is_multicast
-            or ip.is_unspecified
-        ):
+        if net_guard.is_disallowed_ip(ip):
             return SSRFCheck(False, f"Host resolves to disallowed IP {ip}.", ip_str)
 
     return SSRFCheck(True, None, seen[0] if seen else None)

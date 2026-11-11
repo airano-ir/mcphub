@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**MCP Hub** — a Python MCP (Model Context Protocol) server that manages multiple self-hosted services through a unified plugin architecture. Supports 8 active plugin types (WordPress, WooCommerce, WordPress Specialist, Gitea, n8n, Supabase, OpenPanel, Coolify). Total tool count varies with which plugins are enabled and grows as new plugins are added; per-plugin counts are surfaced in the dashboard. The exposed count for a given user/endpoint stays constant regardless of how many sites of the same type are configured.
+**MCP Hub** — a Python MCP (Model Context Protocol) server that manages multiple self-hosted services through a unified plugin architecture. Supports 11 plugin types (WordPress, WooCommerce, WordPress Specialist, Gitea, n8n, Supabase, OpenPanel, Coolify, Gmail, Google Search Console, Cloudflare). Total tool count varies with which plugins are enabled and grows as new plugins are added; per-plugin counts are surfaced in the dashboard. The exposed count for a given user/endpoint stays constant regardless of how many sites of the same type are configured.
 
 ## Quick Setup
 
@@ -152,8 +152,10 @@ plugins/{name}/
 ### Tool Generation
 
 Tools are dynamically generated at startup from plugin specifications:
-1. `ToolGenerator` creates unified tools with a `site` parameter injected
-2. Tools are registered in `ToolRegistry` and exposed via FastMCP
+1. `core/tool_registration.register_all_plugin_tools()` loops over the plugin registry — registering a plugin in `plugins/__init__.py` is all that is needed (no per-plugin block in `server.py`)
+2. `ToolGenerator` creates unified tools with a `site` parameter injected
+3. Tools are registered in `ToolRegistry`; every FastMCP endpoint registers them through `server.register_tool_on()`, which attaches MCP annotations from `core/tool_annotations.py` (also used by `/u/` endpoints)
+4. Policy metadata comes from the spec (`scope`, `destructive`, `idempotent`, …) — never inferred from names
 
 Unified tool pattern: `wordpress_create_post(site="myblog", title="Hello")` — the `site` parameter accepts either a site_id or alias.
 
@@ -185,6 +187,9 @@ User sites are encrypted with AES-256-GCM and accessed via `core/site_api.py` + 
 | `core/user_keys.py` | User API key management (bcrypt, `mhu_` prefix) |
 | `core/database.py` | SQLite backend (aiosqlite, WAL mode, migrations) |
 | `core/encryption.py` | AES-256-GCM credential encryption |
+| `core/net_guard.py` | SSRF guard for user-supplied destinations (connect-time; use `client_session()` for any site-facing HTTP) |
+| `core/tool_annotations.py` | MCP tool annotations (title/readOnly/destructive/idempotent) for all endpoints |
+| `core/mcp_protocol.py` | Dual-era protocol versions for `/u/` endpoints (legacy initialize + 2026-07-28) |
 
 ### User System (Track E)
 
@@ -221,7 +226,9 @@ v4 development cycle with 15 phases. See `docs/ROADMAP.md` (Track F) and `.claud
 - Test files exist in both `tests/` (proper) and root directory (legacy `test_*.py`). Run `pytest tests/` for organized tests only.
 - `wordpress-plugin/` contains companion WP plugins (openpanel, airano-mcp-bridge) — these are PHP, not Python
 - `env.example` has "FUTURE" labels for Supabase/Gitea but both are fully implemented
-- 8 active plugins: WordPress, WooCommerce, WordPress Specialist, Supabase, OpenPanel, Gitea, n8n, Coolify. Appwrite/Directus code is retained in plugins/ but not registered (need review before re-enabling).
+- 11 plugins: WordPress, WooCommerce, WordPress Specialist, Supabase, OpenPanel, Gitea, n8n, Coolify, Gmail, Google Search Console, Cloudflare.
+- Any HTTP request to a user-supplied site must use `core.net_guard.client_session()` (never a bare `aiohttp.ClientSession`) so the SSRF policy applies to redirects and DNS rebinding.
+- `vite build` empties `core/templates/static/dist/` including `.gitkeep`; restore it before committing or CI's placeholder test fails.
 - OAuth Clients (Client ID/Secret) are for MCP endpoint auth, NOT the same as GitHub/Google dashboard login
 - All sites stored in SQLite (`core/database.py`), managed via web dashboard
 - Dashboard templates live in `core/templates/` (included in pip package as `package_data`)
@@ -232,7 +239,8 @@ v4 development cycle with 15 phases. See `docs/ROADMAP.md` (Track F) and `.claud
 
 - **Coolify**: Docker Compose build pack, port 8000, health check `GET /health`
 - Must listen on `0.0.0.0` (not localhost)
-- Docker socket mount required for WP-CLI tools: `/var/run/docker.sock:/var/run/docker.sock:ro`
+- WordPress tools do not require Docker socket access; use Application
+  Passwords plus Airano MCP Bridge companion routes.
 - Persistent volumes: `mcp-data` (API keys, OAuth), `mcp-logs` (audit, health)
 - Required env vars: `MASTER_API_KEY`, `OAUTH_JWT_SECRET_KEY`, `OAUTH_BASE_URL`
 - OAuth env vars: `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `PUBLIC_URL`

@@ -35,8 +35,10 @@ SCANNED_FILES = [
     "core/tool_rate_limiter.py",
     "plugins/ai_image/providers/base.py",
     "plugins/ai_image/providers/openai.py",
+    "plugins/ai_image/providers/openai_compatible.py",
     "plugins/ai_image/providers/stability.py",
     "plugins/ai_image/providers/replicate.py",
+    "plugins/ai_image/providers/openrouter.py",
     "plugins/ai_image/registry.py",
 ]
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
+import os
 from typing import Any
 
 import aiohttp
@@ -24,6 +25,7 @@ from plugins.ai_image.providers.base import (
 _logger = logging.getLogger("mcphub.ai_image.openai")
 
 _API_URL = "https://api.openai.com/v1/images/generations"
+_EDITS_PATH = "/images/edits"
 _DEFAULT_MODEL = "dall-e-3"
 _RETRY_STATUS = {429, 500, 502, 503, 504}
 _MAX_RETRIES = 3
@@ -71,7 +73,7 @@ class OpenAIProvider(BaseImageProvider):
             if request.quality:
                 payload["quality"] = request.quality
 
-        data, meta = await self._post_with_retry(api_key, payload)
+        data, meta = await self._post_with_retry(api_key, payload, request=request)
 
         items = data.get("data") or []
         if not items:
@@ -103,7 +105,11 @@ class OpenAIProvider(BaseImageProvider):
         )
 
     async def _post_with_retry(
-        self, api_key: str, payload: dict[str, Any]
+        self,
+        api_key: str,
+        payload: dict[str, Any],
+        *,
+        request: GenerationRequest,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         headers = {
             "Authorization": f"Bearer {api_key}",
@@ -112,10 +118,34 @@ class OpenAIProvider(BaseImageProvider):
         last_error: str = ""
         delay = 1.0
         timeout = aiohttp.ClientTimeout(total=_REQUEST_TIMEOUT)
+        base_url = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
+        endpoint = f"{base_url}{_EDITS_PATH if request.input_images else '/images/generations'}"
         async with aiohttp.ClientSession(timeout=timeout) as session:
             for attempt in range(1, _MAX_RETRIES + 1):
                 try:
-                    async with session.post(_API_URL, json=payload, headers=headers) as resp:
+                    if request.input_images:
+                        form = aiohttp.FormData()
+                        for key, value in payload.items():
+                            form.add_field(key, str(value))
+                        for index, image in enumerate(request.input_images):
+                            mime = (
+                                request.input_image_mimes[index]
+                                if index < len(request.input_image_mimes)
+                                else "image/png"
+                            )
+                            form.add_field(
+                                "image[]" if len(request.input_images) > 1 else "image",
+                                image,
+                                filename=f"input-{index}.png",
+                                content_type=mime,
+                            )
+                        request_kwargs: dict[str, Any] = {
+                            "data": form,
+                            "headers": {"Authorization": headers["Authorization"]},
+                        }
+                    else:
+                        request_kwargs = {"json": payload, "headers": headers}
+                    async with session.post(endpoint, **request_kwargs) as resp:
                         if resp.status == 200:
                             body = await resp.json()
                             return body, {"attempt": attempt, "status": 200}

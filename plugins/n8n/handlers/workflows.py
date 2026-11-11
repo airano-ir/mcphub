@@ -441,9 +441,7 @@ async def create_workflow(
             "connections": connections if connections is not None else {},
         }
 
-        # Only add settings/static_data if provided and non-empty
-        if settings and isinstance(settings, dict) and len(settings) > 0:
-            data["settings"] = settings
+        data["settings"] = settings if isinstance(settings, dict) else {}
         if static_data and isinstance(static_data, dict) and len(static_data) > 0:
             data["staticData"] = static_data
 
@@ -485,8 +483,7 @@ async def update_workflow(
             "connections": connections or current.get("connections", {}),
         }
 
-        if settings:
-            data["settings"] = settings
+        data["settings"] = settings if settings else current.get("settings", {})
 
         workflow = await client.update_workflow(workflow_id, data)
 
@@ -711,6 +708,7 @@ async def set_workflow_tags(
             "name": current.get("name"),
             "nodes": current.get("nodes", []),
             "connections": current.get("connections", {}),
+            "settings": current.get("settings", {}),
             "tags": [{"id": tid} for tid in tags_to_set],
         }
 

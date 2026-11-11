@@ -11,6 +11,8 @@ from typing import Any
 
 import aiohttp
 
+from core import net_guard
+
 
 class GiteaClient:
     """
@@ -103,7 +105,7 @@ class GiteaClient:
         self.logger.debug(f"Data: {json_data}")
 
         async with (
-            aiohttp.ClientSession() as session,
+            net_guard.client_session() as session,
             session.request(
                 method=method, url=url, params=params, json=json_data, headers=headers
             ) as response,
@@ -406,17 +408,11 @@ class GiteaClient:
         filename: str,
         content_b64: str,
     ) -> dict:
-        """Upload a release asset.
+        """Upload a small base64 release asset through multipart/form-data.
 
-        Gitea's API accepts multipart/form-data on
-        ``POST /repos/{owner}/{repo}/releases/{id}/assets?name=FILE``.
-        We accept base64 content so the tool schema stays JSON-friendly;
-        callers supply ``content_b64``. Decoded bytes go into the
-        multipart body. This bypasses ``self.request`` because that
-        helper only understands JSON bodies.
+        Larger assets should use the Gitea HTTP binary handoff tools so
+        the MCP call does not carry a large base64 argument.
         """
-        import aiohttp
-
         try:
             raw = base64.b64decode(content_b64, validate=True)
         except Exception as exc:  # noqa: BLE001
@@ -426,19 +422,39 @@ class GiteaClient:
                 "do not include a 'data:' URL prefix."
             ) from exc
 
+        return await self.upload_release_asset_bytes(
+            owner,
+            repo,
+            release_id,
+            filename=filename,
+            content=raw,
+        )
+
+    async def upload_release_asset_bytes(
+        self,
+        owner: str,
+        repo: str,
+        release_id: int,
+        *,
+        filename: str,
+        content: bytes,
+    ) -> dict:
+        """Upload release asset bytes via Gitea multipart/form-data."""
         url = f"{self.api_base}/repos/{owner}/{repo}/releases/{release_id}/assets"
         headers = self._get_headers()
-        # Requests library-style: multipart/form-data with attachment field.
         form = aiohttp.FormData()
         form.add_field(
             "attachment",
-            raw,
+            content,
             filename=filename,
             content_type="application/octet-stream",
         )
-        async with aiohttp.ClientSession() as session:
+        async with net_guard.client_session() as session:
             async with session.post(
-                url, params={"name": filename}, data=form, headers=headers
+                url,
+                params={"name": filename},
+                data=form,
+                headers=headers,
             ) as resp:
                 text = await resp.text()
                 if resp.status >= 400:

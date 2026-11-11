@@ -14,7 +14,8 @@ that exercise the `install` and `admin` tiers introduced by F.19.2.0:
 Surface map:
 
 * `wp_plugin_install_from_slug(slug, activate?)` — install tier
-* `wp_plugin_install_from_zip(zip_url | zip_base64, activate?, overwrite?)` — admin tier
+* `wp_plugin_install_from_zip(zip_url | zip_base64 | zip_path | zip_session_id,
+  activate?, overwrite?)` — admin tier
 * `wp_plugin_activate(slug, network_wide?)` — install tier
 * `wp_plugin_deactivate(slug, network_wide?)` — install tier
 * `wp_plugin_update(slug)` — install tier
@@ -28,7 +29,8 @@ guards):
   WP side for activate / deactivate / update / delete. install routes
   validate the slug shape on the wire and let `Plugin_Upgrader` handle
   fetch / extraction / verification.
-* **S-18 (reused)** — 50 MB cap on install zip payloads.
+* **S-18 (reused)** — 50 MB cap on install zip payloads, including staged
+  ``zip_session_id`` payloads.
 * **S-20** *(new)* — refuses to delete the Airano MCP Bridge companion
   itself (`airano-mcp-bridge`). Removing the companion via its own
   route would brick the MCP connection; operators must use the WP-Admin
@@ -46,6 +48,10 @@ import re
 from typing import Any
 
 from plugins.wordpress.client import WordPressClient
+from plugins.wordpress_specialist.handlers._zip_payload import (
+    local_zip_to_base64,
+    zip_session_to_base64,
+)
 
 # Companion admin namespace — same prefix used by F.19.1 / F.19.5 / F.19.7.
 _ADMIN_NS = "airano-mcp/v1/admin"
@@ -200,14 +206,18 @@ def get_tool_specifications() -> list[dict[str, Any]]:
             "name": "wp_plugin_install_from_zip",
             "method_name": "wp_plugin_install_from_zip",
             "description": (
-                "Install a plugin from a remote URL or inline base64 zip. "
+                "Install a plugin from a remote URL, inline base64 zip, "
+                "server-local zip_path, or chunked zip_session_id. "
                 "Sees more attack surface than slug install (arbitrary "
                 "zip contents) so this lands on the admin tier. Companion "
                 "still runs Plugin_Upgrader so signature checks stay "
                 "engaged. Pass exactly one of zip_url (companion fetches "
-                "via wp_safe_remote_get) or zip_base64 (decoded "
-                "server-side). Capped at 50 MB per zip (S-18). Requires "
-                "Airano MCP Bridge v2.15.0+ and install_plugins."
+                "via wp_safe_remote_get), zip_base64 (decoded server-side), "
+                "zip_path (read by MCPHub from the server filesystem and "
+                "sent to the companion as zip_base64), or zip_session_id "
+                "(created with wp_zip_install_chunked_start/chunk). Capped "
+                "at 50 MB per zip (S-18). Requires Airano MCP Bridge "
+                "v2.15.0+ and install_plugins."
             ),
             "schema": {
                 "type": "object",
@@ -216,13 +226,39 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                         "type": "string",
                         "description": (
                             "https URL the companion will download. "
-                            "Mutually exclusive with zip_base64."
+                            "Mutually exclusive with zip_base64, zip_path, "
+                            "and zip_session_id."
                         ),
                     },
                     "zip_base64": {
                         "type": "string",
                         "description": (
-                            "Base64-encoded plugin zip body. Capped at " "~50 MB after decode."
+                            "Base64-encoded plugin zip body. Capped at "
+                            "~50 MB after decode. Mutually exclusive with "
+                            "zip_url, zip_path, and zip_session_id."
+                        ),
+                    },
+                    "zip_path": {
+                        "type": "string",
+                        "description": (
+                            "MCPHub-host-local path to a .zip file readable "
+                            "by the MCPHub process. MCPHub validates that it "
+                            "is a regular non-symlink zip under the same "
+                            "50 MB cap, then forwards it to the companion as "
+                            "zip_base64. Agent-local workspace paths usually "
+                            "need zip_session_id instead."
+                        ),
+                    },
+                    "zip_session_id": {
+                        "type": "string",
+                        "description": (
+                            "Session ID returned by "
+                            "wp_zip_install_chunked_start after streaming "
+                            "the zip chunks with wp_zip_install_chunked_chunk. "
+                            "Use this when the zip is local to an agent or "
+                            "operator workspace that MCPHub cannot read as "
+                            "zip_path. Mutually exclusive with zip_url, "
+                            "zip_base64, and zip_path."
                         ),
                     },
                     "activate": {
@@ -367,14 +403,17 @@ class PluginsHandler:
         self,
         zip_url: str | None = None,
         zip_base64: str | None = None,
+        zip_path: str | None = None,
+        zip_session_id: str | None = None,
         activate: bool = False,
         overwrite: bool = False,
         **_: Any,
     ) -> dict[str, Any]:
-        if not zip_url and not zip_base64:
-            raise ValueError("wp_plugin_install_from_zip requires zip_url or zip_base64")
-        if zip_url and zip_base64:
-            raise ValueError("wp_plugin_install_from_zip accepts zip_url OR zip_base64, not both")
+        if sum(bool(source) for source in (zip_url, zip_base64, zip_path, zip_session_id)) != 1:
+            raise ValueError(
+                "wp_plugin_install_from_zip requires exactly one of "
+                "zip_url, zip_base64, zip_path, or zip_session_id"
+            )
         body: dict[str, Any] = {
             "activate": bool(activate),
             "overwrite": bool(overwrite),
@@ -383,7 +422,7 @@ class PluginsHandler:
             if not isinstance(zip_url, str):
                 raise ValueError("zip_url must be a string")
             body["zip_url"] = zip_url
-        else:
+        elif zip_base64:
             if not isinstance(zip_base64, str):
                 raise ValueError("zip_base64 must be a string")
             decoded_size_upper_bound = len(zip_base64) * 3 // 4
@@ -393,6 +432,13 @@ class PluginsHandler:
                     f"— exceeds {_PLUGIN_ZIP_MAX_BYTES} byte cap (S-18)"
                 )
             body["zip_base64"] = zip_base64
+        elif zip_path:
+            body["zip_base64"] = local_zip_to_base64(zip_path, max_bytes=_PLUGIN_ZIP_MAX_BYTES)
+        else:
+            body["zip_base64"] = await zip_session_to_base64(
+                zip_session_id,
+                max_bytes=_PLUGIN_ZIP_MAX_BYTES,
+            )
         return await self.client.post(
             f"{_ADMIN_NS}/plugins/install",
             json_data=body,

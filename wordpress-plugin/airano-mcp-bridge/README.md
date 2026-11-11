@@ -1,8 +1,8 @@
 # Airano MCP Bridge
 
-**Version:** 2.18.0
-**Requires WordPress:** 5.0+
-**Tested up to:** 6.9
+**Version:** 2.21.1
+**Requires WordPress:** 5.6+
+**Tested up to:** 7.1
 **Requires PHP:** 7.4+
 **License:** GPLv2 or later
 **Plugin slug:** `airano-mcp-bridge` (permanent)
@@ -19,8 +19,10 @@ Installing **Airano MCP Bridge** unlocks a second tier of capabilities that Word
 - **One-round-trip upload + metadata + attach + set-featured** (v2.9.0)
 - **Thumbnail regeneration** (no WP-CLI / SSH)
 - **Cache purge** for 6 major cache plugins (LiteSpeed, WP Rocket, W3TC, WP Super Cache, WP Fastest Cache, SG Optimizer)
-- **Transient cleanup** (expired / all / pattern)
+- **Theme file patching** for small line-range edits without full-file base64 uploads
+- **Transient cleanup and inventory** (expired / all / pattern cleanup, metadata-only listing)
 - **Bulk post-meta writes** in a single REST round-trip
+- **Generic multilingual adapter** (v2.19.0–2.20.2) — `POST /post-language` and `POST /term-language` routes for language + translation linking, auto-detecting WPML or Polylang while MCPHub keeps plugin-agnostic `language` / `translation_of` fields.
 - **Unified site-health snapshot** (5+ stock calls → 1)
 - **Structured JSON export** (posts / pages / products + media + terms + meta)
 - **Capability probe** — tells MCP Hub what the calling application password can actually do
@@ -33,7 +35,7 @@ Installing **Airano MCP Bridge** unlocks a second tier of capabilities that Word
 - **Plugin write management** (v2.15.0) — install (from wp.org slug, URL, or base64 zip) / activate / deactivate / update / delete. Per-route capability checks (`install_plugins`, `activate_plugins`, `delete_plugins`). Refuses to deactivate or delete the companion plugin itself (would brick the MCP connection) and refuses to delete active plugins. Update route returns `up_to_date:true` cleanly when no update is available.
 - **Site config** (v2.16.0) — Settings → General + Reading + Permalinks panels via typed REST. `GET/POST /admin/site/identity` (title / tagline / site_icon / custom_logo), `GET/POST /admin/site/reading` (show_on_front / page_on_front / page_for_posts / posts_per_page / blog_public), `GET/POST /admin/permalinks` (structure + category_base + tag_base, with `flush_rewrite_rules()` after each write).
 - **Site layout** (v2.17.0) — Settings → Menus + Appearance → Widgets + Customizer surfaces. Menus: `GET /admin/menus`, `GET /admin/menus/{id}`, `PUT /admin/menus/{id}` (full-replace items + optional rename, slug stays frozen, S-22 per-item cap dispatch). Widgets: `GET /admin/widgets/areas`, `GET /admin/widgets/{area_id}`, `PUT /admin/widgets/{area_id}` (block-kind areas accept any block raw HTML; legacy areas accept `text` widget settings only this round). Customizer: `POST /admin/customizer/changeset` with `{action: get|apply|discard}` — single-tool wrapper around the changeset queue; `apply` requires the `customize` cap (S-24).
-- **Database inspection** (v2.18.0) — read-only DB introspection via typed routes that NEVER expose raw SQL. `GET /admin/db/size` (single `information_schema.TABLES` aggregation: database_bytes + table_count + row_count_estimate), `GET /admin/db/tables` (per-table breakdown), `POST /admin/db/search` (`WP_Query` wrapper with `s=$query`; sanitised + length-capped at 200 chars; S-25 keeps non-readable posts out via `WP_Query`'s own `posts_clauses`). Bundled with the wordpress_advanced sunset on the MCP Hub side: the deprecated WP-CLI/Docker-socket plugin was removed in F.19.3.2-.3; `wordpress_specialist` is now the only WP-management surface and has no Docker socket dependency.
+- **Database inspection and bounded maintenance** (v2.18.0 / v2.18.5) — read-only DB introspection via typed routes that NEVER expose raw SQL, plus prefix-scoped `CHECK TABLE` / `OPTIMIZE TABLE` maintenance. `GET /admin/db/size`, `GET /admin/db/tables`, `POST /admin/db/search`, `GET /admin/db/check`, `POST /admin/db/optimize`.
 
 All operations remain guarded by WordPress's own capability system — this plugin never bypasses auth.
 
@@ -64,9 +66,14 @@ The plugin works out of the box. There are no settings pages to configure; behav
 | `/upload-and-attach` | POST | 2.9.0 | Same as `/upload-chunk` plus query-param metadata (`attach_to_post`, `set_featured`, `title`, `alt_text`, `caption`, `description`) — collapses 3 REST round-trips into 1 |
 | `/capabilities` | GET | 2.1.0 | Effective capabilities of the calling Application Password + feature flags + available routes |
 | `/bulk-meta` | POST | 2.2.0 | Batch `post_meta` writes in one request (max 500 items, per-item permission check) |
+| `/post-language` | POST | 2.19.0 | Generic language + translation linking for posts/pages through the active WPML or Polylang adapter. Requires `edit_post` on the target and readable access to `translation_of` when supplied. |
+| `/term-language` | POST | 2.20.0 | Generic language + translation linking for taxonomy terms through the active WPML or Polylang adapter. Accepts taxonomy slug or REST base and requires the taxonomy edit-terms capability. |
+| `/term-update` | POST | 2.20.0 | Narrow fallback for translated-term slug duplicate failures in stock REST. Accepts taxonomy slug or REST base and updates supported term fields through WordPress core APIs. |
 | `/export` | GET | 2.3.0 | Structured JSON export of posts / pages / products + media + terms + meta, with `post_type` / `status` / `since` / `limit` / `offset` paging |
 | `/cache-purge` | POST | 2.4.0 | Auto-detects LiteSpeed, WP Rocket, W3 Total Cache, WP Super Cache, WP Fastest Cache, SiteGround Optimizer and triggers each one's purge API; always flushes object cache |
+| `/opcache-reset` | POST | 2.18.4 | Calls PHP `opcache_reset()` so public companion deployments can drop bytecode cache after theme/plugin deploys without Cloudflare credentials or app restarts |
 | `/transient-flush` | POST | 2.5.0 | Native transient cleanup with `expired` / `all` / `pattern` scopes; optional site-transient handling for multisite |
+| `/transients` | GET | 2.18.5 | Metadata-only transient inventory: key, type, and expiration. Values are never returned. |
 | `/site-health` | GET | 2.6.0 | Single-envelope health snapshot: WP/PHP/MySQL versions, disk free, active plugins, theme, writability, SSL — replaces 5+ stock calls |
 | `/audit-hook` | GET / POST / DELETE | 2.7.0 | Configure a webhook that forwards WP action events to MCP Hub. HMAC-SHA256-signed, non-blocking |
 | `/regenerate-thumbnails` | POST | 2.8.0 | Rebuild attachment sub-sizes via `wp_generate_attachment_metadata()` for a list of IDs or in paged batch mode |
@@ -102,6 +109,7 @@ All routes require `manage_options`. They power the `wordpress_specialist` MCP p
 | `/admin/themes/files/{slug}` | GET | 2.14.0 | Theme directory walk: each file's relative path, size, mime, sha256, modified_at. Optional `glob` + `max_files` (cap 1000). |
 | `/admin/themes/files/{slug}/{path}` | GET | 2.14.0 | Read a theme file as base64 + sha256 + mime + modified_at. 5 MB cap. |
 | `/admin/themes/files/{slug}/{path}` | PUT | 2.14.0 | Write a theme file (base64). Optional `expected_sha256` for optimistic concurrency. PHP writes require `!DISALLOW_FILE_EDIT`. Requires `edit_themes`. 5 MB cap. |
+| `/admin/themes/files/{slug}/{path}` | PATCH | 2.18.3 | Small line-range text patch: `{from_line,to_line,content,expected_sha256?}`. Avoids full-file base64 uploads for CSS/template edits. |
 | `/admin/themes/files/{slug}/{path}` | DELETE | 2.14.0 | Delete a theme file. Refuses to delete `style.css` of the active theme. Requires `edit_themes`. |
 | `/admin/plugins/install` | POST | 2.15.0 | Install via wp.org `slug`, OR via `zip_url`, OR via inline `zip_base64`. Supports `activate` + `overwrite`. Runs WP core's `Plugin_Upgrader`. Requires `install_plugins`. 50 MB zip cap. |
 | `/admin/plugins/{slug}/activate` | POST | 2.15.0 | Activate an installed plugin. Optional `network_wide` for multisite. Requires `activate_plugins`. |
@@ -124,6 +132,8 @@ All routes require `manage_options`. They power the `wordpress_specialist` MCP p
 | `/admin/db/size` | GET | 2.18.0 | Aggregate database size from `information_schema.TABLES`: `{database_bytes, table_count, row_count_estimate, database_name, table_prefix}`. No SQL exposure. |
 | `/admin/db/tables` | GET | 2.18.0 | Per-table breakdown: `{name, engine, rows, data_bytes, index_bytes, total_bytes, collation}` ordered by total_bytes desc. |
 | `/admin/db/search` | POST | 2.18.0 | `WP_Query` wrapper. Body `{query, post_type?, status?, limit?}` (limit default 20, max 100). Sanitises + length-caps query at 200 chars (S-25). Non-readable posts filtered out via WP's own `posts_clauses`. Never raw SQL. |
+| `/admin/db/check` | GET | 2.18.5 | Runs `CHECK TABLE` on current-prefix WordPress tables only; caller cannot choose arbitrary tables. |
+| `/admin/db/optimize` | POST | 2.18.5 | Runs `OPTIMIZE TABLE` on current-prefix WordPress tables only; caller cannot choose arbitrary tables. |
 
 Writes added in 2.13.0 require **two** capabilities: route-level `manage_options` AND per-post `edit_post` on the target (S-12 in MCP Hub's security ruleset). Raw-HTML pass-through requires the calling user to also hold `unfiltered_html`. Elementor JSON node count is capped at 5,000 per call (S-14); oversized payloads return `elementor_too_large` — switch to `/admin/elementor/templates/apply` instead.
 
@@ -141,6 +151,7 @@ All routes require **HTTP Basic** authentication with a WordPress **Application 
 | Upload helpers | `upload_files` or `manage_options` |
 | Capabilities probe | `read` (any logged-in user) |
 | Bulk meta, Export | `edit_posts` (per-item `edit_post` check) |
+| Post language | `edit_post` on target; `read_post` on `translation_of` source when supplied |
 | Cache purge, Transient flush, Site health, Audit hook, Regenerate thumbnails | `manage_options` |
 | Admin namespace (`/admin/*`) | `manage_options` |
 
@@ -187,6 +198,30 @@ Uninstall removes plugin options including the audit-hook secret and endpoint. M
 The `/upload-chunk` route bypasses PHP's `upload_max_filesize` (typically 2–64 MB on shared hosting), but is still bounded by `post_max_size` and `memory_limit`. For files larger than `post_max_size`, MCP Hub falls back to its own server-side chunked session pipeline that reassembles chunks before handing the full file to this route.
 
 ## Changelog
+
+### 2.20.2 — 2026-06-11
+
+- Makes taxonomy translation creation idempotent for WPML and Polylang. `POST /airano-mcp/v1/term-language` now supports lookup-only checks so MCPHub can return an existing target-language term before creating duplicate `translation_of` entries.
+
+### 2.20.1 — 2026-06-11
+
+- Internal package refresh for MCPHub media-intake compatibility. No new companion REST routes were added; MCPHub now handles large chat-attached media through its authenticated per-user HTTP intake before forwarding to existing companion upload routes when available.
+
+### 2.20.0 — 2026-06-04
+
+- Extends the plugin-agnostic multilingual adapter to taxonomy terms: `POST /airano-mcp/v1/term-language` applies generic `language` + `translation_of` metadata through WPML or Polylang adapters, `/capabilities` advertises `features.multilingual.terms.can_link`, and `POST /airano-mcp/v1/term-update` provides a narrow fallback for translated-term slug duplicate failures in stock REST.
+
+### 2.19.0 — 2026-06-03
+
+- Adds plugin-agnostic content primitives for MCPHub: `POST /airano-mcp/v1/post-language` applies generic `language` + `translation_of` metadata through WPML or Polylang adapters, and `/capabilities` now advertises `features.multilingual` plus `features.meta_passthrough` for stock REST create/update flows.
+
+### 2.18.5 — 2026-06-03
+
+- Adds companion REST replacements for low-risk legacy MCPHub WordPress maintenance tools: `GET /transients`, `GET /admin/db/check`, and `POST /admin/db/optimize`. Transient listing is metadata-only and DB maintenance is scoped to the current WordPress table prefix.
+
+### 2.18.4 — 2026-06-01
+
+- **F.18.8: OPcache reset for companion-only deploy loops.** Adds `POST /airano-mcp/v1/opcache-reset`, gated on `manage_options`, which calls PHP `opcache_reset()` and returns a compact before/after OPcache status snapshot. This replaces the Cloudflare-purge idea for public MCPHub: no CDN token, zone id, or infra credential is stored in the WordPress companion, while agents can still avoid app restarts on hosts with `opcache.validate_timestamps=0`.
 
 ### 2.18.0 — 2026-05-04
 

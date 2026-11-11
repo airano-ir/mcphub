@@ -123,8 +123,8 @@ cmp_AQECAHhoZXJlIGlzIGEgcmFuZG9tIGtleQ
 
 **Per-Project Keys**:
 - ✅ All read and write operations for assigned project
-- ✅ Advanced WordPress management (WP-CLI tools)
-- ✅ Database operations (check, optimize, export)
+- ✅ Advanced WordPress management through companion REST tools
+- ✅ Database maintenance where companion routes are available (check, optimize)
 - ❌ Cannot access system tools (requires global key)
 - ❌ Cannot manage API keys (requires global key)
 
@@ -139,7 +139,7 @@ cmp_AQECAHhoZXJlIGlzIGEgcmFuZG9tIGtleQ
 - `manage_api_keys_*` tools (global keys only)
 - `reset_rate_limit` (global keys only)
 - `export_health_metrics`
-- WP-CLI tools: `wp_cache_flush`, `wp_db_optimize`, etc.
+- Companion-backed WordPress maintenance tools: `wp_cache_flush`, `wp_db_optimize`, etc.
 
 **Use Cases**:
 - **Per-Project**: Full site administration for specific client

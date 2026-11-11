@@ -4,8 +4,9 @@ Mocks ``WordPressClient.request`` and asserts:
 
 * tool spec contract: 2 tools both on scope=editor
 * fan-out behaviour: each item in ``updates`` triggers one stock REST
-  call to ``posts/{id}`` or ``{taxonomy}/{id}`` (no companion route);
-  per-item ``id`` is stripped from the body
+  call to ``posts/{id}`` or ``{taxonomy}/{id}``; term updates may use
+  a companion fallback only for translated-term slug conflicts; per-item
+  ``id`` is stripped from the body
 * per-item failure is captured as
   ``{id, status:'error', error}`` instead of failing the whole call
 * S-26 client-side cap: 50-item limit enforced as ``bulk_too_large``
@@ -177,7 +178,7 @@ async def test_bulk_post_update_fans_out_to_stock_rest(handler, client):
 
 @pytest.mark.asyncio
 async def test_bulk_post_update_uses_post_method_not_put(handler, client):
-    """Stock REST uses POST for updates (matches WP-CLI / docs)."""
+    """Stock REST uses POST for updates."""
     await handler.wp_bulk_post_update(updates=[{"id": 1, "status": "draft"}])
     method = client.request.call_args.args[0]
     assert method == "POST"
@@ -256,6 +257,7 @@ async def test_bulk_term_update_uses_taxonomy_in_path(handler, client):
     await handler.wp_bulk_term_update(taxonomy="categories", updates=updates)
     path = client.request.call_args.args[1]
     assert path == "categories/7"
+    assert "use_custom_namespace" not in client.request.call_args.kwargs
 
 
 @pytest.mark.asyncio
@@ -284,6 +286,60 @@ async def test_bulk_term_update_validates_updates_too(handler, client):
             updates=[{"id": i + 1, "name": str(i)} for i in range(51)],
         )
     client.request.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_bulk_term_update_falls_back_on_translated_slug_conflict(handler, client):
+    async def side_effect(method, endpoint, json_data=None, **kw):
+        if endpoint == "categories/7":
+            raise RuntimeError(
+                '[SERVER_ERROR] The slug "reports-fa" is already in use by another term.'
+            )
+        return {"term_id": 7}
+
+    client.request = AsyncMock(side_effect=side_effect)  # type: ignore[method-assign]
+    handler.client = client
+
+    result = await handler.wp_bulk_term_update(
+        taxonomy="categories",
+        updates=[{"id": 7, "name": "Reports FA"}],
+    )
+
+    assert result["ok"] == 1
+    assert result["results"][0] == {"id": 7, "status": "ok", "fallback": "term_update"}
+    assert client.request.await_args_list == [
+        call("POST", "categories/7", json_data={"name": "Reports FA"}),
+        call(
+            "POST",
+            "airano-mcp/v1/term-update",
+            json_data={"taxonomy": "categories", "term_id": 7, "name": "Reports FA"},
+            use_custom_namespace=True,
+        ),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_bulk_term_update_reports_fallback_failure(handler, client):
+    async def side_effect(method, endpoint, json_data=None, **kw):
+        if endpoint == "categories/7":
+            raise RuntimeError(
+                '[SERVER_ERROR] The slug "reports-fa" is already in use by another term.'
+            )
+        raise RuntimeError("404 no route")
+
+    client.request = AsyncMock(side_effect=side_effect)  # type: ignore[method-assign]
+    handler.client = client
+
+    result = await handler.wp_bulk_term_update(
+        taxonomy="categories",
+        updates=[{"id": 7, "name": "Reports FA"}],
+    )
+
+    assert result["ok"] == 0
+    assert result["errors"] == 1
+    assert result["results"][0]["status"] == "error"
+    assert result["results"][0]["fallback"] == "term_update"
+    assert "404 no route" in result["results"][0]["error"]
 
 
 # ───── Concurrency bound (smoke check) ───────────────────────────────

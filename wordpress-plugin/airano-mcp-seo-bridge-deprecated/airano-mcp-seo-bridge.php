@@ -3,7 +3,7 @@
  * Plugin Name: Airano MCP SEO Meta Bridge
  * Plugin URI: https://github.com/airano-ir/mcphub
  * Description: Exposes Rank Math SEO and Yoast SEO meta fields via WordPress REST API for use with MCP servers and AI agents. Supports posts, pages, and WooCommerce products with full CRUD operations.
- * Version: 1.3.1
+ * Version: 1.3.3
  * Author: MCP Hub
  * Author URI: https://github.com/airano-ir
  * License: GPL-2.0-or-later
@@ -12,6 +12,8 @@
  * Text Domain: airano-mcp-seo-bridge
  *
  * Changelog:
+ * 1.3.3 - Mark Tested up to 7.1 (WordPress 7.1 release cycle). No code change — this plugin stays deprecated; new installs should use airano-mcp-bridge instead. The migration notice from 1.3.1 is unchanged. Shipped only so the listing does not warn existing installs that it is untested on their WordPress version.
+ * 1.3.2 - Mark Tested up to 7.0 (WordPress 7.0 release cycle). No code change — this plugin is deprecated; new installs should use airano-mcp-bridge instead. The migration notice from 1.3.1 is unchanged.
  * 1.3.1 - Migration notice — this plugin has been superseded by "Airano MCP Bridge" (slug `airano-mcp-bridge`), which carries the same SEO routes plus media uploads, bulk meta, cache purge, transient flush, site health, audit hook, and thumbnail regeneration. All SEO functionality in this plugin is unchanged; existing installs keep working. A dismissible admin notice points users to the replacement.
  * 1.3.0 - Added REST API endpoints for posts, pages, and products (GET/POST operations)
  * 1.2.0 - Enhanced WooCommerce product support, improved MariaDB compatibility
@@ -32,7 +34,7 @@ class SEO_API_Bridge {
     /**
      * Plugin version
      */
-    const VERSION = '1.3.1';
+    const VERSION = '1.3.3';
 
     /**
      * User-meta key tracking whether the current user dismissed the

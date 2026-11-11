@@ -82,7 +82,7 @@ def test_companion_url_is_set_for_wp_and_wc(plugin_type):
 
 @pytest.mark.parametrize(
     "plugin_type",
-    ["gitea", "n8n", "supabase", "openpanel", "appwrite", "directus", "coolify"],
+    ["gitea", "n8n", "supabase", "openpanel", "coolify"],
 )
 def test_companion_url_is_none_for_other_plugins(plugin_type):
     companion_download_url = None

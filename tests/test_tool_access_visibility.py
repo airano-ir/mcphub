@@ -17,6 +17,7 @@ import pytest
 from core.tool_access import (
     _tool_has_configured_provider,
     _tool_requires_provider_key,
+    check_tool_prerequisites,
     get_tool_access_manager,
 )
 
@@ -118,3 +119,131 @@ class TestListToolsForSiteAnnotatesProviderKey:
         non_ai = next(r for r in rows if r["name"] == "wordpress_create_post")
         assert non_ai["provider_key_required"] is False
         assert non_ai["provider_key_configured"] is True
+
+
+class TestCompanionRoutePrerequisites:
+    def test_route_bitmap_true_allows_tool(self):
+        ok, reason = check_tool_prerequisites(
+            "wordpress_cache_purge",
+            probe_payload={
+                "probe_available": True,
+                "plugin_version": "2.18.3",
+                "routes": {"cache_purge": True},
+            },
+            configured_providers=set(),
+        )
+
+        assert ok is True
+        assert reason is None
+
+    def test_version_fallback_allows_stale_missing_route_bitmap(self):
+        ok, reason = check_tool_prerequisites(
+            "wordpress_cache_purge",
+            probe_payload={
+                "probe_available": True,
+                "plugin_version": "2.18.3",
+                "routes": {},
+            },
+            configured_providers=set(),
+        )
+
+        assert ok is True
+        assert reason is None
+
+    def test_version_fallback_allows_stale_false_route_bitmap(self):
+        ok, reason = check_tool_prerequisites(
+            "wordpress_wp_cache_flush",
+            probe_payload={
+                "probe_available": True,
+                "plugin_version": "2.18.3",
+                "routes": {"cache_purge": False},
+            },
+            configured_providers=set(),
+        )
+
+        assert ok is True
+        assert reason is None
+
+    def test_route_stays_blocked_when_plugin_version_is_too_old(self):
+        ok, reason = check_tool_prerequisites(
+            "wordpress_opcache_reset",
+            probe_payload={
+                "probe_available": True,
+                "plugin_version": "2.18.3",
+                "routes": {"opcache_reset": False},
+            },
+            configured_providers=set(),
+        )
+
+        assert ok is False
+        assert reason == "companion_route"
+
+    def test_route_stays_blocked_when_companion_probe_failed(self):
+        ok, reason = check_tool_prerequisites(
+            "wordpress_cache_purge",
+            probe_payload={
+                "probe_available": False,
+                "plugin_version": "2.18.3",
+                "routes": {"cache_purge": False},
+            },
+            configured_providers=set(),
+        )
+
+        assert ok is False
+        assert reason == "companion_route"
+
+    def test_legacy_transient_list_uses_new_route_gate(self):
+        ok, reason = check_tool_prerequisites(
+            "wordpress_wp_transient_list",
+            probe_payload={
+                "probe_available": True,
+                "plugin_version": "2.18.5",
+                "routes": {},
+            },
+            configured_providers=set(),
+        )
+
+        assert ok is True
+        assert reason is None
+
+    def test_legacy_db_optimize_blocked_before_companion_2185(self):
+        ok, reason = check_tool_prerequisites(
+            "wordpress_wp_db_optimize",
+            probe_payload={
+                "probe_available": True,
+                "plugin_version": "2.18.4",
+                "routes": {"admin_db_optimize": False},
+            },
+            configured_providers=set(),
+        )
+
+        assert ok is False
+        assert reason == "companion_route"
+
+    def test_term_language_route_requires_companion_2200(self):
+        ok, reason = check_tool_prerequisites(
+            "wordpress_set_term_language",
+            probe_payload={
+                "probe_available": True,
+                "plugin_version": "2.19.0",
+                "routes": {"term_language": False},
+            },
+            configured_providers=set(),
+        )
+
+        assert ok is False
+        assert reason == "companion_route"
+
+    def test_term_language_route_uses_2200_version_fallback(self):
+        ok, reason = check_tool_prerequisites(
+            "wordpress_set_term_language",
+            probe_payload={
+                "probe_available": True,
+                "plugin_version": "2.20.0",
+                "routes": {"term_language": False},
+            },
+            configured_providers=set(),
+        )
+
+        assert ok is True
+        assert reason is None

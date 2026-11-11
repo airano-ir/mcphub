@@ -111,7 +111,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         {
             "name": "list_products",
             "method_name": "list_products",
-            "description": "List WooCommerce products. Returns paginated list with pricing, stock status, and categories. Supports filtering by category, stock status, and search.",
+            "description": "List WooCommerce products for catalog discovery and editorial/content workflows. Returns lightweight pricing, stock, category/tag, image, permalink, and modified-date fields without full descriptions by default.",
             "schema": {
                 "type": "object",
                 "properties": {
@@ -148,6 +148,68 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                     "search": {
                         "anyOf": [{"type": "string"}, {"type": "null"}],
                         "description": "Search term to filter products",
+                    },
+                    "tag": {
+                        "anyOf": [{"type": "integer"}, {"type": "null"}],
+                        "description": "Filter by product tag ID",
+                    },
+                    "orderby": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "enum": [
+                                    "date",
+                                    "modified",
+                                    "id",
+                                    "title",
+                                    "price",
+                                    "popularity",
+                                    "rating",
+                                    "menu_order",
+                                ],
+                            },
+                            {"type": "null"},
+                        ],
+                        "description": "Sort products explicitly, e.g. date for newest or modified for recently updated products.",
+                    },
+                    "order": {
+                        "anyOf": [
+                            {"type": "string", "enum": ["asc", "desc"]},
+                            {"type": "null"},
+                        ],
+                        "description": "Sort direction for orderby",
+                    },
+                    "after": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Filter products created after this ISO 8601 date",
+                    },
+                    "before": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Filter products created before this ISO 8601 date",
+                    },
+                    "modified_after": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Filter products modified after this ISO 8601 date when supported by WooCommerce",
+                    },
+                    "modified_before": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Filter products modified before this ISO 8601 date when supported by WooCommerce",
+                    },
+                    "featured": {
+                        "anyOf": [{"type": "boolean"}, {"type": "null"}],
+                        "description": "Filter featured products",
+                    },
+                    "on_sale": {
+                        "anyOf": [{"type": "boolean"}, {"type": "null"}],
+                        "description": "Filter products currently on sale",
+                    },
+                    "min_price": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Filter products with price greater than or equal to this amount",
+                    },
+                    "max_price": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Filter products with price less than or equal to this amount",
                     },
                     "search_terms": {
                         "anyOf": [{"type": "array", "items": {"type": "string"}}, {"type": "null"}],
@@ -186,7 +248,7 @@ def get_tool_specifications() -> list[dict[str, Any]]:
         {
             "name": "create_product",
             "method_name": "create_product",
-            "description": "Create a new WooCommerce product. Supports simple and variable products with pricing, inventory, categories, tags, and descriptions.",
+            "description": "Create a new WooCommerce product. Supports simple and variable products with pricing, inventory, categories, tags, descriptions, and WooCommerce meta_data.",
             "schema": {
                 "type": "object",
                 "properties": {
@@ -283,6 +345,23 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                             "use list_product_attributes to find existing ids."
                         ),
                     },
+                    "meta_data": {
+                        "anyOf": [
+                            {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "key": {"type": "string"},
+                                        "value": {},
+                                    },
+                                    "required": ["key", "value"],
+                                },
+                            },
+                            {"type": "null"},
+                        ],
+                        "description": 'WooCommerce product meta_data passthrough, e.g. [{"key":"_custom_key","value":"..."}].',
+                    },
                 },
                 "required": ["name"],
             },
@@ -360,6 +439,23 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                         "anyOf": [{"type": "string"}, {"type": "null"}],
                         "description": "Product weight",
                     },
+                    "meta_data": {
+                        "anyOf": [
+                            {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "key": {"type": "string"},
+                                        "value": {},
+                                    },
+                                    "required": ["key", "value"],
+                                },
+                            },
+                            {"type": "null"},
+                        ],
+                        "description": 'WooCommerce product meta_data passthrough, e.g. [{"key":"_custom_key","value":"..."}].',
+                    },
                 },
                 "required": ["product_id"],
             },
@@ -386,6 +482,34 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                 "required": ["product_id"],
             },
             "scope": "write",
+        },
+        {
+            "name": "delete_product_variation",
+            "method_name": "delete_product_variation",
+            "description": "Delete (or trash) a single variation of a variable WooCommerce product without touching the parent product.",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "product_id": {
+                        "type": "integer",
+                        "description": "Parent (variable) product ID",
+                        "minimum": 1,
+                    },
+                    "variation_id": {
+                        "type": "integer",
+                        "description": "Variation ID to delete",
+                        "minimum": 1,
+                    },
+                    "force": {
+                        "type": "boolean",
+                        "description": "Permanently delete (true) or move to trash (false)",
+                        "default": False,
+                    },
+                },
+                "required": ["product_id", "variation_id"],
+            },
+            "scope": "write",
+            "destructive": True,
         },
         # === PRODUCT CATEGORIES ===
         {
@@ -439,6 +563,24 @@ def get_tool_specifications() -> list[dict[str, Any]]:
             "scope": "write",
         },
         # === PRODUCT TAGS ===
+        {
+            "name": "delete_product_category",
+            "method_name": "delete_product_category",
+            "description": "Permanently delete a WooCommerce product category. Products in it are not deleted; WooCommerce re-assigns them as needed. Categories cannot be trashed.",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "category_id": {
+                        "type": "integer",
+                        "description": "Product category ID to delete",
+                        "minimum": 1,
+                    },
+                },
+                "required": ["category_id"],
+            },
+            "scope": "write",
+            "destructive": True,
+        },
         {
             "name": "list_product_tags",
             "method_name": "list_product_tags",
@@ -515,6 +657,24 @@ def get_tool_specifications() -> list[dict[str, Any]]:
             "scope": "write",
         },
         # === PRODUCT VARIATIONS ===
+        {
+            "name": "delete_product_attribute",
+            "method_name": "delete_product_attribute",
+            "description": "Permanently delete a global WooCommerce product attribute (and its terms). Products keep any custom per-product attributes. Attributes cannot be trashed.",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "attribute_id": {
+                        "type": "integer",
+                        "description": "Global attribute ID to delete",
+                        "minimum": 1,
+                    },
+                },
+                "required": ["attribute_id"],
+            },
+            "scope": "write",
+            "destructive": True,
+        },
         {
             "name": "list_product_variations",
             "method_name": "list_product_variations",
@@ -633,6 +793,17 @@ class ProductsHandler:
         category: int | None = None,
         stock_status: str | None = None,
         search: str | None = None,
+        tag: int | None = None,
+        orderby: str | None = None,
+        order: str | None = None,
+        after: str | None = None,
+        before: str | None = None,
+        modified_after: str | None = None,
+        modified_before: str | None = None,
+        featured: bool | None = None,
+        on_sale: bool | None = None,
+        min_price: str | None = None,
+        max_price: str | None = None,
         search_terms: list[str] | None = None,
         include_content: bool = False,
     ) -> str:
@@ -646,6 +817,17 @@ class ProductsHandler:
             category: Filter by category ID
             stock_status: Filter by stock status (instock, outofstock, onbackorder)
             search: Search term to filter products
+            tag: Filter by product tag ID
+            orderby: Sort field
+            order: Sort direction
+            after: Creation-date lower bound
+            before: Creation-date upper bound
+            modified_after: Modified-date lower bound
+            modified_before: Modified-date upper bound
+            featured: Filter featured products
+            on_sale: Filter products on sale
+            min_price: Minimum product price
+            max_price: Maximum product price
             search_terms: Multiple search terms for parallel search with deduplication
             include_content: Include description summary and word count in results
 
@@ -659,8 +841,30 @@ class ProductsHandler:
             # Add optional filters
             if category is not None:
                 params["category"] = category
+            if tag is not None:
+                params["tag"] = tag
             if stock_status:
                 params["stock_status"] = stock_status
+            if orderby:
+                params["orderby"] = orderby
+            if order:
+                params["order"] = order
+            if after:
+                params["after"] = after
+            if before:
+                params["before"] = before
+            if modified_after:
+                params["modified_after"] = modified_after
+            if modified_before:
+                params["modified_before"] = modified_before
+            if featured is not None:
+                params["featured"] = "true" if featured else "false"
+            if on_sale is not None:
+                params["on_sale"] = "true" if on_sale else "false"
+            if min_price is not None:
+                params["min_price"] = min_price
+            if max_price is not None:
+                params["max_price"] = max_price
 
             # Multi-search: parallel API calls with deduplication
             if search_terms and len(search_terms) > 0:
@@ -694,18 +898,40 @@ class ProductsHandler:
                     "slug": p["slug"],
                     "type": p["type"],
                     "status": p["status"],
+                    "date_created": p.get("date_created", ""),
+                    "date_modified": p.get("date_modified", ""),
+                    "featured": p.get("featured", False),
+                    "total_sales": p.get("total_sales", 0),
                     "price": p["price"],
                     "regular_price": p["regular_price"],
                     "sale_price": p.get("sale_price", ""),
+                    "price_summary": {
+                        "price": p.get("price", ""),
+                        "regular_price": p.get("regular_price", ""),
+                        "sale_price": p.get("sale_price", ""),
+                        "on_sale": p.get("on_sale", False),
+                    },
                     "stock_status": p["stock_status"],
                     "stock_quantity": p.get("stock_quantity"),
                     "categories": [
-                        {"id": cat["id"], "name": cat["name"]} for cat in p.get("categories", [])
+                        {"id": cat["id"], "name": cat["name"], "slug": cat.get("slug", "")}
+                        for cat in p.get("categories", [])
+                    ],
+                    "tags": [
+                        {"id": tag["id"], "name": tag["name"], "slug": tag.get("slug", "")}
+                        for tag in p.get("tags", [])
                     ],
                     "images": [
-                        {"id": img["id"], "src": img["src"], "alt": img.get("alt", "")}
+                        {
+                            "id": img["id"],
+                            "src": img["src"],
+                            "alt": img.get("alt", ""),
+                            "name": img.get("name", ""),
+                        }
                         for img in p.get("images", [])[:1]  # Just first image
                     ],
+                    "image_count": len(p.get("images", [])),
+                    "short_description": _strip_html(p.get("short_description", ""), 240),
                     "permalink": p["permalink"],
                 }
                 if include_content:
@@ -814,6 +1040,7 @@ class ProductsHandler:
         manage_stock: bool = False,
         stock_status: str = "instock",
         attributes: list[dict[str, Any]] | None = None,
+        meta_data: list[dict[str, Any]] | None = None,
     ) -> str:
         """
         Create a new WooCommerce product.
@@ -832,6 +1059,7 @@ class ProductsHandler:
             manage_stock: Enable stock management
             stock_status: Stock status
             attributes: Product attributes for variable products
+            meta_data: WooCommerce product meta_data passthrough
 
         Returns:
             JSON string with created product data
@@ -916,6 +1144,8 @@ class ProductsHandler:
 
                 if processed_attrs:
                     data["attributes"] = processed_attrs
+            if meta_data is not None:
+                data["meta_data"] = meta_data
 
             product = await self.client.post("products", json_data=data, use_woocommerce=True)
 
@@ -975,6 +1205,7 @@ class ProductsHandler:
         stock_status: str | None = None,
         featured: bool | None = None,
         weight: str | None = None,
+        meta_data: list[dict[str, Any]] | None = None,
     ) -> str:
         """
         Update an existing WooCommerce product.
@@ -994,6 +1225,7 @@ class ProductsHandler:
             stock_status: Stock status
             featured: Featured product flag
             weight: Product weight
+            meta_data: WooCommerce product meta_data passthrough
 
         Returns:
             JSON string with updated product data
@@ -1032,6 +1264,8 @@ class ProductsHandler:
                 data["featured"] = featured
             if weight is not None:
                 data["weight"] = weight
+            if meta_data is not None:
+                data["meta_data"] = meta_data
 
             product = await self.client.put(
                 f"products/{product_id}", json_data=data, use_woocommerce=True
@@ -1076,6 +1310,67 @@ class ProductsHandler:
         except Exception as e:
             return json.dumps(
                 {"error": str(e), "message": f"Failed to delete product {product_id}: {str(e)}"},
+                indent=2,
+            )
+
+    async def delete_product_variation(
+        self, product_id: int, variation_id: int, force: bool = False
+    ) -> str:
+        """Delete or trash one variation of a variable product (issue #75)."""
+        try:
+            params = {"force": "true" if force else "false"}
+            result = await self.client.delete(
+                f"products/{product_id}/variations/{variation_id}",
+                params=params,
+                use_woocommerce=True,
+            )
+            action = "permanently deleted" if force else "moved to trash"
+            message = f"Variation {variation_id} of product {product_id} {action}"
+            return json.dumps({"success": True, "message": message, "result": result}, indent=2)
+        except Exception as e:
+            return json.dumps(
+                {
+                    "error": str(e),
+                    "message": f"Failed to delete variation {variation_id}: {str(e)}",
+                },
+                indent=2,
+            )
+
+    async def delete_product_category(self, category_id: int) -> str:
+        """Permanently delete a product category (WC requires force=true)."""
+        try:
+            result = await self.client.delete(
+                f"products/categories/{category_id}",
+                params={"force": "true"},
+                use_woocommerce=True,
+            )
+            message = f"Product category {category_id} permanently deleted"
+            return json.dumps({"success": True, "message": message, "result": result}, indent=2)
+        except Exception as e:
+            return json.dumps(
+                {
+                    "error": str(e),
+                    "message": f"Failed to delete product category {category_id}: {str(e)}",
+                },
+                indent=2,
+            )
+
+    async def delete_product_attribute(self, attribute_id: int) -> str:
+        """Permanently delete a global product attribute (WC requires force=true)."""
+        try:
+            result = await self.client.delete(
+                f"products/attributes/{attribute_id}",
+                params={"force": "true"},
+                use_woocommerce=True,
+            )
+            message = f"Product attribute {attribute_id} permanently deleted"
+            return json.dumps({"success": True, "message": message, "result": result}, indent=2)
+        except Exception as e:
+            return json.dumps(
+                {
+                    "error": str(e),
+                    "message": f"Failed to delete product attribute {attribute_id}: {str(e)}",
+                },
                 indent=2,
             )
 

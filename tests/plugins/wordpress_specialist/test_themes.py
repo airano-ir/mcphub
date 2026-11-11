@@ -3,19 +3,21 @@
 Mocks ``WordPressClient.get`` / ``post`` / ``put`` / ``delete`` and
 asserts:
 
-* tool spec contract: 7 tools (3 management + 4 file CRUD), reads at
+* tool spec contract: 8 tools (3 management + 5 file CRUD), reads at
   ``scope=read``, writes at ``scope=editor``
 * each handler method targets the correct ``airano-mcp/v1/admin/*``
   route with ``use_custom_namespace=True``
 * client-side guards reject malformed slugs (S-15), traversal-shaped
   paths (S-16), oversized payloads (S-18), and bad expected_sha256
   (S-19)
-* mutually-exclusive zip_url / zip_base64 contract is enforced
+* mutually-exclusive zip_url / zip_base64 / zip_path / zip_session_id
+  contract is enforced
 """
 
 from __future__ import annotations
 
 import base64
+import zipfile
 from unittest.mock import AsyncMock
 
 import pytest
@@ -33,7 +35,7 @@ from plugins.wordpress_specialist.handlers.themes import (
 
 def test_tool_specs_count_and_names_match_f197():
     specs = get_tool_specifications()
-    assert len(specs) == 7, "F.19.7 advertises 3 management + 4 file CRUD"
+    assert len(specs) == 8, "F.19.7 advertises 3 management + 5 file CRUD"
     names = {s["name"] for s in specs}
     assert names == {
         "wp_theme_install_from_zip",
@@ -42,6 +44,7 @@ def test_tool_specs_count_and_names_match_f197():
         "wp_theme_file_list",
         "wp_theme_file_read",
         "wp_theme_file_write",
+        "wp_theme_file_patch",
         "wp_theme_file_delete",
     }
 
@@ -55,6 +58,7 @@ def test_reads_are_read_scope_writes_are_editor_scope():
         "wp_theme_file_list": "read",
         "wp_theme_file_read": "read",
         "wp_theme_file_write": "editor",
+        "wp_theme_file_patch": "editor",
         "wp_theme_file_delete": "editor",
     }
     for name, scope in expected_scope.items():
@@ -154,6 +158,7 @@ def client():
     c.get = AsyncMock(return_value={"ok": True})  # type: ignore[method-assign]
     c.post = AsyncMock(return_value={"ok": True})  # type: ignore[method-assign]
     c.put = AsyncMock(return_value={"ok": True})  # type: ignore[method-assign]
+    c.patch = AsyncMock(return_value={"ok": True})  # type: ignore[method-assign]
     c.delete = AsyncMock(return_value={"ok": True})  # type: ignore[method-assign]
     return c
 
@@ -161,6 +166,11 @@ def client():
 @pytest.fixture
 def handler(client):
     return ThemesHandler(client)
+
+
+def _make_zip(path, filename: str = "theme/style.css") -> None:
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr(filename, "/*\nTheme Name: Test Theme\n*/\n")
 
 
 # ───── Theme management routing ──────────────────────────────────────
@@ -194,17 +204,54 @@ async def test_install_from_zip_base64_calls_install_route(handler, client):
 
 
 @pytest.mark.asyncio
+async def test_install_from_zip_path_calls_install_route(handler, client, tmp_path):
+    zip_path = tmp_path / "theme.zip"
+    _make_zip(zip_path)
+
+    await handler.wp_theme_install_from_zip(zip_path=str(zip_path), activate=True)
+
+    args, kwargs = client.post.call_args
+    body = kwargs["json_data"]
+    assert args[0] == "airano-mcp/v1/admin/themes/install"
+    assert body["zip_base64"] == base64.b64encode(zip_path.read_bytes()).decode("ascii")
+    assert body["activate"] is True
+    assert body["overwrite"] is False
+    assert "zip_path" not in body
+    assert "zip_url" not in body
+
+
+@pytest.mark.asyncio
 async def test_install_requires_one_of_url_or_base64(handler, client):
-    with pytest.raises(ValueError, match="zip_url or zip_base64"):
+    with pytest.raises(ValueError, match="exactly one"):
         await handler.wp_theme_install_from_zip()
     client.post.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_install_rejects_both_url_and_base64(handler, client):
-    with pytest.raises(ValueError, match="not both"):
+    with pytest.raises(ValueError, match="exactly one"):
         await handler.wp_theme_install_from_zip(
             zip_url="https://example.com/x.zip", zip_base64="aGVsbG8="
+        )
+    client.post.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_install_rejects_path_mixed_with_base64(handler, client, tmp_path):
+    zip_path = tmp_path / "theme.zip"
+    _make_zip(zip_path)
+
+    with pytest.raises(ValueError, match="exactly one"):
+        await handler.wp_theme_install_from_zip(zip_path=str(zip_path), zip_base64="aGVsbG8=")
+    client.post.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_install_rejects_session_mixed_with_base64(handler, client):
+    with pytest.raises(ValueError, match="exactly one"):
+        await handler.wp_theme_install_from_zip(
+            zip_session_id="abc123",
+            zip_base64="aGVsbG8=",
         )
     client.post.assert_not_awaited()
 
@@ -216,6 +263,16 @@ async def test_install_rejects_oversized_zip_base64(handler, client):
     huge = "A" * (70 * 1024 * 1024)
     with pytest.raises(ValueError, match=r"exceeds .* byte cap \(S-18\)"):
         await handler.wp_theme_install_from_zip(zip_base64=huge)
+    client.post.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_install_rejects_non_zip_path(handler, client, tmp_path):
+    bad_path = tmp_path / "theme.zip"
+    bad_path.write_text("not a zip")
+
+    with pytest.raises(ValueError, match="valid zip archive"):
+        await handler.wp_theme_install_from_zip(zip_path=str(bad_path))
     client.post.assert_not_awaited()
 
 
@@ -358,6 +415,85 @@ async def test_file_write_passes_create_dirs_false(handler, client):
     )
     args, kwargs = client.put.call_args
     assert kwargs["json_data"]["create_dirs"] is False
+
+
+@pytest.mark.asyncio
+async def test_file_patch_calls_patch_route_with_line_splice(handler, client):
+    await handler.wp_theme_file_patch(
+        theme_slug="palebluedot",
+        path="assets/css/theme.css",
+        from_line=10,
+        to_line=12,
+        content=".hero { color: blue; }\n",
+    )
+    client.patch.assert_awaited_once_with(
+        "airano-mcp/v1/admin/themes/files/palebluedot/assets/css/theme.css",
+        json_data={
+            "from_line": 10,
+            "to_line": 12,
+            "content": ".hero { color: blue; }\n",
+        },
+        use_custom_namespace=True,
+    )
+
+
+@pytest.mark.asyncio
+async def test_file_patch_supports_insert_range_and_expected_sha(handler, client):
+    sha = "A" * 64
+    await handler.wp_theme_file_patch(
+        theme_slug="palebluedot",
+        path="style.css",
+        from_line=5,
+        to_line=4,
+        content="/* inserted */\n",
+        expected_sha256=sha,
+    )
+    args, kwargs = client.patch.call_args
+    assert args[0].endswith("/style.css")
+    assert kwargs["json_data"]["expected_sha256"] == sha.lower()
+    assert kwargs["json_data"]["from_line"] == 5
+    assert kwargs["json_data"]["to_line"] == 4
+
+
+@pytest.mark.asyncio
+async def test_file_patch_rejects_invalid_line_range(handler, client):
+    with pytest.raises(ValueError, match="to_line"):
+        await handler.wp_theme_file_patch(
+            theme_slug="palebluedot",
+            path="style.css",
+            from_line=10,
+            to_line=8,
+            content="x",
+        )
+    client.patch.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_file_patch_rejects_invalid_expected_sha256(handler, client):
+    with pytest.raises(ValueError, match="64-char hex"):
+        await handler.wp_theme_file_patch(
+            theme_slug="palebluedot",
+            path="style.css",
+            from_line=1,
+            to_line=1,
+            content="x",
+            expected_sha256="not-a-hash",
+        )
+    client.patch.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_file_patch_rejects_oversized_content(handler, client):
+    huge = "x" * (6 * 1024 * 1024)
+    with pytest.raises(ValueError, match=r"exceeds .* byte cap \(S-18\)"):
+        await handler.wp_theme_file_patch(
+            theme_slug="palebluedot",
+            path="style.css",
+            from_line=1,
+            to_line=1,
+            content=huge,
+        )
+    client.patch.assert_not_awaited()
 
 
 @pytest.mark.asyncio

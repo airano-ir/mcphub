@@ -57,7 +57,7 @@ ARG BUILD_HTTP_PROXY=""
 ARG BUILD_HTTPS_PROXY=""
 ARG BUILD_NO_PROXY=""
 
-# CRITICAL: Install wget for health checks + docker-cli for WP-CLI tools
+# Install wget for health checks.
 # libmagic1 is required by python-magic (F.5a media upload MIME sniffing)
 RUN export HTTP_PROXY="${BUILD_HTTP_PROXY}" \
            HTTPS_PROXY="${BUILD_HTTPS_PROXY}" \
@@ -65,16 +65,12 @@ RUN export HTTP_PROXY="${BUILD_HTTP_PROXY}" \
     && apt-get update && apt-get install -y --no-install-recommends \
         wget \
         curl \
-        docker.io \
         libmagic1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user for security and grant Docker socket access
-# Docker group (GID 999) allows access to /var/run/docker.sock
+# Create non-root user for security.
 RUN groupadd -g 1001 appgroup && \
-    useradd -u 1001 -g appgroup -s /bin/sh -m appuser && \
-    (groupadd -g 999 docker 2>/dev/null || true) && \
-    (usermod -aG docker appuser 2>/dev/null || true)
+    useradd -u 1001 -g appgroup -s /bin/sh -m appuser
 
 # Set working directory
 WORKDIR /app

@@ -17,6 +17,7 @@ import hashlib
 import logging
 import os
 import uuid
+from collections.abc import AsyncIterable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -78,6 +79,19 @@ def make_session_id(
     """Deterministic session id — same tuple → same id (enables resume)."""
     payload = f"{user_id}|{filename}|{total_bytes}|{mime or ''}|{sha256 or ''}"
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:32]
+
+
+def make_session_owner_id(user_id: str | None, site_id: str | None = None) -> str:
+    """Return the internal owner key used for upload-session isolation.
+
+    Per-user MCP endpoints are bound to a specific site alias. Including
+    ``site_id`` in the owner prevents a site-scoped API key for one site from
+    streaming bytes into another site's open media session.
+    """
+    actor = user_id or "admin"
+    if actor != "admin" and site_id:
+        return f"{actor}:{site_id}"
+    return actor
 
 
 def _ensure_spill_dir(spill_dir: Path) -> None:
@@ -291,6 +305,85 @@ class UploadSessionStore:
                 f.write(data)
             sess.received_bytes = new_size
             sess.next_chunk = index + 1
+            await self.db.execute(
+                "UPDATE upload_sessions SET received_bytes = ?, next_chunk = ? WHERE id = ?",
+                (sess.received_bytes, sess.next_chunk, session_id),
+            )
+            return sess
+
+    # -- append stream -----------------------------------------------------
+
+    async def append_stream(
+        self,
+        session_id: str,
+        chunks: AsyncIterable[bytes],
+        *,
+        index: int | None = None,
+        chunk_sha256: str | None = None,
+    ) -> UploadSession:
+        """Append one raw binary stream as the next session chunk.
+
+        This powers the HTTP intake path where an agent can ``PUT`` bytes with
+        ``curl --data-binary @file`` instead of embedding base64 in a tool call.
+        The stream is still treated as one sequential chunk so existing
+        ``received_bytes`` / ``next_chunk`` resume semantics remain intact.
+        """
+        async with self._lock:
+            sess = await self._require_open(session_id)
+            actual_index = sess.next_chunk if index is None else index
+            if actual_index != sess.next_chunk:
+                raise UploadSessionError(
+                    "CHUNK_ORDER",
+                    f"Expected chunk index {sess.next_chunk}, got {actual_index}.",
+                    {"expected": sess.next_chunk, "got": actual_index},
+                )
+
+            original_size = sess.received_bytes
+            received = 0
+            digest = hashlib.sha256()
+
+            try:
+                with open(sess.spill_path, "ab") as f:
+                    async for data in chunks:
+                        if not data:
+                            continue
+                        new_size = original_size + received + len(data)
+                        if new_size > sess.total_bytes:
+                            raise UploadSessionError(
+                                "CHUNK_OVERFLOW",
+                                "Stream would exceed declared total_bytes "
+                                f"({new_size} > {sess.total_bytes}).",
+                                {"declared": sess.total_bytes, "would_be": new_size},
+                            )
+                        f.write(data)
+                        digest.update(data)
+                        received += len(data)
+
+                if received <= 0:
+                    raise UploadSessionError("EMPTY_CHUNK", "No bytes were received.")
+
+                if chunk_sha256 is not None:
+                    actual = digest.hexdigest()
+                    if actual.lower() != chunk_sha256.lower():
+                        raise UploadSessionError(
+                            "CHUNK_CHECKSUM",
+                            "Stream sha256 does not match supplied value.",
+                            {
+                                "expected": chunk_sha256,
+                                "actual": actual,
+                                "index": actual_index,
+                            },
+                        )
+            except Exception:
+                try:
+                    with open(sess.spill_path, "r+b") as f:
+                        f.truncate(original_size)
+                except OSError as exc:
+                    logger.debug("Could not roll back spill file %s: %s", sess.spill_path, exc)
+                raise
+
+            sess.received_bytes = original_size + received
+            sess.next_chunk = actual_index + 1
             await self.db.execute(
                 "UPDATE upload_sessions SET received_bytes = ?, next_chunk = ? WHERE id = ?",
                 (sess.received_bytes, sess.next_chunk, session_id),

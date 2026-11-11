@@ -228,14 +228,21 @@ async def api_plugins(request: Request) -> Response:
     if admin_session is None and user_session is None:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
-    from core.site_api import get_user_credential_fields, get_user_plugin_names
+    from core.site_api import FIXED_PLUGIN_URLS, get_user_credential_fields, get_user_plugin_names
 
     is_admin = is_admin_session(admin_session or user_session)
     fields = get_user_credential_fields(is_admin=is_admin)
     names = get_user_plugin_names(is_admin=is_admin)
 
     plugins = [
-        {"type": ptype, "name": names.get(ptype, ptype), "fields": flds}
+        {
+            "type": ptype,
+            "name": names.get(ptype, ptype),
+            "fields": flds,
+            # Plugins with a fixed third-party API base (e.g. Cloudflare) —
+            # the SPA hides the URL field and sends this value on create.
+            "fixedUrl": FIXED_PLUGIN_URLS.get(ptype),
+        }
         for ptype, flds in fields.items()
     ]
     plugins.sort(key=lambda p: p["name"].lower())

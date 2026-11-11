@@ -10,7 +10,7 @@ license = "MIT"
 requires-python = ">=3.11"
 keywords = [
     "mcp", "wordpress", "woocommerce", "ai", "self-hosted",
-    "gitea", "n8n", "supabase", "appwrite", "directus",
+    "gitea", "n8n", "supabase", "openpanel", "coolify",
     "model-context-protocol", "claude", "automation",
 ]
 classifiers = [
@@ -93,6 +93,7 @@ exclude = ["tests*", "data*", "logs*", "temp*", "scripts*", "docs*"]
 [tool.pytest.ini_options]
 minversion = "7.0"
 testpaths = ["tests"]
+pythonpath = ["."]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
@@ -171,6 +172,7 @@ exclude = '''
   | __pycache__
   | build
   | dist
+  | node_modules
 )/
 '''
 
@@ -240,6 +242,7 @@ warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
 strict_equality = true
+exclude = ["tests/legacy"]
 
 [[tool.mypy.overrides]]
 module = "tests.*"

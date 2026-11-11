@@ -9,6 +9,11 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock("../lib/queries", () => ({
+  useAddOpenAICompatibleConfig: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useDeleteOpenAICompatibleConfig: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useOpenAICompatibleConfigs: () => ({ data: [], isLoading: false, isError: false }),
+  useOpenAICompatibleModels: () => ({ data: [], isLoading: false, isError: false, refetch: vi.fn() }),
+  useSetOpenAICompatibleModel: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useDeleteSiteProviderKey: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useOpenRouterImageModels: () => ({
     data: [

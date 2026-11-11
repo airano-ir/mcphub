@@ -1,6 +1,37 @@
-# Releasing v2.10.3 to wordpress.org via SVN — DONE 2026-05-10
+# wp.org SVN release log
 
-**Status (2026-05-10):**
+**Latest: v2.11.0 — 2026-06-04**
+
+- ✅ `airano-mcp-bridge` trunk → `r3561108` ("v2.11.0 — WP 7.0 + 4 new routes")
+- ✅ `airano-mcp-bridge` tag `2.11.0` → `r3561109`
+- ✅ `airano-mcp-seo-bridge` (legacy) trunk → `r3561112` ("v1.3.2 — Tested up to 7.0")
+- ✅ `airano-mcp-seo-bridge` (legacy) tag `1.3.2` → `r3561115`
+
+v2.11.0 cycle highlights (the next session will care about these):
+
+- Ported 4 routes from internal v2.20.0: `/opcache-reset`,
+  `/transients`, `/term-update`, plus `scope=object|page|all` on
+  `/cache-purge`. Multilingual routes (`/post-language`,
+  `/term-language`) intentionally deferred — they pull in ~30 helpers
+  and need real WPML/Polylang test coverage.
+- Bumped `Tested up to` 6.9 → 7.0 (WordPress 7.0 release cycle).
+- Bumped `Requires at least` 5.0 → 5.6 because Plugin Check flagged
+  the existing `/site-health` route's use of `wp_timezone_string()`
+  (WP 5.3) and `wp_is_application_passwords_available()` (WP 5.6)
+  against the 5.0 floor. WP 5.6 is from 2020-12 so no practical impact.
+- Scrubbed two pre-existing `coolify-mcp-hub` (old private-repo name)
+  links from README.md — replaced with the public `mcphub` mirror so
+  the README on the wp.org page no longer leaks the private repo.
+
+For the full release runbook (what to port, version policy, asset
+regeneration, etc.) see [../UPGRADE_GUIDE.md](../UPGRADE_GUIDE.md).
+
+---
+
+## Prior release history
+
+**v2.10.3 — 2026-05-10 (first wp.org-approved release of the new slug)**
+
 - ✅ trunk committed at `r3527909` (`svn ci`-ed by maintainer)
 - ✅ assets committed at `r3527917` (icon-128/256, banner-772x250 / 1544x500)
 - ✅ tag `2.10.3` committed at `r3527918`

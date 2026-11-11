@@ -94,16 +94,17 @@ class TestWooCommerceToolSpecs:
         assert len(specs) > 0
 
     def test_specs_count(self):
-        """Should return 32 tool specs.
+        """Should return 38 tool specs.
 
-        Breakdown: 12 products + 5 orders + 4 customers + 4 coupons +
-        3 reports + 3 media-attach (F.5a.3) + 1 AI image (F.X.fix-pass5
-        re-exposed generate_and_upload_image on the WC plugin so
-        operators don't need a separate WP site to chain AI generation
-        with WC product attachment).
+        Breakdown: 15 products (incl. #75 variation/category/attribute
+        deletes) + 5 orders + 5 customers (incl. #75 delete) + 4 coupons +
+        3 reports + 4 media-attach (F.5a.3 + #75 delete_media) + 1 AI image
+        (F.X.fix-pass5 re-exposed generate_and_upload_image on the WC plugin
+        so operators don't need a separate WP site to chain AI generation
+        with WC product attachment) + 1 diagnose_store.
         """
         specs = WooCommercePlugin.get_tool_specifications()
-        assert len(specs) == 32
+        assert len(specs) == 38
 
     def test_specs_have_required_fields(self):
         """Each spec should have name, method_name, description, schema, scope."""

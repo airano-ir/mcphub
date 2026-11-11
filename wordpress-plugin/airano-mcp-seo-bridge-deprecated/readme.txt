@@ -2,9 +2,9 @@
 Contributors: airano
 Tags: seo, rest-api, rank-math, yoast, mcp
 Requires at least: 5.0
-Tested up to: 6.9
+Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.3.1
+Stable tag: 1.3.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -62,6 +62,12 @@ Yes. The REST API endpoints work with any application that can make HTTP request
 
 == Changelog ==
 
+= 1.3.3 =
+* Mark **Tested up to: 7.1** for the WordPress 7.1 release cycle. No code change — this plugin remains deprecated and the migration notice from 1.3.1 is unchanged. New installs should use [Airano MCP Bridge](https://wordpress.org/plugins/airano-mcp-bridge/) directly.
+
+= 1.3.2 =
+* Mark **Tested up to: 7.0** for the WordPress 7.0 release cycle. No code change — this plugin is deprecated and the migration notice from 1.3.1 is unchanged. New installs should use [Airano MCP Bridge](https://wordpress.org/plugins/airano-mcp-bridge/) directly.
+
 = 1.3.1 =
 * Migration notice — this plugin is now superseded by [Airano MCP Bridge](https://wordpress.org/plugins/airano-mcp-bridge/). A dismissible admin notice links to the replacement; SEO routes and behaviour are otherwise unchanged so existing installs continue to work without modification. Per-user dismissal is honoured via a nonce-protected query parameter and persisted in `user_meta`.
 
@@ -82,6 +88,12 @@ Yes. The REST API endpoints work with any application that can make HTTP request
 * Initial release with Rank Math and Yoast SEO support
 
 == Upgrade Notice ==
+
+= 1.3.3 =
+Tested-up-to bumped to 7.1. No behaviour change. This plugin remains deprecated — new installs should use Airano MCP Bridge instead.
+
+= 1.3.2 =
+Tested-up-to bumped to 7.0 for the WordPress 7.0 release cycle. No behaviour change. This plugin remains deprecated — new installs should use Airano MCP Bridge instead.
 
 = 1.3.1 =
 This plugin has been superseded by Airano MCP Bridge. v1.3.1 only adds a migration notice that links to the replacement; existing SEO routes are unchanged. Recommended: install Airano MCP Bridge from the directory and deactivate this plugin once migrated.

@@ -4,9 +4,10 @@ import { Btn, Avatar } from "../components/primitives";
 import { Icons } from "../components/icons";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { useSession } from "../lib/queries";
+import { useConfigHealth, useSession } from "../lib/queries";
 import { getCsrfToken } from "../lib/api";
 import { useT } from "../lib/i18n";
+import { useUiStore } from "../lib/store";
 import { PublicControls } from "../components/PublicControls";
 
 function normalizeClientNext(raw: string | null): string {
@@ -42,6 +43,11 @@ export function LoginPage() {
   const queryClient = useQueryClient();
   const location = useLocation();
   const session = useSession();
+  const lang = useUiStore((s) => s.lang);
+  // First-run setup notice: surfaced on the (public) login page so a fresh
+  // self-host deploy sees missing-env warnings before authenticating. Returns
+  // [] once the instance is correctly configured.
+  const { data: configWarnings } = useConfigHealth(true);
   const nextPath = normalizeClientNext(new URLSearchParams(location.search).get("next"));
 
   // Hide the master-key form when the server has DISABLE_MASTER_KEY_LOGIN=true
@@ -100,6 +106,38 @@ export function LoginPage() {
           <div className="body" style={{ color: "var(--text-muted)", marginBottom: 28 }}>
             {t("login.subtitle", "Sign in to your MCP Hub")}
           </div>
+          {configWarnings && configWarnings.length > 0 && (
+            <div
+              role="alert"
+              style={{
+                marginBottom: 24,
+                padding: "12px 14px",
+                borderRadius: 8,
+                borderInlineStart: `3px solid ${
+                  configWarnings.some((w) => w.severity === "critical")
+                    ? "var(--danger, #e5484d)"
+                    : "var(--warning, #d9920a)"
+                }`,
+                background: "var(--surface-2, rgba(127,127,127,0.08))",
+                fontSize: 13,
+              }}
+            >
+              <div style={{ fontWeight: 600, marginBottom: 6 }}>
+                {lang === "fa"
+                  ? "راه‌اندازی ناقص است — این متغیرها را تنظیم کنید:"
+                  : "Setup incomplete — configure these before use:"}
+              </div>
+              <ul style={{ margin: 0, paddingInlineStart: 18, display: "grid", gap: 6 }}>
+                {configWarnings.map((w) => (
+                  <li key={w.code}>
+                    <span style={{ fontWeight: 600 }}>{w.env}</span>
+                    {" — "}
+                    {lang === "fa" ? w.title_fa : w.title_en}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <a href="/auth/github" className="btn btn-secondary btn-lg">
               <Icons.github style={{ width: 16, height: 16 }} />

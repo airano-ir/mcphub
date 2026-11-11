@@ -289,6 +289,26 @@ class TestAuthentication:
         assert "result" in body
         assert "tools" in body["result"]
 
+    @pytest.mark.unit
+    async def test_site_scoped_key_denies_when_scope_lookup_is_unavailable(
+        self, mock_key_mgr, mock_db
+    ):
+        """A site-scoped key must fail closed if its DB boundary cannot be checked."""
+        mock_key_mgr.validate_key.return_value = {
+            "key_id": "key-uuid-001",
+            "user_id": "user-uuid-001",
+            "scopes": "read",
+            "site_id": "site-uuid-A",
+        }
+        mock_db.get_site = AsyncMock(side_effect=RuntimeError("database unavailable"))
+
+        request = _make_request(alias="myblog")
+        response = await user_mcp_handler(request)
+
+        assert response.status_code == 503
+        body = json.loads(response.body)
+        assert "unavailable" in body["error"]["message"].lower()
+
 
 # ── Site Lookup Tests ────────────────────────────────────────
 
@@ -401,6 +421,54 @@ class TestMCPMethods:
         body = json.loads(response.body)
         assert "result" in body
         assert "content" in body["result"]
+
+    @pytest.mark.unit
+    async def test_tools_call_honours_central_authorization_denial(
+        self,
+        mock_key_mgr,
+        mock_db,
+        monkeypatch,
+    ):
+        """A central denial must stop execution before credentials or plugin calls."""
+        from core.tool_policy import AuthorizationDecision, EndpointContext, Principal, SiteContext
+
+        decision = AuthorizationDecision(
+            allow=False,
+            reason_code="SITE_BOUNDARY_VIOLATION",
+            reason="central denial",
+            required_scope="read",
+            plugin_type="wordpress",
+            site_id="site-uuid-001",
+            correlation_id="corr-call-1",
+            risk="low",
+            category="read",
+            principal=Principal(
+                authentication_type="bearer",
+                principal_id_safe="user-uuid-001",
+                granted_scopes=["read", "write"],
+                site_ids=["site-uuid-001"],
+            ),
+            endpoint=EndpointContext(name="user", kind="user", plugin_types=["wordpress"]),
+            site=SiteContext(site_id="site-uuid-001", plugin_type="wordpress"),
+        )
+
+        access = MagicMock()
+        access.authorize_tool_for_site = AsyncMock(return_value=(None, decision))
+        execute = AsyncMock(side_effect=AssertionError("denied tool must not execute"))
+        monkeypatch.setattr("core.tool_access.get_tool_access_manager", lambda: access)
+        monkeypatch.setattr("core.user_endpoints._execute_tool", execute)
+
+        request = _make_request(
+            method_name="tools/call",
+            params={"name": "wordpress_list_posts", "arguments": {}},
+        )
+        response = await user_mcp_handler(request)
+
+        assert response.status_code == 200
+        body = json.loads(response.body)
+        assert body["error"]["code"] == -32003
+        assert "not authorized" in body["error"]["message"].lower()
+        execute.assert_not_awaited()
 
     @pytest.mark.unit
     async def test_unsupported_method(self, mock_key_mgr, mock_db):
@@ -642,3 +710,78 @@ class TestRateLimiting:
         assert response.status_code == 429
         body = json.loads(response.body)
         assert "Rate limit" in body["error"]["message"]
+
+
+class TestProtocolVersions:
+    """Dual-era protocol handling (legacy initialize + MCP 2026-07-28)."""
+
+    MODERN_META = {
+        "_meta": {
+            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+            "io.modelcontextprotocol/clientInfo": {"name": "t", "version": "1"},
+        }
+    }
+
+    @pytest.mark.unit
+    @pytest.mark.parametrize("requested", ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"])
+    async def test_initialize_echoes_supported_legacy_version(
+        self, mock_key_mgr, mock_db, requested
+    ):
+        request = _make_request(method_name="initialize", params={"protocolVersion": requested})
+        body = json.loads((await user_mcp_handler(request)).body)
+        assert body["result"]["protocolVersion"] == requested
+
+    @pytest.mark.unit
+    async def test_initialize_unknown_version_gets_latest_legacy(self, mock_key_mgr, mock_db):
+        request = _make_request(method_name="initialize", params={"protocolVersion": "1999-01-01"})
+        body = json.loads((await user_mcp_handler(request)).body)
+        assert body["result"]["protocolVersion"] == "2025-11-25"
+        assert body["result"]["serverInfo"]["version"]  # real hub version, not a constant
+
+    @pytest.mark.unit
+    async def test_server_discover(self, mock_key_mgr, mock_db):
+        request = _make_request(method_name="server/discover", params=self.MODERN_META)
+        result = json.loads((await user_mcp_handler(request)).body)["result"]
+        assert result["resultType"] == "complete"
+        assert "2026-07-28" in result["supportedVersions"]
+        assert "2024-11-05" in result["supportedVersions"]
+        assert result["capabilities"] == {"tools": {}}
+        assert "myblog" in result["_meta"]["io.modelcontextprotocol/serverInfo"]["name"]
+        assert result["cacheScope"] == "private" and result["ttlMs"] > 0
+
+    @pytest.mark.unit
+    async def test_modern_tools_list_carries_result_type_and_cache_hints(
+        self, mock_key_mgr, mock_db, mock_tool_registry
+    ):
+        request = _make_request(method_name="tools/list", params=self.MODERN_META)
+        result = json.loads((await user_mcp_handler(request)).body)["result"]
+        assert result["resultType"] == "complete"
+        assert result["cacheScope"] == "private"  # per-user, scope-dependent list
+        assert result["ttlMs"] > 0
+        assert result["tools"][0]["name"] == "wordpress_list_posts"
+        assert "io.modelcontextprotocol/serverInfo" in result["_meta"]
+
+    @pytest.mark.unit
+    async def test_legacy_tools_list_is_unchanged(self, mock_key_mgr, mock_db, mock_tool_registry):
+        request = _make_request(method_name="tools/list")
+        result = json.loads((await user_mcp_handler(request)).body)["result"]
+        assert set(result) == {"tools"}
+
+    @pytest.mark.unit
+    async def test_unsupported_modern_version_is_rejected(self, mock_key_mgr, mock_db):
+        params = {"_meta": {"io.modelcontextprotocol/protocolVersion": "1900-01-01"}}
+        request = _make_request(method_name="tools/list", params=params)
+        response = await user_mcp_handler(request)
+        assert response.status_code == 400
+        error = json.loads(response.body)["error"]
+        assert error["code"] == -32022
+        assert error["data"]["requested"] == "1900-01-01"
+        assert "2026-07-28" in error["data"]["supported"]
+
+    @pytest.mark.unit
+    async def test_unsupported_version_header_is_rejected(self, mock_key_mgr, mock_db):
+        request = _make_request(method_name="tools/list")
+        request.scope["headers"].append((b"mcp-protocol-version", b"2099-12-31"))
+        response = await user_mcp_handler(request)
+        assert response.status_code == 400
+        assert json.loads(response.body)["error"]["code"] == -32022

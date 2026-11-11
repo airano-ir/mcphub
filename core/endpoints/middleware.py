@@ -18,6 +18,7 @@ from core.api_keys import get_api_key_manager
 from core.audit_log import EventType, LogLevel, get_audit_logger
 from core.auth import get_auth_manager
 from core.context import clear_api_key_context, set_api_key_context
+from core.project_identifiers import IdentifierParseError, parse_tool_identifier
 from core.rate_limiter import get_rate_limiter
 
 from .config import EndpointConfig
@@ -95,9 +96,9 @@ class EndpointAuthMiddleware(Middleware):
 
         except ToolError:
             raise
-        except Exception as e:
-            self._log_error(tool_name, str(e), start_time)
-            raise ToolError(f"Authentication error: {str(e)}")
+        except Exception as exc:
+            self._log_error(tool_name, type(exc).__name__, start_time)
+            raise ToolError("Authentication service unavailable") from exc
         finally:
             clear_api_key_context()
 
@@ -116,8 +117,8 @@ class EndpointAuthMiddleware(Middleware):
         # Get headers
         try:
             headers = get_http_headers()
-        except Exception:
-            headers = {}
+        except Exception as exc:
+            raise ToolError("Authentication service unavailable") from exc
 
         # Extract client IP
         auth_context.client_ip = headers.get("x-forwarded-for", "unknown")
@@ -210,18 +211,19 @@ class EndpointAuthMiddleware(Middleware):
                     f"Got: {user_scopes}"
                 )
 
-        # Check plugin type access
+        # Check plugin type access using the registered longest-prefix parser.
         if auth_context.project_id and auth_context.project_id != "*":
-            # Extract plugin type from project_id (e.g., "wordpress_site4" -> "wordpress")
-            if "_" in auth_context.project_id:
-                key_plugin_type = auth_context.project_id.split("_")[0]
+            try:
+                key_plugin_type = parse_tool_identifier(auth_context.project_id).plugin_type
+            except IdentifierParseError:
+                raise ToolError("Invalid project identifier")
 
-                # Check if endpoint allows this plugin type
-                if self.config.plugin_types and key_plugin_type not in self.config.plugin_types:
-                    raise ToolError(
-                        f"API key for {key_plugin_type} cannot access "
-                        f"{self.config.endpoint_type.value} endpoint"
-                    )
+            # Check if endpoint allows this plugin type
+            if self.config.plugin_types and key_plugin_type not in self.config.plugin_types:
+                raise ToolError(
+                    f"API key for {key_plugin_type} cannot access "
+                    f"{self.config.endpoint_type.value} endpoint"
+                )
 
     def _check_tool_access(self, tool_name: str, auth_context: AuthContext):
         """
@@ -321,8 +323,9 @@ class EndpointAuditMiddleware(Middleware):
 
             return result
 
-        except Exception as e:
-            # Log failure
+        except Exception as exc:
+            # Log only the exception type; messages may contain credentials or
+            # upstream response bodies.
             self.audit_logger.log(
                 level=LogLevel.WARNING,
                 event_type=EventType.TOOL_CALL,
@@ -332,7 +335,7 @@ class EndpointAuditMiddleware(Middleware):
                     "endpoint": self.config.path,
                     "duration_ms": int((time.time() - start_time) * 1000),
                     "success": False,
-                    "error": str(e),
+                    "error_type": type(exc).__name__,
                 },
             )
             raise

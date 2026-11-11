@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
+import { ConfigBanner } from "./ConfigBanner";
 import { useSession } from "../lib/queries";
 import { useUiStore } from "../lib/store";
 
@@ -47,6 +48,7 @@ export function Shell() {
         tabIndex={mobileOpen ? 0 : -1}
       />
       <main>
+        <ConfigBanner />
         <Outlet />
       </main>
     </div>

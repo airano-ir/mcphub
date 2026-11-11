@@ -25,7 +25,7 @@ _cached_rate_per_hr: int | None = None
 
 # Default values for all managed settings
 SETTING_DEFAULTS: dict[str, str] = {
-    "ENABLED_PLUGINS": "wordpress,woocommerce,wordpress_specialist,supabase,openpanel,gitea,n8n,coolify",
+    "ENABLED_PLUGINS": "wordpress,woocommerce,wordpress_specialist,supabase,openpanel,gitea,n8n,coolify,google_search_console,cloudflare",
     "MAX_SITES_PER_USER": "10",
     "USER_RATE_LIMIT_PER_MIN": "30",
     "USER_RATE_LIMIT_PER_HR": "500",

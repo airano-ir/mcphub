@@ -28,6 +28,11 @@ SAMPLE_POST = {
     "modified": "2026-04-17T10:05:00",
     "categories": [3],
     "tags": [9],
+    "meta": {
+        "rank_math_title": "MCP Hub SEO",
+        "rank_math_description": "Self-hosted MCP tools",
+        "private_key_not_registered": "not returned by real REST",
+    },
     "link": "https://example.com/mcp-hub-launch",
     "_embedded": {
         "author": [{"name": "Ali"}],
@@ -35,6 +40,33 @@ SAMPLE_POST = {
             {
                 "id": 77,
                 "source_url": "https://example.com/wp-content/uploads/hero.webp",
+            }
+        ],
+    },
+}
+
+SAMPLE_PAGE = {
+    "id": 87,
+    "slug": "about",
+    "parent": 0,
+    "featured_media": 99,
+    "title": {"rendered": "About"},
+    "content": {"rendered": "<p>About page content</p>"},
+    "excerpt": {"rendered": "<p>About excerpt</p>"},
+    "status": "publish",
+    "date": "2026-05-31T10:00:00",
+    "modified": "2026-05-31T10:05:00",
+    "meta": {
+        "_yoast_wpseo_metadesc": "About page description",
+        "rank_math_title": "About SEO",
+    },
+    "link": "https://example.com/about/",
+    "_embedded": {
+        "author": [{"name": "Sara"}],
+        "wp:featuredmedia": [
+            {
+                "id": 99,
+                "source_url": "https://example.com/wp-content/uploads/about.webp",
             }
         ],
     },
@@ -151,3 +183,79 @@ class TestStrictFieldsAllowList:
         assert "featured_media" in wp_fields
         assert "slug" in wp_fields
         assert "id" in wp_fields
+
+    @pytest.mark.asyncio
+    async def test_fields_can_read_back_rest_meta(self):
+        client = AsyncMock()
+        client.get = AsyncMock(return_value=SAMPLE_POST)
+        handler = PostsHandler(client)
+
+        raw = await handler.get_post(
+            post_id=42,
+            fields="id,meta",
+            meta_keys="rank_math_title,rank_math_description",
+        )
+        data = json.loads(raw)
+
+        assert set(data.keys()) == {"id", "meta"}
+        assert data["meta"] == {
+            "rank_math_title": "MCP Hub SEO",
+            "rank_math_description": "Self-hosted MCP tools",
+        }
+        params = client.get.call_args.kwargs["params"]
+        wp_fields = set((params.get("_fields") or "").split(","))
+        assert {"id", "meta"}.issubset(wp_fields)
+
+
+class TestGetPage:
+    @pytest.mark.asyncio
+    async def test_get_page_uses_pages_endpoint(self):
+        client = AsyncMock()
+        client.get = AsyncMock(return_value=SAMPLE_PAGE)
+        handler = PostsHandler(client)
+
+        raw = await handler.get_page(page_id=87)
+        data = json.loads(raw)
+
+        assert data["id"] == 87
+        assert data["slug"] == "about"
+        assert data["featured_media"] == 99
+        assert data["featured_media_url"].endswith("/about.webp")
+
+        client.get.assert_called_once()
+        endpoint = client.get.call_args.args[0]
+        params = client.get.call_args.kwargs["params"]
+        assert endpoint == "pages/87"
+        assert params["_embed"] == "true"
+
+    @pytest.mark.asyncio
+    async def test_get_page_fields_are_strict(self):
+        client = AsyncMock()
+        client.get = AsyncMock(return_value=SAMPLE_PAGE)
+        handler = PostsHandler(client)
+
+        raw = await handler.get_page(page_id=87, fields="slug,parent")
+        data = json.loads(raw)
+
+        assert set(data.keys()) == {"id", "slug", "parent"}
+        params = client.get.call_args.kwargs["params"]
+        wp_fields = set((params.get("_fields") or "").split(","))
+        assert {"id", "slug", "parent"}.issubset(wp_fields)
+
+    @pytest.mark.asyncio
+    async def test_get_page_can_filter_meta_keys(self):
+        client = AsyncMock()
+        client.get = AsyncMock(return_value=SAMPLE_PAGE)
+        handler = PostsHandler(client)
+
+        raw = await handler.get_page(
+            page_id=87,
+            fields="id,meta",
+            meta_keys="_yoast_wpseo_metadesc",
+        )
+        data = json.loads(raw)
+
+        assert data == {
+            "id": 87,
+            "meta": {"_yoast_wpseo_metadesc": "About page description"},
+        }

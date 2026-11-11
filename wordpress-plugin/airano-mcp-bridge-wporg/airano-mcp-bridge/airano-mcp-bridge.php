@@ -3,15 +3,17 @@
  * Plugin Name: Airano MCP Bridge
  * Plugin URI: https://mcp.palebluedot.live
  * Description: Companion plugin for MCP Hub. Exposes SEO meta (Rank Math / Yoast), media upload helpers (bypass upload_max_filesize), and site capabilities via the WordPress REST API for AI agents and MCP servers. Supports posts, pages, and WooCommerce products.
- * Version: 2.10.3
+ * Version: 2.11.1
  * Author: MCP Hub
  * Author URI: https://github.com/airano-ir
  * License: GPL-2.0-or-later
- * Requires at least: 5.0
+ * Requires at least: 5.6
  * Requires PHP: 7.4
  * Text Domain: airano-mcp-bridge
  *
  * Changelog:
+ * 2.11.1 - Mark `Tested up to: 7.1` for the WordPress 7.1 release cycle. No code change: every route is built on core APIs that 7.1 leaves untouched (`register_rest_route`, `wp_update_term`, `wp_handle_sideload`, `wp_cache_flush`, `opcache_reset`), and PHP 7.4 remains the floor. Shipped so the directory listing stops showing the "untested with your version of WordPress" warning to the 7.1.x majority.
+ * 2.11.0 - WP 7.0 compatibility bump + four new admin-grade utility routes ported from the internal build: `POST /airano-mcp/v1/opcache-reset` (clear PHP OPcache after deploys without SSH/Docker), `GET /airano-mcp/v1/transients` (list transient keys + expirations; values intentionally never returned), `POST /airano-mcp/v1/term-update` (taxonomy-term mutation that bypasses some stock REST limitations — used as a fallback for translated-term slug conflicts), and extends `POST /airano-mcp/v1/cache-purge` with `scope=object|page|all` (default `all` keeps the v2.10 behaviour). All new routes are gated on `manage_options`; `/term-update` additionally enforces the taxonomy's own `edit_terms` capability at the route gate. `Requires at least` bumped 5.0 → 5.6 because the existing `/site-health` route calls `wp_timezone_string()` (added in 5.3) and `wp_is_application_passwords_available()` (added in 5.6) — Plugin Check rejects the 5.0 floor against these. WP 5.6 was released 2020-12 so there is no practical install impact.
  * 2.10.3 - WordPress.org review fix: rename main class from generic `SEO_API_Bridge` to `Airano_MCP_Bridge` to satisfy the wp.org "unique prefixes" guideline. No public-API impact — the class is only instantiated from this file's bootstrap line, never referenced by callers (the plugin's surface is its REST routes, not its PHP class).
  * 2.10.2 - WordPress.org review fixes: (a) drop the unused `wp-admin/includes/media.php` includes from /upload-chunk and /upload-and-attach — the code only uses helpers from file.php and image.php, so loading media.php was a needless direct core include; (b) split /upload-and-attach permission_callback into its own method (`require_upload_and_attach_capability`) that explicitly enforces `current_user_can('edit_post', $attach_to_post)` at the route gate when `attach_to_post` is supplied (no longer hidden inside the callback body), and rejects `set_featured` without a target post.
  * 2.10.1 - F.X.fix #10: single-source the ``routes`` bitmap via SEO_API_Bridge::get_route_map(). capabilities and site_health previously duplicated the map with conflicting values (audit_hook=true vs false, missing upload_and_attach entries). Both now read from the shared constant.
@@ -48,7 +50,7 @@ class Airano_MCP_Bridge {
     /**
      * Plugin version
      */
-    const VERSION = '2.10.3';
+    const VERSION = '2.11.1';
 
     /**
      * Single source of truth for the ``routes`` bitmap exposed to
@@ -68,9 +70,12 @@ class Airano_MCP_Bridge {
             'upload_and_attach'     => true,
             'capabilities'          => true,
             'bulk_meta'             => true,
+            'term_update'           => true,
             'export'                => true,
             'cache_purge'           => true,
+            'opcache_reset'         => true,
             'transient_flush'       => true,
+            'transients'            => true,
             'site_health'           => true,
             'audit_hook'            => true,
             'regenerate_thumbnails' => true,
@@ -306,12 +311,42 @@ class Airano_MCP_Bridge {
             },
         ]);
 
+        // --- 2.11.0: Generic term update ---------------------------------
+        // POST /wp-json/airano-mcp/v1/term-update
+        // Body: {"taxonomy": "categories", "term_id": 123, "name": "...",
+        //        "slug": "...", "description": "...", "parent": 0}
+        // Mutates taxonomy terms via wp_update_term(); narrow fallback for
+        // stock REST limitations (e.g. translated-term slug conflicts).
+        // Gated on the taxonomy's own `edit_terms` capability at the route
+        // gate, so wp.org's static analysis sees the per-target check.
+        register_rest_route('airano-mcp/v1', '/term-update', [
+            'methods' => 'POST',
+            'callback' => [$this, 'handle_term_update'],
+            'permission_callback' => [$this, 'require_term_update_capability'],
+        ]);
+
         // --- F.18.4: Cache purge (auto-detects active cache plugin) ------
         // POST /wp-json/airano-mcp/v1/cache-purge
-        // Body (optional): {}  — currently always purges "all" + object cache.
+        // Body (optional): {"scope": "object|page|all"} — `all` (default)
+        // matches the v2.10.x behaviour; `page` skips object cache;
+        // `object` skips page-cache plugins.
         register_rest_route('airano-mcp/v1', '/cache-purge', [
             'methods' => 'POST',
             'callback' => [$this, 'handle_cache_purge'],
+            'permission_callback' => function () {
+                return current_user_can('manage_options');
+            },
+        ]);
+
+        // --- 2.11.0: PHP OPcache reset -----------------------------------
+        // POST /wp-json/airano-mcp/v1/opcache-reset
+        // Calls PHP's opcache_reset() when available. Useful after
+        // theme/plugin file deploys on hosts with
+        // opcache.validate_timestamps=0, where stale bytecode would
+        // otherwise persist until the next FPM/Apache restart.
+        register_rest_route('airano-mcp/v1', '/opcache-reset', [
+            'methods' => 'POST',
+            'callback' => [$this, 'handle_opcache_reset'],
             'permission_callback' => function () {
                 return current_user_can('manage_options');
             },
@@ -324,6 +359,20 @@ class Airano_MCP_Bridge {
         register_rest_route('airano-mcp/v1', '/transient-flush', [
             'methods' => 'POST',
             'callback' => [$this, 'handle_transient_flush'],
+            'permission_callback' => function () {
+                return current_user_can('manage_options');
+            },
+        ]);
+
+        // --- 2.11.0: Transient inventory (read-only) ----------------------
+        // GET /wp-json/airano-mcp/v1/transients
+        // Query: ?limit=100&include_site_transients=1
+        // Returns key + expiration metadata ONLY. Transient values are
+        // intentionally never returned — this route is for observability /
+        // cleanup discovery, not value retrieval.
+        register_rest_route('airano-mcp/v1', '/transients', [
+            'methods' => 'GET',
+            'callback' => [$this, 'handle_transient_list'],
             'permission_callback' => function () {
                 return current_user_can('manage_options');
             },
@@ -445,6 +494,126 @@ class Airano_MCP_Bridge {
         return true;
     }
 
+    // ------------------------------------------------------------------
+    //  2.11.0 — Taxonomy resolution + term update gate
+    // ------------------------------------------------------------------
+
+    /**
+     * Resolve a taxonomy by canonical slug or REST base.
+     *
+     * MCPHub's term tools may pass either `category` / `post_tag` or the
+     * stock REST bases `categories` / `tags`. Custom taxonomies are
+     * matched on both `name` and `rest_base`.
+     *
+     * @param mixed $value
+     * @return \WP_Taxonomy|null
+     */
+    private function resolve_taxonomy_object( $value ) {
+        if ( ! is_scalar($value) ) {
+            return null;
+        }
+        $candidate = sanitize_key((string) $value);
+        if ( $candidate === '' ) {
+            return null;
+        }
+        $taxonomies = get_taxonomies([], 'objects');
+        foreach ( $taxonomies as $taxonomy ) {
+            $name = isset($taxonomy->name) ? (string) $taxonomy->name : '';
+            $rest_base = isset($taxonomy->rest_base) && $taxonomy->rest_base
+                ? (string) $taxonomy->rest_base
+                : $name;
+            if ( $candidate === $name || $candidate === sanitize_key($rest_base) ) {
+                return $taxonomy;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Fetch a term object guaranteed to belong to the given taxonomy.
+     *
+     * @param int          $term_id
+     * @param \WP_Taxonomy $taxonomy
+     * @return \WP_Term|null
+     */
+    private function get_term_for_taxonomy_object( $term_id, $taxonomy ) {
+        if ( ! $taxonomy || empty($taxonomy->name) ) {
+            return null;
+        }
+        $term = get_term((int) $term_id, (string) $taxonomy->name);
+        if ( ! $term || is_wp_error($term) ) {
+            return null;
+        }
+        return $term;
+    }
+
+    /**
+     * Return the `edit_terms` capability for a taxonomy (or the default
+     * `manage_categories` if the taxonomy doesn't declare its own).
+     *
+     * @param \WP_Taxonomy $taxonomy
+     * @return string
+     */
+    private function term_edit_capability( $taxonomy ) {
+        if ( $taxonomy && isset($taxonomy->cap) && ! empty($taxonomy->cap->edit_terms) ) {
+            return (string) $taxonomy->cap->edit_terms;
+        }
+        return 'manage_categories';
+    }
+
+    /**
+     * Permission callback for `/term-update`.
+     *
+     * Per wp.org review guidance, every per-target capability check runs
+     * at the route gate so static analysis can see it. We:
+     *   1. Resolve the taxonomy by canonical name or REST base.
+     *   2. Verify the term exists in that taxonomy.
+     *   3. Require the taxonomy's own `edit_terms` cap (NOT a generic
+     *      manage_options).
+     *
+     * @param \WP_REST_Request $request
+     * @return true|\WP_Error
+     */
+    public function require_term_update_capability( $request ) {
+        $taxonomy = $this->resolve_taxonomy_object($request->get_param('taxonomy'));
+        if ( ! $taxonomy ) {
+            return new WP_Error(
+                'taxonomy_not_found',
+                __( 'taxonomy must name a registered taxonomy or REST base.', 'airano-mcp-bridge' ),
+                ['status' => 404]
+            );
+        }
+
+        $term_id = (int) $request->get_param('term_id');
+        if ( $term_id <= 0 ) {
+            return new WP_Error(
+                'rest_invalid_param',
+                __( 'term_id must be a positive integer.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+
+        $term = $this->get_term_for_taxonomy_object($term_id, $taxonomy);
+        if ( ! $term ) {
+            return new WP_Error(
+                'term_not_found',
+                __( 'Target term was not found in the requested taxonomy.', 'airano-mcp-bridge' ),
+                ['status' => 404, 'term_id' => $term_id, 'taxonomy' => $taxonomy->name]
+            );
+        }
+
+        $capability = $this->term_edit_capability($taxonomy);
+        if ( ! current_user_can($capability) ) {
+            return new WP_Error(
+                'rest_cannot_edit_terms',
+                __( 'Sorry, you are not allowed to edit terms in this taxonomy.', 'airano-mcp-bridge' ),
+                ['status' => rest_authorization_required_code(), 'taxonomy' => $taxonomy->name]
+            );
+        }
+
+        return true;
+    }
+
     /**
      * Get plugin status endpoint
      */
@@ -462,9 +631,12 @@ class Airano_MCP_Bridge {
                 'upload_chunk'    => true,
                 'capabilities'    => true,
                 'bulk_meta'       => true,
+                'term_update'     => true,
                 'export'          => true,
                 'cache_purge'     => true,
+                'opcache_reset'   => true,
                 'transient_flush' => true,
+                'transients'      => true,
                 'site_health'     => true,
                 'audit_hook'      => true,
                 'regenerate_thumbnails' => true,
@@ -2018,12 +2190,25 @@ class Airano_MCP_Bridge {
      *   }
      */
     public function handle_cache_purge($request) {
+        // 2.11.0 — `scope` selects which caches to purge. `all` (default)
+        // keeps the v2.10.x behaviour: page caches + object cache.
+        $scope = sanitize_key((string) ($request->get_param('scope') ?: 'all'));
+        if (!in_array($scope, ['object', 'page', 'all'], true)) {
+            return new WP_Error(
+                'invalid_scope',
+                __( 'scope must be one of: object, page, all.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+        $flush_page   = in_array($scope, ['page', 'all'], true);
+        $flush_object = in_array($scope, ['object', 'all'], true);
+
         $detected = [];
         $purged   = [];
         $errors   = [];
 
         // --- WP Rocket ---
-        if (function_exists('rocket_clean_domain')) {
+        if ($flush_page && function_exists('rocket_clean_domain')) {
             $detected[] = 'wp_rocket';
             try {
                 rocket_clean_domain();
@@ -2037,7 +2222,7 @@ class Airano_MCP_Bridge {
         }
 
         // --- W3 Total Cache ---
-        if (function_exists('w3tc_flush_all')) {
+        if ($flush_page && function_exists('w3tc_flush_all')) {
             $detected[] = 'w3_total_cache';
             try {
                 w3tc_flush_all();
@@ -2048,7 +2233,7 @@ class Airano_MCP_Bridge {
         }
 
         // --- WP Super Cache ---
-        if (function_exists('wp_cache_clear_cache')) {
+        if ($flush_page && function_exists('wp_cache_clear_cache')) {
             $detected[] = 'wp_super_cache';
             try {
                 wp_cache_clear_cache();
@@ -2059,7 +2244,7 @@ class Airano_MCP_Bridge {
         }
 
         // --- LiteSpeed Cache ---
-        if (defined('LSCWP_V') || class_exists('\\LiteSpeed\\Purge')) {
+        if ($flush_page && (defined('LSCWP_V') || class_exists('\\LiteSpeed\\Purge'))) {
             $detected[] = 'litespeed';
             try {
                 // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- third-party hook
@@ -2071,7 +2256,7 @@ class Airano_MCP_Bridge {
         }
 
         // --- WP Fastest Cache ---
-        if (class_exists('WpFastestCache')) {
+        if ($flush_page && class_exists('WpFastestCache')) {
             $detected[] = 'wp_fastest_cache';
             try {
                 $wpfc = new \WpFastestCache();
@@ -2089,10 +2274,10 @@ class Airano_MCP_Bridge {
         }
 
         // --- SiteGround Optimizer ---
-        if (
+        if ($flush_page && (
             function_exists('sg_cachepress_purge_cache')
             || class_exists('SiteGround_Optimizer\\Supercacher\\Supercacher')
-        ) {
+        )) {
             $detected[] = 'siteground_optimizer';
             try {
                 if (function_exists('sg_cachepress_purge_cache')) {
@@ -2110,14 +2295,14 @@ class Airano_MCP_Bridge {
         // CF has no canonical "purge all" helper exposed publicly; skip unless
         // we detect the official plugin and even then we only advertise
         // detection so the user can act.
-        if (class_exists('CF\\WordPress\\Hooks')) {
+        if ($flush_page && class_exists('CF\\WordPress\\Hooks')) {
             $detected[] = 'cloudflare';
             // no-op — CF's purge requires the user's API token we don't have.
         }
 
-        // --- Object cache (always) ---
+        // --- Object cache ---
         // Safe no-op if no persistent object cache is configured.
-        if (function_exists('wp_cache_flush')) {
+        if ($flush_object && function_exists('wp_cache_flush')) {
             try {
                 wp_cache_flush();
                 $purged[] = 'object_cache';
@@ -2127,12 +2312,95 @@ class Airano_MCP_Bridge {
         }
 
         return rest_ensure_response([
+            'scope'          => $scope,
             'detected'       => array_values(array_unique($detected)),
             'purged'         => array_values(array_unique($purged)),
             'skipped'        => [],
             'errors'         => $errors,
             'ok'             => empty($errors),
             'plugin_version' => self::VERSION,
+        ]);
+    }
+
+    // ------------------------------------------------------------------
+    //  2.11.0 — OPcache reset (airano-mcp/v1/opcache-reset)
+    // ------------------------------------------------------------------
+
+    /**
+     * Snapshot a small subset of OPcache statistics for before/after
+     * reset reporting. Returns `null` when the extension is absent.
+     *
+     * @return array|null
+     */
+    private function get_opcache_summary() {
+        if (!function_exists('opcache_get_status')) {
+            return null;
+        }
+        $status = @opcache_get_status(false);
+        if (!is_array($status)) {
+            return null;
+        }
+        $memory = isset($status['memory_usage']) && is_array($status['memory_usage'])
+            ? $status['memory_usage']
+            : [];
+        $stats = isset($status['opcache_statistics']) && is_array($status['opcache_statistics'])
+            ? $status['opcache_statistics']
+            : [];
+        return [
+            'opcache_enabled'    => (bool) ($status['opcache_enabled'] ?? false),
+            'cache_full'         => (bool) ($status['cache_full'] ?? false),
+            'restart_pending'    => (bool) ($status['restart_pending'] ?? false),
+            'restart_in_progress'=> (bool) ($status['restart_in_progress'] ?? false),
+            'used_memory'        => (int) ($memory['used_memory'] ?? 0),
+            'free_memory'        => (int) ($memory['free_memory'] ?? 0),
+            'wasted_memory'      => (int) ($memory['wasted_memory'] ?? 0),
+            'num_cached_scripts' => (int) ($stats['num_cached_scripts'] ?? 0),
+            'hits'               => (int) ($stats['hits'] ?? 0),
+            'misses'             => (int) ($stats['misses'] ?? 0),
+        ];
+    }
+
+    /**
+     * POST /airano-mcp/v1/opcache-reset
+     *
+     * Calls PHP's opcache_reset() when the extension is available. This
+     * intentionally does not hold or require CDN/infra credentials; it
+     * only clears the local PHP bytecode cache on the WordPress origin.
+     */
+    public function handle_opcache_reset($request) {
+        $enabled = (bool) ini_get('opcache.enable');
+        $validate_timestamps = (bool) ini_get('opcache.validate_timestamps');
+
+        if (!function_exists('opcache_reset')) {
+            return rest_ensure_response([
+                'ok'                  => false,
+                'reset'               => false,
+                'opcache_available'   => false,
+                'enabled'             => $enabled,
+                'validate_timestamps' => $validate_timestamps,
+                'status_before'       => null,
+                'status_after'        => null,
+                'message'             => __( 'PHP OPcache extension is not available.', 'airano-mcp-bridge' ),
+                'plugin_version'      => self::VERSION,
+            ]);
+        }
+
+        $before = $this->get_opcache_summary();
+        $reset  = (bool) @opcache_reset();
+        $after  = $this->get_opcache_summary();
+
+        return rest_ensure_response([
+            'ok'                  => $reset,
+            'reset'               => $reset,
+            'opcache_available'   => true,
+            'enabled'             => $enabled,
+            'validate_timestamps' => $validate_timestamps,
+            'status_before'       => $before,
+            'status_after'        => $after,
+            'message'             => $reset
+                ? __( 'OPcache reset completed.', 'airano-mcp-bridge' )
+                : __( 'opcache_reset() returned false.', 'airano-mcp-bridge' ),
+            'plugin_version'      => self::VERSION,
         ]);
     }
 
@@ -2145,6 +2413,13 @@ class Airano_MCP_Bridge {
      * stays small even when thousands of transients are purged.
      */
     const TRANSIENT_SAMPLE_MAX = 100;
+
+    /**
+     * 2.11.0 — Cap on the number of transient keys returned by the
+     * read-only `/transients` inventory route. Values are intentionally
+     * never returned; this is for cleanup/debug metadata only.
+     */
+    const TRANSIENT_LIST_MAX = 500;
 
     /**
      * POST /airano-mcp/v1/transient-flush
@@ -2289,6 +2564,250 @@ class Airano_MCP_Bridge {
             'deleted_count'           => count($deleted_keys),
             'deleted_sample'          => array_slice($deleted_keys, 0, self::TRANSIENT_SAMPLE_MAX),
             'plugin_version'          => self::VERSION,
+        ]);
+    }
+
+    /**
+     * GET /airano-mcp/v1/transients
+     *
+     * Read-only inventory of transient keys + expirations. Values are
+     * intentionally never returned — this route is for observability
+     * and cleanup discovery, not for value retrieval. The values
+     * themselves are reachable through stock WordPress code; this route
+     * just lets callers SEE which keys exist.
+     *
+     * Query parameters:
+     *   limit                    — int, 1..TRANSIENT_LIST_MAX (default 100)
+     *   include_site_transients  — bool, default true (multisite only)
+     */
+    public function handle_transient_list( WP_REST_Request $request ) {
+        global $wpdb;
+
+        $limit = (int) $request->get_param('limit');
+        if ($limit < 1) {
+            $limit = 100;
+        }
+        if ($limit > self::TRANSIENT_LIST_MAX) {
+            $limit = self::TRANSIENT_LIST_MAX;
+        }
+
+        $include_site = $this->bool_param($request->get_param('include_site_transients'), true);
+        $now   = time();
+        $items = [];
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- transient inventory has no WP API; values are not returned
+        $regular_total = (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->options}
+             WHERE option_name LIKE %s AND option_name NOT LIKE %s",
+            $wpdb->esc_like('_transient_') . '%',
+            $wpdb->esc_like('_transient_timeout_') . '%'
+        ));
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- transient inventory has no WP API; values are not returned
+        $regular_rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT t.option_name AS transient_name,
+                    timeout.option_value AS expires_at
+             FROM {$wpdb->options} t
+             LEFT JOIN {$wpdb->options} timeout
+               ON timeout.option_name = CONCAT(%s, SUBSTRING(t.option_name, %d))
+             WHERE t.option_name LIKE %s
+               AND t.option_name NOT LIKE %s
+             ORDER BY t.option_name ASC
+             LIMIT %d",
+            '_transient_timeout_',
+            strlen('_transient_') + 1,
+            $wpdb->esc_like('_transient_') . '%',
+            $wpdb->esc_like('_transient_timeout_') . '%',
+            $limit
+        ), ARRAY_A);
+
+        if (!is_array($regular_rows)) {
+            return new WP_Error(
+                'transient_list_failed',
+                __( 'Failed to list transients.', 'airano-mcp-bridge' ),
+                ['status' => 500]
+            );
+        }
+
+        foreach ($regular_rows as $row) {
+            $key = preg_replace('/^_transient_/', '', (string) $row['transient_name']);
+            $expires_at = $row['expires_at'] !== null ? (int) $row['expires_at'] : null;
+            $items[] = [
+                'key'            => $key,
+                'type'           => 'transient',
+                'expires_at'     => $expires_at,
+                'expires_at_gmt' => $expires_at ? gmdate('c', $expires_at) : null,
+                'expired'        => $expires_at ? $expires_at < $now : false,
+            ];
+        }
+
+        $site_total = 0;
+        if ($include_site && is_multisite()) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- site-transient inventory has no WP API
+            $site_total = (int) $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM {$wpdb->sitemeta}
+                 WHERE meta_key LIKE %s AND meta_key NOT LIKE %s",
+                $wpdb->esc_like('_site_transient_') . '%',
+                $wpdb->esc_like('_site_transient_timeout_') . '%'
+            ));
+
+            $remaining = $limit - count($items);
+            if ($remaining > 0) {
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- site-transient inventory has no WP API
+                $site_rows = $wpdb->get_results($wpdb->prepare(
+                    "SELECT t.meta_key AS transient_name,
+                            timeout.meta_value AS expires_at
+                     FROM {$wpdb->sitemeta} t
+                     LEFT JOIN {$wpdb->sitemeta} timeout
+                       ON timeout.meta_key = CONCAT(%s, SUBSTRING(t.meta_key, %d))
+                     WHERE t.meta_key LIKE %s
+                       AND t.meta_key NOT LIKE %s
+                     ORDER BY t.meta_key ASC
+                     LIMIT %d",
+                    '_site_transient_timeout_',
+                    strlen('_site_transient_') + 1,
+                    $wpdb->esc_like('_site_transient_') . '%',
+                    $wpdb->esc_like('_site_transient_timeout_') . '%',
+                    $remaining
+                ), ARRAY_A);
+
+                if (!is_array($site_rows)) {
+                    return new WP_Error(
+                        'site_transient_list_failed',
+                        __( 'Failed to list site transients.', 'airano-mcp-bridge' ),
+                        ['status' => 500]
+                    );
+                }
+
+                foreach ($site_rows as $row) {
+                    $key = preg_replace('/^_site_transient_/', '', (string) $row['transient_name']);
+                    $expires_at = $row['expires_at'] !== null ? (int) $row['expires_at'] : null;
+                    $items[] = [
+                        'key'            => $key,
+                        'type'           => 'site_transient',
+                        'expires_at'     => $expires_at,
+                        'expires_at_gmt' => $expires_at ? gmdate('c', $expires_at) : null,
+                        'expired'        => $expires_at ? $expires_at < $now : false,
+                    ];
+                }
+            }
+        }
+
+        return rest_ensure_response([
+            'ok'                      => true,
+            'limit'                   => $limit,
+            'include_site_transients' => $include_site,
+            'total_count'             => $regular_total + $site_total,
+            'showing_count'           => count($items),
+            'transients'              => $items,
+            'plugin_version'          => self::VERSION,
+        ]);
+    }
+
+    // ------------------------------------------------------------------
+    //  2.11.0 — Generic term update (airano-mcp/v1/term-update)
+    // ------------------------------------------------------------------
+
+    /**
+     * POST /airano-mcp/v1/term-update
+     *
+     * Body (JSON):
+     *   {
+     *     "taxonomy":    "categories",     // canonical name OR REST base
+     *     "term_id":     123,
+     *     "name":        "...",            // optional
+     *     "slug":        "...",            // optional, sanitised via sanitize_title
+     *     "description": "...",            // optional, wp_kses_post-ed
+     *     "parent":      0                  // optional, >=0
+     *   }
+     *
+     * Capability is enforced at the route gate
+     * (`require_term_update_capability`), so the callback can focus on the
+     * mutation itself.
+     */
+    public function handle_term_update( $request ) {
+        $params = $request->get_json_params();
+        if ( ! is_array($params) ) {
+            $params = $request->get_params();
+        }
+        if ( ! is_array($params) ) {
+            $params = [];
+        }
+
+        $taxonomy = $this->resolve_taxonomy_object(isset($params['taxonomy']) ? $params['taxonomy'] : null);
+        if ( ! $taxonomy ) {
+            return new WP_Error(
+                'taxonomy_not_found',
+                __( 'taxonomy must name a registered taxonomy or REST base.', 'airano-mcp-bridge' ),
+                ['status' => 404]
+            );
+        }
+
+        $term_id = isset($params['term_id']) ? (int) $params['term_id'] : 0;
+        if ( $term_id <= 0 ) {
+            return new WP_Error(
+                'rest_invalid_param',
+                __( 'term_id must be a positive integer.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+
+        $term = $this->get_term_for_taxonomy_object($term_id, $taxonomy);
+        if ( ! $term ) {
+            return new WP_Error(
+                'term_not_found',
+                __( 'Target term was not found in the requested taxonomy.', 'airano-mcp-bridge' ),
+                ['status' => 404, 'term_id' => $term_id, 'taxonomy' => $taxonomy->name]
+            );
+        }
+
+        $args = [];
+        if ( array_key_exists('name', $params) && $params['name'] !== null ) {
+            $args['name'] = (string) $params['name'];
+        }
+        if ( array_key_exists('slug', $params) && $params['slug'] !== null ) {
+            $args['slug'] = sanitize_title((string) $params['slug']);
+        }
+        if ( array_key_exists('description', $params) && $params['description'] !== null ) {
+            $args['description'] = wp_kses_post((string) $params['description']);
+        }
+        if ( array_key_exists('parent', $params) && $params['parent'] !== null ) {
+            $args['parent'] = max(0, (int) $params['parent']);
+        }
+
+        if ( empty($args) ) {
+            return new WP_Error(
+                'invalid_body',
+                __( 'Send at least one supported term field: name, slug, description, or parent.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+
+        // Preserve slug when not supplied so wp_update_term doesn't drop it.
+        if ( ! array_key_exists('slug', $args) && ! empty($term->slug) ) {
+            $args['slug'] = (string) $term->slug;
+        }
+
+        $updated = wp_update_term($term_id, $taxonomy->name, $args);
+        if ( is_wp_error($updated) ) {
+            return $updated;
+        }
+
+        $fresh = get_term($term_id, $taxonomy->name);
+        if ( ! $fresh || is_wp_error($fresh) ) {
+            $fresh = $term;
+        }
+
+        return rest_ensure_response([
+            'term_id'          => (int) $term_id,
+            'taxonomy'         => $taxonomy->name,
+            'term_taxonomy_id' => isset($fresh->term_taxonomy_id) ? (int) $fresh->term_taxonomy_id : null,
+            'name'             => isset($fresh->name) ? (string) $fresh->name : null,
+            'slug'             => isset($fresh->slug) ? (string) $fresh->slug : null,
+            'description'      => isset($fresh->description) ? (string) $fresh->description : null,
+            'parent'           => isset($fresh->parent) ? (int) $fresh->parent : 0,
+            'updated'          => true,
+            'plugin_version'   => self::VERSION,
         ]);
     }
 

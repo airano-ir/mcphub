@@ -38,6 +38,18 @@ const PLUGIN_LIBRARY: { key: string; label: string; descriptionKey: string; desc
   { key: "gitea", label: "Gitea", descriptionKey: "settings.plugin.gitea", description: "Repos, issues, PRs, releases." },
   { key: "n8n", label: "n8n", descriptionKey: "settings.plugin.n8n", description: "Workflows and executions." },
   { key: "coolify", label: "Coolify", descriptionKey: "settings.plugin.coolify", description: "Apps, deployments, servers, services." },
+  {
+    key: "google_search_console",
+    label: "Google Search Console",
+    descriptionKey: "settings.plugin.google_search_console",
+    description: "Search analytics, URL inspection, sitemaps (read-only).",
+  },
+  {
+    key: "cloudflare",
+    label: "Cloudflare",
+    descriptionKey: "settings.plugin.cloudflare",
+    description: "DNS, Workers, KV, R2 and cache — read + scoped writes.",
+  },
 ];
 
 export function SettingsPage() {

@@ -52,6 +52,24 @@ class ToolDefinition(BaseModel):
         default="normal",
         description="Data sensitivity: normal or sensitive (F.7)",
     )
+    risk: str | None = Field(default=None, description="Operational risk level")
+    requires_confirmation: bool = Field(
+        default=False, description="Whether execution requires explicit confirmation"
+    )
+    supports_dry_run: bool = Field(
+        default=False, description="Whether the handler supports preview/dry-run"
+    )
+    idempotent: bool = Field(default=False, description="Whether retries are safe")
+    destructive: bool | None = Field(
+        default=None,
+        description=(
+            "Explicit MCP destructiveHint for write tools. None = not declared "
+            "(annotations fall back to the reviewed additive allowlist, else destructive)."
+        ),
+    )
+    retry_policy: dict[str, Any] = Field(
+        default_factory=dict, description="Bounded retry policy metadata"
+    )
 
     model_config = ConfigDict(arbitrary_types_allowed=True)  # Allow Callable type
 
@@ -215,6 +233,23 @@ class ToolRegistry:
         """
         self.tools.clear()
         self.logger.info("Tool registry cleared")
+
+    def validate_target_metadata(self, target_plugins: set[str]) -> list[str]:
+        """Validate safety metadata for the plugins covered by issue #135."""
+        errors: list[str] = []
+        for tool in self.tools.values():
+            if tool.plugin_type not in target_plugins:
+                continue
+            if not tool.risk:
+                errors.append(f"{tool.name}: metadata.risk is required")
+                continue
+            if tool.risk in {"high", "destructive"} and not tool.requires_confirmation:
+                errors.append(f"{tool.name}: metadata confirmation is required")
+            if tool.risk == "destructive" and not tool.retry_policy:
+                errors.append(f"{tool.name}: metadata retry_policy is required")
+        if errors:
+            raise ValueError("Tool metadata validation failed: " + "; ".join(errors))
+        return errors
 
     def __repr__(self) -> str:
         """String representation of registry."""

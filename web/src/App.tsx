@@ -11,6 +11,7 @@ import { LoginPage } from "./pages/Login";
 import { OnboardingPage } from "./pages/Onboarding";
 import { OverviewPage } from "./pages/Overview";
 import { SitesPage } from "./pages/Sites";
+import { OAuthCallbackPage } from "./pages/OAuthCallback";
 import { SiteToolsPage } from "./pages/SiteTools";
 import { ConnectPage } from "./pages/Connect";
 import { ApiKeysPage } from "./pages/ApiKeys";
@@ -131,6 +132,8 @@ export function App() {
           <Route path="/overview" element={<OverviewPage />} />
           <Route path="/sites" element={<SitesPage />} />
           <Route path="/sites/:id/tools" element={<SiteToolsPage />} />
+          {/* OAuth site-connection callback page (E.3+) */}
+          <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
           <Route path="/connect" element={<ConnectPage />} />
           <Route path="/api-keys" element={<ApiKeysPage />} />
           <Route path="/settings" element={<SettingsPage />} />

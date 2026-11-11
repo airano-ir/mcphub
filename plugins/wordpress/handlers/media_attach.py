@@ -97,6 +97,24 @@ def get_tool_specifications() -> list[dict[str, Any]]:
             },
             "scope": "write",
         },
+        {
+            "name": "delete_media",
+            "method_name": "delete_media",
+            "description": "Permanently delete a media library item (e.g. a failed or duplicate upload). WordPress media cannot be trashed through the REST API. Uses the site's WordPress Application Password.",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "media_id": {
+                        "type": "integer",
+                        "description": "Media (attachment) ID to delete",
+                        "minimum": 1,
+                    },
+                },
+                "required": ["media_id"],
+            },
+            "scope": "write",
+            "destructive": True,
+        },
     ]
 
 
@@ -367,6 +385,32 @@ class MediaAttachHandler:
                     f"Media id {mid} not found in the library.",
                     {"media_id": mid, "error": str(e)},
                 ) from e
+
+    async def delete_media(self, media_id: int) -> str:
+        """Permanently delete a media item via /wp/v2/media (issue #75).
+
+        WooCommerce keys cannot authenticate WP core REST, so this uses the
+        same WordPress Application Password path as the upload tools.
+        """
+        wp_client = self._require_wp_media_client()
+        if wp_client is None:
+            return self._wp_credentials_missing_error()
+        try:
+            result = await wp_client.delete(f"media/{media_id}", params={"force": "true"})
+            deleted = bool(result.get("deleted")) if isinstance(result, dict) else True
+            return json.dumps(
+                {
+                    "success": deleted,
+                    "message": f"Media {media_id} permanently deleted",
+                    "media_id": media_id,
+                },
+                indent=2,
+            )
+        except Exception as e:
+            return json.dumps(
+                {"error": str(e), "message": f"Failed to delete media {media_id}: {str(e)}"},
+                indent=2,
+            )
 
 
 def _merge_product_images(

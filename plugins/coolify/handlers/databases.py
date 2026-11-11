@@ -4,6 +4,11 @@ import json
 from typing import Any
 
 from plugins.coolify.client import CoolifyClient
+from plugins.coolify.handlers._utils import (
+    BASE64_CONFIG_FIELDS,
+    decode_payload_fields,
+    encode_payload_fields,
+)
 
 
 def _create_db_spec(db_type: str, description: str) -> dict[str, Any]:
@@ -116,6 +121,126 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                     "public_port": {
                         "anyOf": [{"type": "integer"}, {"type": "null"}],
                         "description": "Public port number",
+                    },
+                    "limits_memory": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Container memory limit, e.g. 512m",
+                    },
+                    "limits_memory_swap": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Container memory swap limit",
+                    },
+                    "limits_memory_swappiness": {
+                        "anyOf": [{"type": "integer"}, {"type": "null"}],
+                        "description": "Container memory swappiness",
+                    },
+                    "limits_memory_reservation": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Container memory reservation",
+                    },
+                    "limits_cpus": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "CPU limit, e.g. 0.5",
+                    },
+                    "limits_cpuset": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "CPU set",
+                    },
+                    "limits_cpu_shares": {
+                        "anyOf": [{"type": "integer"}, {"type": "null"}],
+                        "description": "CPU shares",
+                    },
+                    "postgres_user": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "PostgreSQL user",
+                    },
+                    "postgres_password": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "PostgreSQL password",
+                    },
+                    "postgres_db": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "PostgreSQL database name",
+                    },
+                    "postgres_initdb_args": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "PostgreSQL initdb arguments",
+                    },
+                    "postgres_host_auth_method": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "PostgreSQL host auth method",
+                    },
+                    "postgres_conf": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Plain-text postgresql.conf content; MCP base64-encodes it for Coolify",
+                    },
+                    "mysql_root_password": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "MySQL/MariaDB root password",
+                    },
+                    "mysql_user": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "MySQL/MariaDB user",
+                    },
+                    "mysql_password": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "MySQL/MariaDB password",
+                    },
+                    "mysql_database": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "MySQL/MariaDB database name",
+                    },
+                    "mysql_conf": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Plain-text MySQL config; MCP base64-encodes it for Coolify",
+                    },
+                    "mariadb_conf": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Plain-text MariaDB config; MCP base64-encodes it for Coolify",
+                    },
+                    "mongo_initdb_root_username": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "MongoDB root username",
+                    },
+                    "mongo_initdb_root_password": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "MongoDB root password",
+                    },
+                    "mongo_initdb_database": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "MongoDB initial database",
+                    },
+                    "mongo_conf": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Plain-text MongoDB config; MCP base64-encodes it for Coolify",
+                    },
+                    "redis_password": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Redis password",
+                    },
+                    "redis_conf": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Plain-text Redis config; MCP base64-encodes it for Coolify",
+                    },
+                    "keydb_password": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "KeyDB password",
+                    },
+                    "keydb_conf": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Plain-text KeyDB config; MCP base64-encodes it for Coolify",
+                    },
+                    "clickhouse_admin_user": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "ClickHouse admin user",
+                    },
+                    "clickhouse_admin_password": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "ClickHouse admin password",
+                    },
+                    "clickhouse_conf": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Plain-text ClickHouse config; MCP base64-encodes it for Coolify",
                     },
                 },
                 "required": ["uuid"],
@@ -272,10 +397,23 @@ def get_tool_specifications() -> list[dict[str, Any]]:
                 "category": "backup",
                 "sensitivity": "sensitive",
                 "method_name": "list_backup_executions",
-                "description": "List all backup executions across all databases.",
+                "description": (
+                    "List executions of one scheduled backup of one database. "
+                    "Get the scheduled backup UUID from coolify_get_database_backups."
+                ),
                 "schema": {
                     "type": "object",
-                    "properties": {},
+                    "properties": {
+                        "uuid": {
+                            "type": "string",
+                            "description": "Database UUID",
+                        },
+                        "scheduled_backup_uuid": {
+                            "type": "string",
+                            "description": "Scheduled backup UUID (from coolify_get_database_backups)",
+                        },
+                    },
+                    "required": ["uuid", "scheduled_backup_uuid"],
                 },
                 "scope": "read",
             },
@@ -298,6 +436,7 @@ async def list_databases(client: CoolifyClient) -> str:
 async def get_database(client: CoolifyClient, uuid: str) -> str:
     """Get database details."""
     db = await client.get_database(uuid)
+    db = decode_payload_fields(db, BASE64_CONFIG_FIELDS)
     result = {"success": True, "database": db}
     return json.dumps(result, indent=2, ensure_ascii=False)
 
@@ -305,7 +444,9 @@ async def get_database(client: CoolifyClient, uuid: str) -> str:
 async def update_database(client: CoolifyClient, uuid: str, **kwargs) -> str:
     """Update database settings."""
     data = {k: v for k, v in kwargs.items() if v is not None and k != "uuid"}
+    data = encode_payload_fields(data, BASE64_CONFIG_FIELDS)
     db = await client.update_database(uuid, data)
+    db = decode_payload_fields(db, BASE64_CONFIG_FIELDS)
     result = {
         "success": True,
         "message": f"Database '{uuid}' updated successfully",
@@ -413,8 +554,11 @@ async def create_database_backup(client: CoolifyClient, uuid: str) -> str:
     return json.dumps(result, indent=2, ensure_ascii=False)
 
 
-async def list_backup_executions(client: CoolifyClient) -> str:
-    """List all backup executions."""
-    executions = await client.list_backup_executions()
+async def list_backup_executions(
+    client: CoolifyClient, uuid: str, scheduled_backup_uuid: str
+) -> str:
+    """List executions of one scheduled backup."""
+    data = await client.list_backup_executions(uuid, scheduled_backup_uuid)
+    executions = data.get("executions", data) if isinstance(data, dict) else data
     result = {"success": True, "count": len(executions), "executions": executions}
     return json.dumps(result, indent=2, ensure_ascii=False)

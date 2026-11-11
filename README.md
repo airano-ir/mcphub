@@ -58,7 +58,7 @@ scope — pick a plugin-specific endpoint to keep the surface area small.
 |--------|---------------:|-----------------|
 | **WordPress** | ~70 | Posts, pages, media (incl. AI image generation), users, menus, taxonomies, SEO (Rank Math/Yoast) |
 | **WooCommerce** | ~30 | Products, orders, customers, coupons, reports, shipping |
-| **WordPress Specialist** | ~50 | Plugins, themes, users, options, cron, page editing, site config + layout, db inspection, bulk fan-out (companion-backed; no Docker socket) |
+| **WordPress Specialist** | ~58 | Plugins, themes, users, options, cron, page editing, site config + layout, db inspection/maintenance, bulk fan-out (companion-backed) |
 | **Gitea** | ~65 | Repos, issues, pull requests, releases, webhooks, organizations, labels, batch files, tree, search, compare |
 | **n8n** | ~55 | Workflows, executions, credentials, variables, audit |
 | **Supabase** | ~70 | Database, auth, storage, edge functions, realtime |
@@ -161,7 +161,7 @@ MASTER_API_KEY=your-secure-key-here
 |--------|---------------------|-------|
 | WordPress | URL, Username, App Password | [How to create App Password](https://wordpress.org/documentation/article/application-passwords/) |
 | WooCommerce | URL, Consumer Key, Consumer Secret | WooCommerce → Settings → Advanced → REST API |
-| WordPress Specialist | URL, Username, App Password | Requires [Airano MCP Bridge v2.18.0+](wordpress-plugin/airano-mcp-bridge.zip) on the WP site; user must have `manage_options` |
+| WordPress Specialist | URL, Username, App Password | Requires [Airano MCP Bridge v2.18.3+](wordpress-plugin/airano-mcp-bridge.zip) on the WP site; user must have `manage_options` |
 | Gitea | URL, Token | Settings → Applications → Personal Access Token |
 | n8n | URL, API Key | Settings → API → Create API Key |
 | Supabase | URL, Service Role Key | Supabase Dashboard → Settings → API |
@@ -309,19 +309,12 @@ Some MCP Hub tools require companion WordPress plugins:
 | Tools | Requirement |
 |-------|-------------|
 | SEO + capability/audit tools (`wordpress_get_post_seo`, capability probe, audit hook, etc.) | [Airano MCP Bridge](https://wordpress.org/plugins/airano-mcp-bridge/) ([GitHub](wordpress-plugin/airano-mcp-bridge/)) + Rank Math or Yoast SEO |
-| WP-CLI tools (15 tools: `wp_cache_*`, `wp_db_*`, etc.) | Docker socket + `CONTAINER` config |
-| WordPress Specialist (~50 tools: plugins / themes / users / options / cron / page editing / site config + layout / db inspection / bulk fan-out) | [Airano MCP Bridge v2.18.0+](wordpress-plugin/airano-mcp-bridge.zip) (no Docker socket needed) |
+| Companion-backed maintenance (`wordpress_wp_cache_flush`, transient cleanup/list, DB check/optimize) | [Airano MCP Bridge v2.18.5+](wordpress-plugin/airano-mcp-bridge.zip) |
+| WordPress Specialist (~58 tools: plugins / themes / users / options / cron / page editing / site config + layout / db inspection / bulk fan-out) | [Airano MCP Bridge v2.18.5+](wordpress-plugin/airano-mcp-bridge.zip) |
 | OpenPanel analytics integration | [OpenPanel Self-Hosted](wordpress-plugin/openpanel-self-hosted/) ([Download ZIP](wordpress-plugin/openpanel-self-hosted.zip)) |
 | WooCommerce tools | WooCommerce plugin installed on your WordPress site |
 
-**Docker socket** is needed for the legacy WP-CLI tools (15 helpers under `wordpress_wp_*`). Everything in `wordpress_specialist` works without it. Add to your docker-compose:
-
-```yaml
-volumes:
-  - /var/run/docker.sock:/var/run/docker.sock:ro
-```
-
-Set the `container` field when adding a WordPress site in the dashboard. Without Docker socket, WP-CLI tools return "not available" but all REST API tools work normally.
+No WordPress tool requires Docker socket or a WordPress container name. Shared-hosted and companion-managed sites use WordPress Application Passwords plus the Airano MCP Bridge REST routes.
 
 ---
 
@@ -334,6 +327,8 @@ Set the `container` field when adding a WordPress site in the dashboard. Without
 | [API Keys Guide](docs/API_KEYS_GUIDE.md) | Per-project API key management |
 | [OAuth Guide](docs/OAUTH_GUIDE.md) | OAuth 2.1 setup for Claude/ChatGPT |
 | [Gitea Guide](docs/GITEA_GUIDE.md) | Gitea plugin configuration |
+| [WordPress Attachment Ingestion](docs/WORDPRESS_ATTACHMENT_INGESTION.md) | Chat-attached media and plugin/theme zip handoff |
+| [WordPress/WooCommerce Scope Recipes](docs/WORDPRESS_WOOCOMMERCE_SCOPE_RECIPES.md) | Least-privilege recipes for content, catalog, media, analytics, and admin tasks |
 | [Deployment Guide](docs/DEPLOYMENT_GUIDE.md) | Docker and Coolify deployment |
 | [Troubleshooting](docs/troubleshooting.md) | Common issues and solutions |
 | [Plugin Development](docs/PLUGIN_DEVELOPMENT.md) | Build your own plugin |

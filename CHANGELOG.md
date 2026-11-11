@@ -5,6 +5,48 @@ All notable changes to MCP Hub will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Security
+- **SSRF on user-supplied site URLs — fixed end to end** (PR #138 + follow-up). Site URLs come from any signed-up user, and the connection test reflected upstream bodies. A pre-flight check alone was bypassable (HTTP redirect, DNS rebinding, and every tool call had no guard). `core/net_guard.py` now enforces the policy where the socket opens — a resolver that drops non-public answers plus trace hooks for IP-literal hops, including every redirect — for the connection test, all site-facing plugin clients, the capability probe, media sideload and OpenAI-compatible providers. Admin-owned sites (role=admin / `ADMIN_EMAILS`) keep private access; `ALLOW_PRIVATE_SITE_URLS=true` is the operator-wide escape hatch. CGNAT/Tailscale `100.64.0.0/10` is now denied too.
+- **Audit-log redaction** recurses into lists/tuples, covers `service_role_key` / `consumer_key`, and scrubs token-shaped strings (Bearer/Basic, `mhu_`, `ck_`/`cs_`, GitHub tokens, JWTs) anywhere.
+- `react-router-dom` 6.30.3 → 6.30.6 (open-redirect / XSS advisories).
+
+### Added
+- **`wordpress_diagnose_site`** and **`woocommerce_diagnose_store`** — read-only health diagnosis with prioritised findings and fixes: REST behind Basic auth, stripped `Authorization` header, `WP_DEBUG` (incl. the official-Docker `WORDPRESS_DEBUG='false'` trap), noindex / "Discourage search engines", duplicate `<title>` and markup in the title, conflicting SEO / page-cache plugins, mixed content, core Site Health tests; WooCommerce Coming-soon mode, block vs classic checkout and ignored `form-checkout.php` overrides, outdated templates, payment gateways, shipping methods, errors shown to visitors.
+- **WooCommerce DELETE tools** (#75): `delete_customer`, `delete_product_category`, `delete_product_attribute`, `delete_product_variation`, `delete_media`.
+- **Rank Math** (#93): `wordpress_specialist_wp_rank_math_sync_identity` (companion 2.21.0 route) pushes the site name into Rank Math's schema identity; `generate_and_upload_image(generate_og_variant=true)` adds a 1200×630 Open Graph crop and points Rank Math's Facebook image at it.
+- **MCP 2026-07-28 (dual-era)** on `/u/{user_id}/{alias}/mcp`: `server/discover`, per-request `_meta` version validation (`-32022`), `resultType`, `ttlMs`/`cacheScope`; legacy `initialize` now negotiates the requested version (2024-11-05 … 2025-11-25) instead of always answering 2024-11-05.
+- **Tool annotations on every endpoint** — `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint` on the per-user endpoint and all FastMCP endpoints (`/mcp`, `/{plugin}/mcp`, `/project/{id}/mcp`), from one module (`core/tool_annotations.py`).
+
+### Changed
+- **Tool registration is registry-driven**: one loop over the plugin registry replaces eleven hand-written per-plugin blocks in `server.py`; registering a plugin is now enough for its tools to appear (the old pattern once shipped Gmail with 0 tools).
+- CI is green again (missing `dist/.gitkeep` placeholder + `black` drift had kept `main` red since 2026-08-24).
+- **wp.org companion releases prepared** — `airano-mcp-bridge` 2.11.1 and the deprecated `airano-mcp-seo-bridge` 1.3.3, both readme-only `Tested up to: 7.1` bumps. WordPress 7.1.4 is current while both listings still claimed 7.0, so the directory was showing a "has not been tested with your version of WordPress" warning to the 7.1.x majority. No code or REST API changes in either plugin.
+
+### Fixed
+- Stale dashboard sessions now clear the real `mcp_dashboard_session` cookie.
+- Blocked media-download redirects report `error_code: SSRF` instead of `INTERNAL`.
+- **The companion download served 2.20.2** while the source tree was at 2.21.0. `16f0138` bumped the plugin header but not `wordpress-plugin/airano-mcp-bridge.zip`, which is the file the dashboard and every `COMPANION_UPGRADE_REQUIRED` hint link to — so anyone installing from that link got a companion without the Rank Math identity route, and `wordpress_specialist_wp_rank_math_sync_identity` kept failing. All bundled zips are rebuilt from source; the internal build's `README.md` (stuck on 2.20.2) and its `Tested up to` (6.9) now agree with the plugin header.
+- **Companion 2.21.1 — the internal build's declared WordPress floor was wrong.** `Requires at least` said 5.0, but `/site-health` has always called `wp_timezone_string()` (WP 5.3) and `wp_is_application_passwords_available()` (WP 5.6), so installs on 5.0–5.5 were promised routes that would fatal. Corrected to 5.6. Also: seven `unlink()` calls are now `wp_delete_file()` so the `wp_delete_file` filter is honoured — the theme-file DELETE route used `unlink()`'s return value, and since `wp_delete_file()` returns nothing, it now confirms removal with `clearstatcache()` + `file_exists()` rather than reporting failure on every success.
+- **`.communityignore` was about to publish a private document.** `docs/reviews/` was not excluded, so the next community sync would have pushed `docs/reviews/2026-11-09-deep-review-fa.md` — which quotes an authenticated SSRF PoC and internal infrastructure detail — to the public repo. Added, along with `wordpress-plugin/*-svn/`: the live SVN working copies were being copied into the community tree (`.svn` metadata and duplicated release tags included), with only `.gitignore` standing between them and a push.
+
+### Added (earlier, unreleased)
+- **Video generation vendor gate (P3-A)**: documented live 9Router/AI-gateway and Replicate research, capability probes, the current no-credential blocker, and the implementation-ready async job design; no end-to-end video generation is claimed.
+- **Large media handoff (P2)**: admin and per-user chunked WordPress media sessions now expose raw HTTP PUT and short-lived, session-scoped browser upload URLs; browser uploads reuse the existing session, checksum, size, expiry, and WordPress intake pipeline.
+- **Verified image-edit capability enforcement (P1)**: image inputs now require both explicit image-input and image-output capability metadata for OpenAI-compatible models; Stability, Replicate, and OpenRouter fail fast with `PROVIDER_EDIT_UNSUPPORTED` when edit input is supplied.
+- **WordPress Specialist zip intake**: `wp_zip_install_chunked_start` now exposes a per-user HTTP binary `upload.url` for plugin/theme zips, matching the media intake flow and avoiding large base64 tool-call payloads for public MCPHub users.
+- **`coolify_deploy` PR preview params**: `pr`, `pull_request_id`, and `docker_tag` (Coolify v4.3.1) let a deploy target a specific pull-request preview build or a Docker Image preview's tag.
+- **`coolify_validate_server` install mode**: new `install` flag (Coolify v4.3.1) lets validation also install missing prerequisites and Docker on the target server. Because this can restart the server's Docker daemon, the tool now requires **write** scope (previously read) — read-only-configured Coolify credentials can no longer call it at all; there is no partial/read-only form of this tool.
+
+### Fixed
+- **Coolify v4.3.1 API compatibility** (#136): Coolify migrated its action endpoints from `GET` to `POST`, and every lifecycle tool failed with `405 "This endpoint has changed to a POST request."` Ten calls now use `POST` — application/database/service `start`, `stop`, `restart`, plus `deploy` and `servers/{uuid}/validate`. Arguments stay in the query string; no request bodies changed. Two further breakages found while regression-checking the rest of the client: `get_environment` read from a path that only accepts `PATCH`/`DELETE` (Coolify serves it at `/projects/{uuid}/{name_or_uuid}`), and `list_backup_executions` targeted an `/databases/backup-executions` route that does not exist (executions are scoped to a database and a scheduled backup). `create_application_docker_compose` now fails with a pointer to its replacements — Coolify removed `POST /applications/dockercompose` entirely.
+- **Media tool visibility guardrail**: tests now pin that missing AI image provider keys hide only image generation tools, not ordinary WordPress media upload tools or WooCommerce media-attach tools.
+
+### Changed
+- **`coolify_list_backup_executions` now requires `uuid` and `scheduled_backup_uuid`** — the instance-wide "all executions" route it relied on does not exist in Coolify. Get the scheduled backup UUID from `coolify_get_database_backups`.
+- **`coolify_validate_server` moved from read to write scope** (see Added, above) — least-privilege / read-only Coolify agents lose access to this tool entirely.
+
 ## [3.12.0] — 2026-04-25
 
 ### Media pipeline, AI image generation, capability probe, companion v2.9.0 (Tracks F.5a + F.7e + F.18)

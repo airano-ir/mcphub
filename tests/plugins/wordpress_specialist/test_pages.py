@@ -387,9 +387,10 @@ async def test_plugin_returns_combined_specs_count():
     from plugins.wordpress_specialist import WordPressSpecialistPlugin
 
     specs = WordPressSpecialistPlugin.get_tool_specifications()
-    assert len(specs) == 51, (
-        "9 management + 11 page + 7 theme + 6 plugin-write + "
-        "6 site-config + 7 site-layout + 3 db + 2 bulk tools"
+    assert len(specs) == 59, (
+        "9 management + 11 page + 8 theme + 6 plugin-write + "
+        "4 install-zip-staging + 7 site-config (#93 Rank Math sync) + "
+        "7 site-layout + 5 db + 2 bulk tools"
     )
 
 

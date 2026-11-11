@@ -109,8 +109,6 @@ services:
     volumes:
       - mcphub-data:/app/data
       - mcphub-logs:/app/logs
-      # Optional: mount Docker socket for WP-CLI tools
-      # - /var/run/docker.sock:/var/run/docker.sock:ro
     restart: unless-stopped
 
 volumes:
@@ -122,7 +120,9 @@ volumes:
 docker compose up -d
 ```
 
-> **WP-CLI tools** (cache flush, database export, plugin management via CLI) require Docker socket access. Uncomment the socket volume and set the `container` field when adding the WordPress site in the dashboard.
+> WordPress tools do not require Docker socket access or a WordPress container
+> name. Shared-hosted sites use WordPress Application Passwords and, for
+> advanced/admin tools, the Airano MCP Bridge companion plugin.
 
 ## After Starting
 

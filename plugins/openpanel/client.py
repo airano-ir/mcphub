@@ -20,7 +20,7 @@ Note: The tRPC API (/trpc/*) requires dashboard session cookies and is NOT used.
 import logging
 from typing import Any
 
-import aiohttp
+from core import net_guard
 
 
 class OpenPanelClient:
@@ -120,7 +120,7 @@ class OpenPanelClient:
 
         self.logger.debug(f"{method} {url}")
 
-        async with aiohttp.ClientSession() as session:
+        async with net_guard.client_session() as session:
             kwargs: dict[str, Any] = {
                 "method": method,
                 "url": url,

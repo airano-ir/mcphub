@@ -9,6 +9,7 @@ from typing import Any
 
 import aiohttp
 
+from core import net_guard
 from plugins.base import BasePlugin
 from plugins.gitea import handlers
 from plugins.gitea.client import GiteaClient
@@ -57,8 +58,12 @@ class GiteaPlugin(BasePlugin):
             oauth_enabled=config.get("oauth_enabled", False),
         )
 
-        # No handler instances needed in Option B architecture
-        # Tools are delegated directly to handler functions
+        self.uploads = handlers.uploads.GiteaUploadHandler(
+            self.client,
+            user_id=config.get("user_id"),
+            site_id=config.get("site_id"),
+            alias=config.get("alias"),
+        )
 
     @staticmethod
     def get_tool_specifications() -> list[dict[str, Any]]:
@@ -75,6 +80,7 @@ class GiteaPlugin(BasePlugin):
 
         # Collect specifications from all handlers
         specs.extend(handlers.repositories.get_tool_specifications())
+        specs.extend(handlers.uploads.get_tool_specifications())
         specs.extend(handlers.issues.get_tool_specifications())
         specs.extend(handlers.pull_requests.get_tool_specifications())
         specs.extend(handlers.users.get_tool_specifications())
@@ -149,6 +155,24 @@ class GiteaPlugin(BasePlugin):
         except AttributeError:
             raise
 
+    async def upload_release_asset(self, **kwargs):
+        return await self.uploads.upload_release_asset(**kwargs)
+
+    async def upload_start(self, **kwargs):
+        return await self.uploads.upload_start(**kwargs)
+
+    async def upload_chunk(self, **kwargs):
+        return await self.uploads.upload_chunk(**kwargs)
+
+    async def upload_status(self, **kwargs):
+        return await self.uploads.upload_status(**kwargs)
+
+    async def upload_abort(self, **kwargs):
+        return await self.uploads.upload_abort(**kwargs)
+
+    async def upload_finish(self, **kwargs):
+        return await self.uploads.upload_finish(**kwargs)
+
     async def health_check(self) -> dict[str, Any]:
         """
         Check if Gitea instance is accessible.
@@ -183,7 +207,7 @@ class GiteaPlugin(BasePlugin):
         headers = self.client._get_headers()
         try:
             timeout = aiohttp.ClientTimeout(total=15)
-            async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with net_guard.client_session(timeout=timeout) as session:
                 async with session.get(url, headers=headers) as resp:
                     if resp.status >= 400:
                         body = (await resp.text())[:200]

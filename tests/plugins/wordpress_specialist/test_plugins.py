@@ -7,13 +7,14 @@ Mocks ``WordPressClient.post`` / ``delete`` and asserts:
 * each handler method targets the correct ``airano-mcp/v1/admin/*``
   route with ``use_custom_namespace=True``
 * client-side guards reject malformed slugs (S-15), oversized zip
-  payloads (S-18), and the mutually-exclusive zip_url / zip_base64
-  contract on install_from_zip
+  payloads (S-18), and the mutually-exclusive zip_url / zip_base64 /
+  zip_path / zip_session_id contract on install_from_zip
 """
 
 from __future__ import annotations
 
 import base64
+import zipfile
 from unittest.mock import AsyncMock
 
 import pytest
@@ -124,6 +125,11 @@ def handler(client):
     return PluginsHandler(client)
 
 
+def _make_zip(path, filename: str = "plugin/plugin.php") -> None:
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr(filename, "<?php\n/* Plugin Name: Test */\n")
+
+
 # ───── Install-tier routing ──────────────────────────────────────────
 
 
@@ -211,17 +217,57 @@ async def test_install_from_zip_base64_routes_to_install(handler, client):
 
 
 @pytest.mark.asyncio
+async def test_install_from_zip_path_routes_to_install(handler, client, tmp_path):
+    zip_path = tmp_path / "plugin.zip"
+    _make_zip(zip_path)
+
+    await handler.wp_plugin_install_from_zip(zip_path=str(zip_path), activate=True, overwrite=True)
+
+    args, kwargs = client.post.call_args
+    body = kwargs["json_data"]
+    assert args[0] == "airano-mcp/v1/admin/plugins/install"
+    assert body["zip_base64"] == base64.b64encode(zip_path.read_bytes()).decode("ascii")
+    assert body["activate"] is True
+    assert body["overwrite"] is True
+    assert "zip_path" not in body
+    assert "zip_url" not in body
+
+
+@pytest.mark.asyncio
 async def test_install_from_zip_requires_one_of_url_or_base64(handler, client):
-    with pytest.raises(ValueError, match="zip_url or zip_base64"):
+    with pytest.raises(ValueError, match="exactly one"):
         await handler.wp_plugin_install_from_zip()
     client.post.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_install_from_zip_rejects_both_url_and_base64(handler, client):
-    with pytest.raises(ValueError, match="not both"):
+    with pytest.raises(ValueError, match="exactly one"):
         await handler.wp_plugin_install_from_zip(
             zip_url="https://example.com/x.zip", zip_base64="aGVsbG8="
+        )
+    client.post.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_install_from_zip_rejects_path_mixed_with_url(handler, client, tmp_path):
+    zip_path = tmp_path / "plugin.zip"
+    _make_zip(zip_path)
+
+    with pytest.raises(ValueError, match="exactly one"):
+        await handler.wp_plugin_install_from_zip(
+            zip_url="https://example.com/x.zip",
+            zip_path=str(zip_path),
+        )
+    client.post.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_install_from_zip_rejects_session_mixed_with_base64(handler, client):
+    with pytest.raises(ValueError, match="exactly one"):
+        await handler.wp_plugin_install_from_zip(
+            zip_session_id="abc123",
+            zip_base64="aGVsbG8=",
         )
     client.post.assert_not_awaited()
 
@@ -231,6 +277,16 @@ async def test_install_from_zip_rejects_oversized_payload(handler, client):
     huge = "A" * (70 * 1024 * 1024)  # > 50 MB after b64 decode upper bound
     with pytest.raises(ValueError, match=r"exceeds .* byte cap \(S-18\)"):
         await handler.wp_plugin_install_from_zip(zip_base64=huge)
+    client.post.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_install_from_zip_path_rejects_non_zip(handler, client, tmp_path):
+    bad_path = tmp_path / "plugin.zip"
+    bad_path.write_text("not a zip")
+
+    with pytest.raises(ValueError, match="valid zip archive"):
+        await handler.wp_plugin_install_from_zip(zip_path=str(bad_path))
     client.post.assert_not_awaited()
 
 

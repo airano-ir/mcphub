@@ -1,5 +1,5 @@
-# FastMCP - MCP server framework (pin to 2.x, avoid 3.0 breaking changes)
-fastmcp>=2.14.0,<3.0.0
+# FastMCP - keep aligned with pyproject.toml and uv.lock
+fastmcp>=3.0.0,<4.0.0
 
 # HTTP client for API requests
 aiohttp>=3.9.0

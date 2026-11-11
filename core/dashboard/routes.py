@@ -32,11 +32,9 @@ PLUGIN_DISPLAY_NAMES = {
     "wordpress": "WordPress",
     "wordpress_specialist": "WordPress Specialist",
     "woocommerce": "WooCommerce",
-    "directus": "Directus",
     "supabase": "Supabase",
     "gitea": "Gitea",
     "openpanel": "OpenPanel",
-    "appwrite": "Appwrite",
     "coolify": "Coolify",
 }
 
@@ -394,8 +392,9 @@ DASHBOARD_TRANSLATIONS = {
         "settings.plugin.gitea": "Repos, issues, PRs, releases.",
         "settings.plugin.n8n": "Workflows and executions.",
         "settings.plugin.coolify": "Apps, deployments, servers, services.",
-        "settings.plugin.appwrite": "Hidden by default. Enable only for custom deployments.",
-        "settings.plugin.directus": "Hidden by default. Enable only for custom deployments.",
+        "settings.plugin.gmail": "Read-only Gmail access (messages, labels, threads).",
+        "settings.plugin.google_search_console": "Search analytics, URL inspection, sitemaps (read-only).",
+        "settings.plugin.cloudflare": "DNS, Workers, KV, R2 and cache — read + scoped writes.",
         "settings.danger_title": "Danger zone",
         "settings.danger_subtitle": (
             "Actions in this section affect every user of the hub. Confirm twice before acting."
@@ -896,6 +895,7 @@ DASHBOARD_TRANSLATIONS = {
         "sites.dialog_edit_submit": "Save changes",
         "sites.field_plugin_type": "Plugin",
         "sites.field_url": "URL",
+        "sites.url_fixed_hint": "Fixed API base for this plugin — set automatically.",
         "sites.field_alias": "Alias",
         "sites.alias_placeholder": "short-site-id",
         "sites.alias_hint": "Short ID the AI sees as `site=…`. Lowercase letters, digits and hyphens only.",
@@ -931,6 +931,22 @@ DASHBOARD_TRANSLATIONS = {
         "saved": "Saved",
         "msg": "Message",
         "site_not_found": "Site not found",
+        # OAuth site connection
+        "sites.oauth.connect_google": "Connect with Google",
+        "sites.oauth.reauthorize": "Re-authorize",
+        "sites.oauth.authorizing": "Authorizing…",
+        "sites.oauth.reauthorizing": "Re-authorizing…",
+        "sites.oauth.refreshing": "Refreshing token…",
+        "sites.oauth.refresh_token": "Refresh token",
+        "sites.oauth.status_reauth_required": "Re-authorization required",
+        "sites.oauth.status_reauth_required_desc": "The OAuth refresh token is no longer valid. Re-authorize to reconnect.",
+        "sites.oauth.callback_success_title": "Authorization successful",
+        "sites.oauth.callback_success_body": "Your Google account is now connected. You can close this page.",
+        "sites.oauth.callback_error_title": "Authorization failed",
+        "sites.oauth.callback_error_body": "The OAuth authorization did not complete successfully.",
+        "sites.oauth.not_configured": "OAuth is not configured for this service. Contact the administrator.",
+        "sites.oauth.pending": "Awaiting authorization",
+        "sites.oauth.pending_desc": 'Click "Connect with Google" to authorize this site.',
     },
     "fa": {
         # Navigation
@@ -1273,8 +1289,9 @@ DASHBOARD_TRANSLATIONS = {
         "settings.plugin.gitea": "مخزن‌ها، issueها، pull requestها و releaseها.",
         "settings.plugin.n8n": "گردش‌کارها و اجراها.",
         "settings.plugin.coolify": "اپلیکیشن‌ها، استقرارها، سرورها و سرویس‌ها.",
-        "settings.plugin.appwrite": "به‌صورت پیش‌فرض پنهان است. فقط برای استقرارهای سفارشی فعال کنید.",
-        "settings.plugin.directus": "به‌صورت پیش‌فرض پنهان است. فقط برای استقرارهای سفارشی فعال کنید.",
+        "settings.plugin.gmail": "دسترسی فقط‌خواندن به Gmail (پیام‌ها، برچسب‌ها، رشته‌ها).",
+        "settings.plugin.google_search_console": "تحلیل جستجو، بررسی URL و نقشه‌سایت (فقط‌خواندن).",
+        "settings.plugin.cloudflare": "DNS، Workers، KV، R2 و کش — خواندن + نوشتن سطح‌بندی‌شده.",
         "settings.danger_title": "منطقه خطر",
         "settings.danger_subtitle": (
             "اقدامات این بخش روی همه کاربران هاب اثر می‌گذارد. قبل از انجام، دو بار تأیید کنید."
@@ -1772,6 +1789,7 @@ DASHBOARD_TRANSLATIONS = {
         "sites.field_plugin_type": "پلاگین",
         "sites.field_alias": "شناسه (alias)",
         "sites.field_url": "آدرس",
+        "sites.url_fixed_hint": "آدرس API این پلاگین ثابت است — به‌صورت خودکار تنظیم می‌شود.",
         "sites.alias_placeholder": "شناسه‌ی-کوتاه-سایت",
         "sites.alias_hint": (
             "شناسه‌ی کوتاهی که AI آن را به‌صورت `site=…` می‌بیند. فقط حروف کوچک، رقم و خط تیره."
@@ -1822,6 +1840,22 @@ DASHBOARD_TRANSLATIONS = {
         "sites.hide_advanced": "پنهان‌کردن فیلدهای پیشرفته",
         "sites.toast_created": "سایت ایجاد شد",
         "sites.toast_updated": "سایت به‌روز شد",
+        # OAuth site connection
+        "sites.oauth.connect_google": "اتصال با Google",
+        "sites.oauth.reauthorize": "احراز هویت مجدد",
+        "sites.oauth.authorizing": "در حال احراز هویت…",
+        "sites.oauth.reauthorizing": "در حال احراز هویت مجدد…",
+        "sites.oauth.refreshing": "در حال به‌روزرسانی توکن…",
+        "sites.oauth.refresh_token": "به‌روزرسانی توکن",
+        "sites.oauth.status_reauth_required": "احراز هویت مجدد لازم است",
+        "sites.oauth.status_reauth_required_desc": "توکن به‌روزرسانی دیگر معتبر نیست. برای اتصال مجدد احراز هویت کنید.",
+        "sites.oauth.callback_success_title": "احراز هویت موفق بود",
+        "sites.oauth.callback_success_body": "حساب Google شما متصل شد. می‌توانید این صفحه را ببندید.",
+        "sites.oauth.callback_error_title": "احراز هویت ناموفق بود",
+        "sites.oauth.callback_error_body": "احراز هویت OAuth با موفقیت تکمیل نشد.",
+        "sites.oauth.not_configured": "OAuth برای این سرویس پیکربندی نشده است. با مدیر تماس بگیرید.",
+        "sites.oauth.pending": "در انتظار احراز هویت",
+        "sites.oauth.pending_desc": "برای احراز هویت این سایت روی «اتصال با Google» کلیک کنید.",
     },
 }
 
@@ -3101,6 +3135,21 @@ async def dashboard_api_keys_create(request: Request) -> Response:
         description = data.get("description")
         expires_in_days = data.get("expires_in_days")
 
+        # Guard: an API key only makes sense once at least one service/site
+        # exists to scope it against. Block creation when none are defined so
+        # operators add a service first (mirrors the user-key flow).
+        if not await _any_site_exists():
+            return JSONResponse(
+                {
+                    "error": "no_sites",
+                    "message": (
+                        "Add a service first. API keys must be scoped to at least one "
+                        "site, and none are defined yet."
+                    ),
+                },
+                status_code=409,
+            )
+
         from core.api_keys import get_api_key_manager
 
         api_key_manager = get_api_key_manager()
@@ -3200,6 +3249,49 @@ async def dashboard_api_keys_delete(request: Request) -> Response:
     except Exception as e:
         logger.error(f"Error deleting API key: {e}")
         return JSONResponse({"error": "Failed to delete key"}, status_code=500)
+
+
+async def _any_site_exists() -> bool:
+    """True if at least one service/site is defined anywhere.
+
+    Counts both DB-backed user sites (created via the dashboard) and any
+    legacy/env-registered sites in the SiteManager, so the api-key guard
+    behaves correctly regardless of how services were provisioned. Fails
+    open to False (block creation) only when the DB genuinely reports zero.
+    """
+    try:
+        from core.database import get_database
+
+        if await get_database().count_all_sites() > 0:
+            return True
+    except Exception as e:
+        # If site storage is unavailable we cannot confirm any sites exist.
+        logger.debug("count_all_sites failed in api-key guard: %s", e)
+    try:
+        from core.site_manager import get_site_manager
+
+        return len(get_site_manager().list_all_sites()) > 0
+    except Exception:
+        return False
+
+
+async def dashboard_config_health(request: Request) -> Response:
+    """GET /api/dashboard/config-health — operator setup/config warnings.
+
+    Returns ``{"warnings": [...]}`` where each entry carries a stable code,
+    severity, the env var to set, and bilingual (EN/FA) title/detail. Powers
+    both the post-login admin banner and the first-run notice on the login
+    page, and mirrors the startup log block.
+
+    Intentionally unauthenticated: a self-hoster should see setup issues *on
+    the login page* before they can authenticate. OAuth-only deployments with
+    DISABLE_MASTER_KEY_LOGIN=true intentionally suppress the master-key warning.
+    The payload contains only configuration completeness and generic remediation
+    text and no secret values, so exposing it does not leak credentials.
+    """
+    from core.config_health import get_config_warnings
+
+    return JSONResponse({"warnings": get_config_warnings()})
 
 
 # =============================================================================
@@ -4140,8 +4232,6 @@ _PLUGIN_DESCRIPTIONS = {
     "n8n": "n8n workflow automation management",
     "supabase": "Supabase self-hosted backend (database, auth, storage)",
     "openpanel": "OpenPanel analytics and event tracking",
-    "appwrite": "Appwrite backend services (databases, users, functions)",
-    "directus": "Directus headless CMS management",
     "coolify": "Coolify deployment platform — apps, deployments, servers, databases.",
 }
 
@@ -5077,7 +5167,7 @@ async def api_create_site(request: Request) -> Response:
             response = JSONResponse(
                 {"error": "Session expired. Please log in again."}, status_code=401
             )
-            response.delete_cookie("mcp_user_session")
+            response.delete_cookie(get_dashboard_auth().COOKIE_NAME, path="/")
             return response
     except RuntimeError:
         pass  # Database not initialized — will fail later with clear error
@@ -5089,6 +5179,14 @@ async def api_create_site(request: Request) -> Response:
 
     from core.site_api import create_user_site
 
+    # Check if the user is an admin (ADMIN_EMAILS or DB role) — admins bypass
+    # the MAX_SITES_PER_USER limit.
+    _is_admin = is_admin_session(user_session)
+    if not _is_admin and user is not None:
+        from core.admin_utils import is_admin_email
+
+        _is_admin = user.get("role") == "admin" or is_admin_email(user.get("email"))
+
     try:
         site = await create_user_site(
             user_id=user_session["user_id"],
@@ -5096,6 +5194,7 @@ async def api_create_site(request: Request) -> Response:
             alias=body.get("alias", ""),
             url=body.get("url", "").strip().rstrip("/"),
             credentials=body.get("credentials", {}),
+            is_admin=_is_admin,
         )
         return JSONResponse({"site": site, "message": "Site created"})
     except ValueError as e:
@@ -5114,7 +5213,7 @@ async def api_create_site(request: Request) -> Response:
             response = JSONResponse(
                 {"error": "Session expired. Please log in again."}, status_code=401
             )
-            response.delete_cookie("mcp_user_session")
+            response.delete_cookie(get_dashboard_auth().COOKIE_NAME, path="/")
             return response
         logger.error("Failed to create site: %s", e, exc_info=True)
         return JSONResponse({"error": "Internal error"}, status_code=500)
@@ -5131,11 +5230,35 @@ async def api_list_sites(request: Request) -> Response:
 
     sites = await get_user_sites(user_session["user_id"])
     limit = get_cached_max_sites()
+
+    # Admin users are exempt from the site limit — return a large remaining
+    # so the frontend doesn't disable the "Add site" button.
+    _is_admin = is_admin_session(user_session)
+    if not _is_admin:
+        from core.admin_utils import is_admin_email
+
+        # user dict was already fetched above in api_create_site, but
+        # api_list_sites runs independently — re-check from session + DB.
+        try:
+            from core.database import get_database as _get_db
+
+            _db = _get_db()
+            _user = await _db.get_user_by_id(user_session["user_id"])
+            if _user is not None:
+                _is_admin = _user.get("role") == "admin" or is_admin_email(_user.get("email"))
+        except RuntimeError:
+            pass
+
+    if _is_admin:
+        remaining = 999999  # Effectively unlimited
+    else:
+        remaining = max(0, limit - len(sites))
+
     return JSONResponse(
         {
             "sites": sites,
             "limit": limit,
-            "remaining": max(0, limit - len(sites)),
+            "remaining": remaining,
         }
     )
 
@@ -5162,10 +5285,12 @@ async def api_test_site(request: Request) -> Response:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
     site_id = request.path_params.get("id", "")
+    from core.admin_utils import user_id_is_admin
     from core.site_api import test_site_connection
 
+    is_admin = is_admin_session(user_session) or await user_id_is_admin(user_session["user_id"])
     try:
-        ok, msg = await test_site_connection(site_id, user_session["user_id"])
+        ok, msg = await test_site_connection(site_id, user_session["user_id"], is_admin=is_admin)
         return JSONResponse(
             {
                 "ok": ok,
@@ -5216,14 +5341,17 @@ async def api_update_site(request: Request) -> Response:
     except Exception:
         return JSONResponse({"error": "Invalid JSON"}, status_code=400)
 
+    from core.admin_utils import user_id_is_admin
     from core.site_api import update_user_site
 
+    is_admin = is_admin_session(user_session) or await user_id_is_admin(user_session["user_id"])
     try:
         site = await update_user_site(
             site_id=site_id,
             user_id=user_session["user_id"],
             url=body.get("url", "").strip().rstrip("/"),
             credentials=body.get("credentials", {}),
+            is_admin=is_admin,
         )
         return JSONResponse({"site": site, "message": "Site updated"})
     except ValueError as e:
@@ -5872,6 +6000,110 @@ async def api_site_provider_keys_list(request: Request) -> Response:
     return JSONResponse({"ok": True, "providers": providers, "default_models": default_models})
 
 
+async def api_site_ai_provider_configs_list(request: Request) -> Response:
+    user_session, redirect = _require_user_session(request)
+    if redirect or user_session is None:
+        return JSONResponse({"ok": False, "error": "unauthorized"}, status_code=401)
+    from core.site_api import list_site_ai_provider_configs
+
+    try:
+        configs = await list_site_ai_provider_configs(
+            request.path_params.get("id", ""), user_session["user_id"]
+        )
+    except ValueError:
+        return JSONResponse({"ok": False, "error": "site_not_found"}, status_code=404)
+    return JSONResponse({"ok": True, "configs": configs})
+
+
+async def api_site_ai_provider_config_set(request: Request) -> Response:
+    user_session, redirect = _require_user_session(request)
+    if redirect or user_session is None:
+        return JSONResponse({"ok": False, "error": "unauthorized"}, status_code=401)
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "invalid_json"}, status_code=400)
+    if not isinstance(body, dict) or len(str(body.get("api_key") or "").strip()) < 8:
+        return JSONResponse({"ok": False, "error": "invalid_request"}, status_code=400)
+    from core.site_api import create_site_ai_provider_config
+
+    try:
+        config = await create_site_ai_provider_config(
+            request.path_params.get("id", ""),
+            user_session["user_id"],
+            body.get("name"),
+            body.get("api_type"),
+            body.get("base_url"),
+            str(body.get("api_key")),
+            body.get("model_id"),
+        )
+    except ValueError as exc:
+        return JSONResponse(
+            {"ok": False, "error": "invalid_request", "message": str(exc)}, status_code=400
+        )
+    return JSONResponse({"ok": True, "config": config})
+
+
+async def api_site_ai_provider_config_delete(request: Request) -> Response:
+    user_session, redirect = _require_user_session(request)
+    if redirect or user_session is None:
+        return JSONResponse({"ok": False, "error": "unauthorized"}, status_code=401)
+    from core.site_api import delete_site_ai_provider_config
+
+    try:
+        deleted = await delete_site_ai_provider_config(
+            request.path_params.get("id", ""),
+            user_session["user_id"],
+            request.path_params.get("config_id", ""),
+        )
+    except ValueError:
+        return JSONResponse({"ok": False, "error": "site_not_found"}, status_code=404)
+    return JSONResponse({"ok": True, "deleted": deleted})
+
+
+async def api_site_ai_provider_models(request: Request) -> Response:
+    user_session, redirect = _require_user_session(request)
+    if redirect or user_session is None:
+        return JSONResponse({"ok": False, "error": "unauthorized"}, status_code=401)
+    site_id = request.path_params.get("id", "")
+    from core.site_api import get_site_ai_provider_secret, get_user_site
+
+    if await get_user_site(site_id, user_session["user_id"]) is None:
+        return JSONResponse({"ok": False, "error": "site_not_found"}, status_code=404)
+    secret = await get_site_ai_provider_secret(site_id, request.path_params.get("config_id", ""))
+    if secret is None:
+        return JSONResponse({"ok": False, "error": "config_not_found"}, status_code=404)
+    row, api_key = secret
+    from plugins.ai_image.providers.openai_compatible import OpenAICompatibleProvider
+
+    try:
+        models = await OpenAICompatibleProvider().list_models(api_key, row["base_url"])
+    except Exception:
+        return JSONResponse({"ok": False, "error": "provider_unavailable"}, status_code=502)
+    return JSONResponse({"ok": True, "models": models})
+
+
+async def api_site_ai_provider_model_set(request: Request) -> Response:
+    user_session, redirect = _require_user_session(request)
+    if redirect or user_session is None:
+        return JSONResponse({"ok": False, "error": "unauthorized"}, status_code=401)
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "invalid_json"}, status_code=400)
+    from core.database import get_database
+    from core.site_api import get_user_site
+
+    site_id = request.path_params.get("id", "")
+    config_id = request.path_params.get("config_id", "")
+    if await get_user_site(site_id, user_session["user_id"]) is None:
+        return JSONResponse({"ok": False, "error": "site_not_found"}, status_code=404)
+    updated = await get_database().update_site_ai_provider_model(
+        site_id, config_id, body.get("model_id")
+    )
+    return JSONResponse({"ok": True, "updated": updated, "model_id": body.get("model_id")})
+
+
 async def api_site_provider_keys_set(request: Request) -> Response:
     """POST /api/sites/{id}/provider-keys/{provider} — upsert a per-site key.
 
@@ -6024,6 +6256,193 @@ async def api_site_provider_default_model(request: Request) -> Response:
     )
 
 
+# ---------------------------------------------------------------------------
+# Site OAuth routes (E.3+) — OAuth 2.0 site-connection flow
+# ---------------------------------------------------------------------------
+
+
+async def api_init_site_oauth(request: Request) -> Response:
+    """POST /api/sites/{id}/oauth/init — Start OAuth flow for a site.
+
+    Generates the OAuth authorization URL for the site's plugin type
+    and returns it to the frontend, which redirects the user to Google.
+    The site must already exist in the database (created without
+    credentials first, then authorized via this endpoint).
+    """
+    user_session, redirect_resp = _require_user_session(request)
+    if redirect_resp:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    site_id = request.path_params.get("id", "")
+    if not site_id:
+        return JSONResponse({"error": "Missing site ID"}, status_code=400)
+
+    from core.database import get_database
+    from core.site_oauth import get_site_oauth_manager
+
+    db = get_database()
+    site = await db.get_site(site_id, user_session["user_id"])
+    if site is None:
+        return JSONResponse({"error": "Site not found"}, status_code=404)
+
+    plugin_type = site["plugin_type"]
+    mgr = get_site_oauth_manager()
+    provider = mgr.get_provider_for_plugin_type(plugin_type)
+    if provider is None:
+        return JSONResponse(
+            {"error": f"Plugin type '{plugin_type}' does not use OAuth"},
+            status_code=400,
+        )
+
+    scope = mgr.get_scope_for_plugin_type(plugin_type)
+    if scope is None:
+        return JSONResponse(
+            {"error": f"No OAuth scope configured for plugin type '{plugin_type}'"},
+            status_code=400,
+        )
+
+    if not mgr.is_configured(provider):
+        return JSONResponse(
+            {"error": f"OAuth provider '{provider}' is not configured. Contact the administrator."},
+            status_code=503,
+        )
+
+    try:
+        auth_url, state = mgr.get_site_authorization_url(
+            provider, scope, site_id, user_session["user_id"]
+        )
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+    return JSONResponse({"auth_url": auth_url, "state": state, "provider": provider})
+
+
+async def oauth_site_callback(request: Request) -> Response:
+    """GET /oauth/site/callback — Handle OAuth callback for site connections.
+
+    Receives the authorization code from Google, exchanges it for tokens,
+    stores the tokens encrypted in the site's credentials blob, and
+    redirects the user back to the dashboard sites page.
+    """
+    code = request.query_params.get("code", "")
+    state = request.query_params.get("state", "")
+    error = request.query_params.get("error", "")
+
+    if error:
+        logger.warning("OAuth site callback received error: %s", error)
+        return RedirectResponse(
+            url=f"/dashboard/sites?error=oauth_denied&detail={error}",
+            status_code=302,
+        )
+
+    if not code or not state:
+        return RedirectResponse(
+            url="/dashboard/sites?error=oauth_missing_params",
+            status_code=302,
+        )
+
+    from core.site_oauth import get_site_oauth_manager
+
+    mgr = get_site_oauth_manager()
+
+    try:
+        tokens = await mgr.exchange_site_code("google", code, state)
+    except ValueError as e:
+        logger.warning("OAuth site callback exchange failed: %s", e)
+        return RedirectResponse(
+            url=f"/dashboard/sites?error=oauth_exchange_failed&detail={str(e)[:200]}",
+            status_code=302,
+        )
+
+    site_id = tokens["site_id"]
+    user_id = tokens["user_id"]
+
+    try:
+        await mgr.store_site_oauth_credentials(site_id, user_id, tokens)
+    except ValueError as e:
+        logger.error("OAuth site callback storage failed: %s", e)
+        return RedirectResponse(
+            url=f"/dashboard/sites?error=oauth_storage_failed&detail={str(e)[:200]}",
+            status_code=302,
+        )
+
+    return RedirectResponse(
+        url=f"/dashboard/sites?msg=oauth_success&site_id={site_id}",
+        status_code=302,
+    )
+
+
+async def api_refresh_site_token(request: Request) -> Response:
+    """POST /api/sites/{id}/oauth/refresh — Manually refresh the site's OAuth token.
+
+    Uses the stored refresh token to obtain a new access token and persists
+    it in the site's credentials blob.
+    """
+    user_session, redirect_resp = _require_user_session(request)
+    if redirect_resp:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    site_id = request.path_params.get("id", "")
+    if not site_id:
+        return JSONResponse({"error": "Missing site ID"}, status_code=400)
+
+    from core.database import get_database
+    from core.encryption import get_credential_encryption
+    from core.site_oauth import InvalidGrantError, get_site_oauth_manager
+
+    db = get_database()
+    site = await db.get_site(site_id, user_session["user_id"])
+    if site is None:
+        return JSONResponse({"error": "Site not found"}, status_code=404)
+
+    plugin_type = site["plugin_type"]
+    mgr = get_site_oauth_manager()
+    provider = mgr.get_provider_for_plugin_type(plugin_type)
+    if provider is None:
+        return JSONResponse(
+            {"error": f"Plugin type '{plugin_type}' does not use OAuth"},
+            status_code=400,
+        )
+
+    encryptor = get_credential_encryption()
+    credentials = encryptor.decrypt_credentials(site["credentials"], site_id)
+    refresh_token = credentials.get("refresh_token", "")
+    if not refresh_token:
+        return JSONResponse(
+            {"error": "No refresh token stored — re-authorize this site"},
+            status_code=400,
+        )
+
+    try:
+        new_tokens = await mgr.refresh_site_token(provider, refresh_token)
+    except InvalidGrantError:
+        await db.update_site_status(
+            site_id,
+            "reauth_required",
+            "Refresh token expired — re-authorize",
+            user_id=user_session["user_id"],
+        )
+        return JSONResponse(
+            {"error": "Refresh token is no longer valid. Re-authorize this site."},
+            status_code=400,
+        )
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+    # Persist the refreshed tokens
+    credentials["access_token"] = new_tokens["access_token"]
+    credentials["token_expires_at"] = new_tokens["token_expires_at"]
+    if new_tokens.get("refresh_token"):
+        credentials["refresh_token"] = new_tokens["refresh_token"]
+    encrypted = encryptor.encrypt_credentials(credentials, site_id)
+    await db.update_site_credentials(site_id, user_session["user_id"], site["url"], encrypted)
+    await db.update_site_status(
+        site_id, "active", "Token refreshed", user_id=user_session["user_id"]
+    )
+
+    return JSONResponse({"ok": True, "message": "Token refreshed", "site_id": site_id})
+
+
 def register_dashboard_routes(mcp):
     """
     Register dashboard routes with the MCP server.
@@ -6111,6 +6530,7 @@ def register_dashboard_routes(mcp):
     mcp.custom_route("/api/dashboard/health/projects", methods=["GET"])(
         dashboard_health_projects_partial
     )
+    mcp.custom_route("/api/dashboard/config-health", methods=["GET"])(dashboard_config_health)
     mcp.custom_route("/api/dashboard/settings", methods=["GET"])(api_get_settings)
     mcp.custom_route("/api/dashboard/settings", methods=["POST"])(api_save_setting)
     mcp.custom_route("/api/dashboard/settings/reset", methods=["POST"])(api_reset_settings)
@@ -6137,8 +6557,28 @@ def register_dashboard_routes(mcp):
     mcp.custom_route("/api/sites/{id}", methods=["DELETE"])(api_delete_site)
     mcp.custom_route("/api/sites/{id}", methods=["PATCH"])(api_update_site)
 
+    # Site OAuth routes (E.3+ — OAuth 2.0 site-connection flow)
+    mcp.custom_route("/api/sites/{id}/oauth/init", methods=["POST"])(api_init_site_oauth)
+    mcp.custom_route("/api/sites/{id}/oauth/refresh", methods=["POST"])(api_refresh_site_token)
+    mcp.custom_route("/oauth/site/callback", methods=["GET"])(oauth_site_callback)
+
     # Per-site AI provider keys (F.5a.9.x)
     mcp.custom_route("/api/sites/{id}/provider-keys", methods=["GET"])(api_site_provider_keys_list)
+    mcp.custom_route("/api/sites/{id}/ai-providers", methods=["GET"])(
+        api_site_ai_provider_configs_list
+    )
+    mcp.custom_route("/api/sites/{id}/ai-providers", methods=["POST"])(
+        api_site_ai_provider_config_set
+    )
+    mcp.custom_route("/api/sites/{id}/ai-providers/{config_id}", methods=["DELETE"])(
+        api_site_ai_provider_config_delete
+    )
+    mcp.custom_route("/api/sites/{id}/ai-providers/{config_id}/models", methods=["GET"])(
+        api_site_ai_provider_models
+    )
+    mcp.custom_route("/api/sites/{id}/ai-providers/{config_id}/model", methods=["PATCH"])(
+        api_site_ai_provider_model_set
+    )
     mcp.custom_route("/api/sites/{id}/provider-keys/{provider}", methods=["POST"])(
         api_site_provider_keys_set
     )

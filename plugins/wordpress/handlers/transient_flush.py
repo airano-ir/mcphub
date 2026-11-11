@@ -26,6 +26,8 @@ from plugins.wordpress.handlers._companion_hint import (
 logger = logging.getLogger("mcphub.wordpress.transient_flush")
 
 _VALID_SCOPES = ("expired", "all", "pattern")
+_LIST_LIMIT_DEFAULT = 100
+_LIST_LIMIT_MAX = 500
 
 
 def get_tool_specifications() -> list[dict[str, Any]]:
@@ -176,6 +178,86 @@ class TransientFlushHandler:
                     "pattern": pattern,
                     "deleted_count": 0,
                     "deleted_sample": [],
+                },
+                indent=2,
+            )
+
+        result = {"ok": bool(payload.get("ok", True)), **payload}
+        return json.dumps(result, indent=2)
+
+    async def transient_list(
+        self,
+        limit: Any = _LIST_LIMIT_DEFAULT,
+        include_site_transients: Any = True,
+    ) -> str:
+        try:
+            limit_int = int(limit) if limit is not None else _LIST_LIMIT_DEFAULT
+        except (TypeError, ValueError):
+            limit_int = _LIST_LIMIT_DEFAULT
+        if limit_int < 1:
+            limit_int = 1
+        if limit_int > _LIST_LIMIT_MAX:
+            limit_int = _LIST_LIMIT_MAX
+
+        if isinstance(include_site_transients, bool):
+            include_flag = include_site_transients
+        elif isinstance(include_site_transients, (int, float)):
+            include_flag = bool(include_site_transients)
+        elif isinstance(include_site_transients, str):
+            include_flag = include_site_transients.strip().lower() not in {
+                "false",
+                "0",
+                "no",
+                "off",
+                "",
+            }
+        else:
+            include_flag = True
+
+        try:
+            payload = await self.client.get(
+                "airano-mcp/v1/transients",
+                params={
+                    "limit": limit_int,
+                    "include_site_transients": "1" if include_flag else "0",
+                },
+                use_custom_namespace=True,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.error("transient_list companion call failed: %s", exc)
+            return json.dumps(
+                {
+                    "ok": False,
+                    "error": "companion_unreachable",
+                    "message": str(exc),
+                    "hint": (
+                        "Requires airano-mcp-bridge companion plugin v2.18.5+ "
+                        "and manage_options capability. Run "
+                        "wordpress_probe_capabilities to verify."
+                    ),
+                    "install_hint": _companion_install_hint(
+                        min_version="2.18.5",
+                        required_capability="manage_options",
+                        route="airano-mcp/v1/transients",
+                    ),
+                    "limit": limit_int,
+                    "include_site_transients": include_flag,
+                    "total_count": 0,
+                    "transients": [],
+                },
+                indent=2,
+            )
+
+        if not isinstance(payload, dict):
+            return json.dumps(
+                {
+                    "ok": False,
+                    "error": "invalid_response",
+                    "message": "companion returned a non-object payload",
+                    "limit": limit_int,
+                    "include_site_transients": include_flag,
+                    "total_count": 0,
+                    "transients": [],
                 },
                 indent=2,
             )

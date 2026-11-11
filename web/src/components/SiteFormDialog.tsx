@@ -5,8 +5,10 @@ import {
   usePluginCatalog,
   useCreateSite,
   useUpdateSite,
+  useInitSiteOAuth,
   type PluginFieldDef,
 } from "../lib/queries";
+import { OAUTH_PLUGIN_TYPES } from "../lib/queries";
 import { useT } from "../lib/i18n";
 import { useUiStore } from "../lib/store";
 import type { Site } from "../lib/types";
@@ -105,6 +107,60 @@ function setupGuidance(
       ],
     };
   }
+  if (pluginType === "gmail") {
+    return {
+      title: t("sites.guidance.gmail_setup_title", "Gmail setup (manual OAuth)"),
+      items: [
+        t(
+          "sites.guidance.gmail_gcp",
+          "In Google Cloud Console: create a project, enable the Gmail API, set up OAuth consent screen (External, Testing mode), add your Google email as a test user.",
+        ),
+        t(
+          "sites.guidance.gmail_desktop_client",
+          "Create an OAuth client ID of type Desktop app (NOT Web app). Note the Client ID (ends in .apps.googleusercontent.com) and Client Secret (GOCSPX-…).",
+        ),
+        t(
+          "sites.guidance.gmail_bootstrap",
+          "Run: python plugins/gmail/bootstrap/get_refresh_token.py --client-id <ID> --client-secret <SECRET> on a machine with a browser. It opens Google's consent screen and prints a long-lived refresh token.",
+        ),
+        t(
+          "sites.guidance.gmail_paste",
+          "Paste the Client ID, Client Secret, and Refresh Token into the fields below. Use https://gmail.googleapis.com as the Site URL (the plugin ignores it; the dashboard requires a URL).",
+        ),
+        t(
+          "sites.guidance.gmail_scope",
+          "Scope requested: gmail.modify (read + manage: list/get/search/labels/attachments, mark read/unread, trash). gmail.send is not requested yet.",
+        ),
+      ],
+    };
+  }
+  if (pluginType === "google_search_console") {
+    return {
+      title: t("sites.guidance.google_oauth_title", "Google Search Console setup"),
+      items: [
+        t(
+          "sites.guidance.google_oauth_gcp",
+          "Enable the Google Search Console API in your Google Cloud Console → APIs & Services → Enable APIs & Services.",
+        ),
+        t(
+          "sites.guidance.google_oauth_redirect",
+          "Add your MCPHub instance's callback URL to the OAuth client's Authorized redirect URIs in Google Cloud Console. The URL is: {PUBLIC_URL}/oauth/site/callback",
+        ),
+        t(
+          "sites.guidance.google_oauth_consent",
+          "Keep the OAuth consent screen in Testing mode and add your Google account as a test user. Sensitive scopes work without Google verification in Testing mode.",
+        ),
+        t(
+          "sites.guidance.google_oauth_unverified",
+          "When authorizing, Google shows a 'Google hasn't verified this app' warning. Click Advanced → Go to app (unsafe) to continue. This is expected for apps in Testing mode and is safe — only accounts you add as test users can authorize.",
+        ),
+        t(
+          "sites.guidance.google_oauth_env",
+          "Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables on the MCPHub server to match your GCP OAuth client.",
+        ),
+      ],
+    };
+  }
   return null;
 }
 
@@ -160,13 +216,24 @@ export function SiteFormDialog({
   );
   const guidance = useMemo(() => setupGuidance(pluginType, t), [pluginType, t]);
   const showAiImageSetup = supportsAiImageGeneration(pluginType);
-  const fields: PluginFieldDef[] = currentPlugin?.fields ?? [];
+  // Plugins with a fixed third-party API base (Cloudflare, …) don't need a
+  // user-entered URL — the backend catalog sends the fixed value.
+  const fixedUrl = currentPlugin?.fixedUrl;
+  // OAuth plugins: no static credential fields — show "Connect with Google" instead.
+  const isOAuthPlugin = OAUTH_PLUGIN_TYPES.has(pluginType);
+  const initOAuth = useInitSiteOAuth();
+  const [oauthPending, setOauthPending] = useState(false);
+  // Visible credential fields exclude ``internal`` fields (auto-managed).
+  const fields: PluginFieldDef[] = (currentPlugin?.fields ?? []).filter(
+    (f) => !f.internal,
+  );
   const advancedFields = fields.filter((f) => f.advanced);
   const requiredFieldsMissing =
+    !isOAuthPlugin &&
     mode === "create" &&
     fields.filter((f) => f.required).some((f) => !creds[f.name]?.trim());
   const baseFieldsMissing =
-    mode === "create" && (!alias.trim() || !url.trim() || !pluginType);
+    mode === "create" && (!alias.trim() || (!fixedUrl && !url.trim()) || !pluginType);
 
   const onSubmit = async () => {
     if (submitting) return;
@@ -176,17 +243,34 @@ export function SiteFormDialog({
       // Drop blank credential fields — on edit, the backend keeps the
       // stored value when the field is omitted from the PATCH payload.
       const cleanedCreds: Record<string, string> = {};
-      Object.entries(creds).forEach(([k, v]) => {
-        if (v && v.trim()) cleanedCreds[k] = v.trim();
-      });
+      if (!isOAuthPlugin) {
+        Object.entries(creds).forEach(([k, v]) => {
+          if (v && v.trim()) cleanedCreds[k] = v.trim();
+        });
+      }
 
       if (mode === "create") {
-        await create.mutateAsync({
+        const result = await create.mutateAsync({
           plugin_type: pluginType,
           alias: alias.trim(),
-          url: url.trim(),
+          url: (fixedUrl ?? url.trim()).replace(/\/+$/, ""),
           credentials: cleanedCreds,
         });
+        // For OAuth plugins: after creating the site, initiate the OAuth flow.
+        if (isOAuthPlugin && result?.id) {
+          setToast(t("sites.oauth.pending", "Awaiting authorization"));
+          try {
+            const oauthResult = await initOAuth.mutateAsync(result.id);
+            // Redirect to Google OAuth consent screen
+            window.location.href = oauthResult.auth_url;
+            return; // Don't close dialog — browser is redirecting
+          } catch (oauthErr: any) {
+            const msg = oauthErr?.body?.error ?? oauthErr?.message ?? String(oauthErr);
+            setError(msg);
+            setSubmitting(false);
+            return;
+          }
+        }
         setToast(t("sites.toast_created", "Site created"));
       } else {
         // Edit: PATCH /api/sites/{id}. URL + alias may change; credentials
@@ -330,17 +414,80 @@ export function SiteFormDialog({
 
             <div className="field">
               <label>{t("sites.field_url", "URL")}</label>
-              <input
-                className="input"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://example.com"
-                disabled={submitting}
-              />
+              {fixedUrl ? (
+                <>
+                  <input className="input" value={fixedUrl} disabled />
+                  <div className="caption" style={{ marginTop: 4 }}>
+                    {t(
+                      "sites.url_fixed_hint",
+                      "Fixed API base for this plugin — set automatically.",
+                    )}
+                  </div>
+                </>
+              ) : (
+                <input
+                  className="input"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="https://example.com"
+                  disabled={submitting}
+                />
+              )}
             </div>
 
-            {/* Credential fields per plugin */}
-            {fields.length > 0 ? (
+            {/* Credential fields per plugin — hidden for OAuth plugins */}
+            {isOAuthPlugin ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div className="alert alert-info" style={guidanceStyle}>
+                  <Icons.info style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
+                  <div>
+                    <div style={{ fontWeight: 600, marginBottom: 6 }}>
+                      {t("sites.oauth.connect_google", "Connect with Google")}
+                    </div>
+                    <div className="caption" style={{ color: "var(--text-muted)" }}>
+                      {mode === "edit" && site?.status === "reauth_required"
+                        ? t(
+                            "sites.oauth.status_reauth_required_desc",
+                            "The OAuth refresh token is no longer valid. Re-authorize to reconnect.",
+                          )
+                        : t(
+                            "sites.oauth.pending_desc",
+                            'Click "Connect with Google" to authorize this site.',
+                          )}
+                    </div>
+                    <div className="caption" style={{ color: "var(--text-subtle)", marginTop: 8 }}>
+                      {t(
+                        "sites.oauth.unverified_app_note",
+                        "Google will show a 'Google hasn't verified this app' warning because this app uses sensitive scopes (Gmail/Search Console) and is in Testing mode. Click Advanced → Go to app (unsafe) to continue. This is safe — only your Google account is authorized.",
+                      )}
+                    </div>
+                    {mode === "edit" && site?.id ? (
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        style={{ marginTop: 10, alignSelf: "flex-start" }}
+                        onClick={async () => {
+                          setOauthPending(true);
+                          try {
+                            const r = await initOAuth.mutateAsync(site.id);
+                            window.location.href = r.auth_url;
+                          } catch (oauthErr: any) {
+                            const msg = oauthErr?.body?.error ?? oauthErr?.message ?? String(oauthErr);
+                            setError(msg);
+                            setOauthPending(false);
+                          }
+                        }}
+                        disabled={oauthPending}
+                      >
+                        {oauthPending
+                          ? t("sites.oauth.authorizing", "Authorizing…")
+                          : t("sites.oauth.reauthorize", "Re-authorize")}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            ) : fields.length > 0 ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 <div className="eyebrow">{t("sites.credentials", "Credentials")}</div>
                 {fields
@@ -411,7 +558,9 @@ export function SiteFormDialog({
               {submitting
                 ? "…"
                 : mode === "create"
-                  ? t("sites.dialog_add_submit", "Add site")
+                  ? isOAuthPlugin
+                    ? t("sites.oauth.connect_google", "Connect with Google")
+                    : t("sites.dialog_add_submit", "Add site")
                   : t("sites.dialog_edit_submit", "Save changes")}
             </Btn>
           </div>

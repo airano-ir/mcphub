@@ -181,6 +181,48 @@ async def test_non_dict_response(handler, wp_client, monkeypatch):
     assert out["error"] == "invalid_response"
 
 
+@pytest.mark.asyncio
+async def test_transient_list_happy_path(handler, wp_client, monkeypatch):
+    get_mock = AsyncMock(
+        return_value={
+            "ok": True,
+            "limit": 25,
+            "total_count": 1,
+            "showing_count": 1,
+            "transients": [{"key": "foo", "type": "transient", "expires_at": None}],
+            "plugin_version": "2.18.5",
+        }
+    )
+    monkeypatch.setattr(wp_client, "get", get_mock)
+
+    out = json.loads(await handler.transient_list(limit=25, include_site_transients=False))
+    assert out["ok"] is True
+    assert out["transients"][0]["key"] == "foo"
+
+    get_mock.assert_awaited_once_with(
+        "airano-mcp/v1/transients",
+        params={"limit": 25, "include_site_transients": "0"},
+        use_custom_namespace=True,
+    )
+
+
+@pytest.mark.asyncio
+async def test_transient_list_caps_limit(handler, wp_client, monkeypatch):
+    get_mock = AsyncMock(return_value={"ok": True, "transients": []})
+    monkeypatch.setattr(wp_client, "get", get_mock)
+
+    await handler.transient_list(limit=999)
+    assert get_mock.call_args.kwargs["params"]["limit"] == 500
+
+
+@pytest.mark.asyncio
+async def test_transient_list_companion_unreachable(handler, wp_client, monkeypatch):
+    monkeypatch.setattr(wp_client, "get", AsyncMock(side_effect=RuntimeError("404 Not Found")))
+    out = json.loads(await handler.transient_list())
+    assert out["ok"] is False
+    assert out["error"] == "companion_unreachable"
+
+
 def test_tool_spec_is_admin_scope():
     specs = get_tool_specifications()
     assert len(specs) == 1

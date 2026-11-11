@@ -9,6 +9,8 @@ from typing import Any
 
 import aiohttp
 
+from core import net_guard
+
 
 class N8nApiError(Exception):
     """Base exception for n8n API errors with structured error info."""
@@ -136,7 +138,11 @@ class N8nClient:
         headers = self._get_headers(headers_override)
 
         if params:
-            params = {k: v for k, v in params.items() if v is not None}
+            params = {
+                k: (str(v).lower() if isinstance(v, bool) else v)
+                for k, v in params.items()
+                if v is not None
+            }
         if json_data:
             json_data = {k: v for k, v in json_data.items() if v is not None}
 
@@ -144,7 +150,7 @@ class N8nClient:
 
         try:
             async with (
-                aiohttp.ClientSession() as session,
+                net_guard.client_session() as session,
                 session.request(
                     method=method, url=url, params=params, json=json_data, headers=headers
                 ) as response,
@@ -462,7 +468,7 @@ class N8nClient:
         """Check n8n instance health."""
         url = f"{self.site_url}/healthz"
         try:
-            async with aiohttp.ClientSession() as session, session.get(url) as response:
+            async with net_guard.client_session() as session, session.get(url) as response:
                 if response.status == 200:
                     return {"healthy": True, "status": "ok"}
                 return {"healthy": False, "status": f"unhealthy (status {response.status})"}

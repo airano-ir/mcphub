@@ -1,8 +1,8 @@
 # Airano MCP Bridge
 
-**Version:** 2.10.3
-**Requires WordPress:** 5.0+
-**Tested up to:** 6.9
+**Version:** 2.11.1
+**Requires WordPress:** 5.6+
+**Tested up to:** 7.1
 **Requires PHP:** 7.4+
 **License:** GPLv2 or later
 **Plugin slug:** `airano-mcp-bridge` (permanent)

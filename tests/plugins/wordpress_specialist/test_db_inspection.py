@@ -2,7 +2,7 @@
 
 Mocks ``WordPressClient.get`` / ``post`` and asserts:
 
-* tool spec contract: 3 tools all on scope=read
+* tool spec contract: DB inspection/maintenance tools and scopes
 * each handler method targets the correct ``airano-mcp/v1/admin/db/*``
   route with ``use_custom_namespace=True`` and the right HTTP verb
 * client-side validators (S-25 query length cap, limit cap at 100,
@@ -30,17 +30,26 @@ from plugins.wordpress_specialist.handlers.database import (
 # ───── Tool spec contract ────────────────────────────────────────────
 
 
-def test_tool_specs_count_and_names_match_f1932():
+def test_tool_specs_count_and_names_match_f1934():
     specs = get_tool_specifications()
-    assert len(specs) == 3, "F.19.3.2-.3 advertises 3 read tools"
+    assert len(specs) == 5, "F.19.3.2-.4 advertises 5 DB tools"
     names = {s["name"] for s in specs}
-    assert names == {"wp_db_size", "wp_db_tables", "wp_db_search"}
+    assert names == {
+        "wp_db_size",
+        "wp_db_tables",
+        "wp_db_search",
+        "wp_db_check",
+        "wp_db_optimize",
+    }
 
 
-def test_all_database_tools_on_read_tier():
-    """db inspection is non-destructive — read tier per F.19.3.2 spec."""
-    for spec in get_tool_specifications():
-        assert spec["scope"] == "read", f"{spec['name']} should be scope=read"
+def test_database_tool_scopes():
+    by_name = {s["name"]: s for s in get_tool_specifications()}
+    assert by_name["wp_db_size"]["scope"] == "read"
+    assert by_name["wp_db_tables"]["scope"] == "read"
+    assert by_name["wp_db_search"]["scope"] == "read"
+    assert by_name["wp_db_check"]["scope"] == "read"
+    assert by_name["wp_db_optimize"]["scope"] == "admin"
 
 
 def test_every_spec_has_the_full_contract():
@@ -63,6 +72,8 @@ def test_db_size_and_tables_take_no_args():
     by_name = {s["name"]: s for s in get_tool_specifications()}
     assert by_name["wp_db_size"]["schema"]["properties"] == {}
     assert by_name["wp_db_tables"]["schema"]["properties"] == {}
+    assert by_name["wp_db_check"]["schema"]["properties"] == {}
+    assert by_name["wp_db_optimize"]["schema"]["properties"] == {}
 
 
 # ───── Validators ────────────────────────────────────────────────────
@@ -159,6 +170,25 @@ async def test_db_tables_calls_route(handler, client):
     await handler.wp_db_tables()
     client.get.assert_awaited_once_with(
         "airano-mcp/v1/admin/db/tables",
+        use_custom_namespace=True,
+    )
+
+
+@pytest.mark.asyncio
+async def test_db_check_calls_route(handler, client):
+    await handler.wp_db_check()
+    client.get.assert_awaited_once_with(
+        "airano-mcp/v1/admin/db/check",
+        use_custom_namespace=True,
+    )
+
+
+@pytest.mark.asyncio
+async def test_db_optimize_calls_route(handler, client):
+    await handler.wp_db_optimize()
+    client.post.assert_awaited_once_with(
+        "airano-mcp/v1/admin/db/optimize",
+        json_data={},
         use_custom_namespace=True,
     )
 

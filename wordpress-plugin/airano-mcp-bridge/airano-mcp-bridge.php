@@ -3,15 +3,25 @@
  * Plugin Name: Airano MCP Bridge
  * Plugin URI: https://mcp.palebluedot.live
  * Description: Companion plugin for MCP Hub. Exposes SEO meta (Rank Math / Yoast), media upload helpers (bypass upload_max_filesize), and site capabilities via the WordPress REST API for AI agents and MCP servers. Supports posts, pages, and WooCommerce products.
- * Version: 2.18.1
+ * Version: 2.21.1
  * Author: MCP Hub
  * Author URI: https://github.com/airano-ir
  * License: GPL-2.0-or-later
- * Requires at least: 5.0
+ * Requires at least: 5.6
  * Requires PHP: 7.4
  * Text Domain: airano-mcp-bridge
  *
  * Changelog:
+ * 2.21.1 - Plugin Check follow-ups on the internal build. (a) Seven `unlink()` calls replaced with `wp_delete_file()` so the `wp_delete_file` filter is honoured; the theme-file DELETE route, which used `unlink()`'s return value, now confirms removal with `clearstatcache()` + `file_exists()` because `wp_delete_file()` returns nothing. (b) `Requires at least` corrected 5.0 -> 5.6: `/site-health` has always called `wp_timezone_string()` (WP 5.3) and `wp_is_application_passwords_available()` (WP 5.6), so the 5.0 floor promised installs that would fatal on those routes. (c) The `phpcs:ignore` on CHECK/OPTIMIZE TABLE now names the sniffs that actually fire (`InterpolatedNotPrepared`, `UnescapedDBParameter`); the SQL is unchanged and was already safe — table identifiers cannot be placeholders and the names come from an information_schema allowlist scoped to this install's prefix.
+ * 2.21.0 - Add POST /airano-mcp/v1/admin/seo/rank-math/sync-identity (manage_options): writes the site title, or supplied name / alternate_name / knowledgegraph_name, into Rank Math's schema identity keys `website_name`, `website_alternate_name` and `knowledgegraph_name`, which Rank Math otherwise captures only once in its setup wizard. Returns before/after; 409 when Rank Math is inactive. Touches no other option key.
+ * 2.20.2 - Make taxonomy translation creation idempotent for WPML/Polylang by letting /term-language perform lookup-only checks and return an existing target-language term before MCPHub creates duplicates.
+ * 2.20.1 - Internal package refresh for MCPHub media-intake compatibility. No new companion REST routes; MCPHub now handles large chat-attached media through its authenticated per-user HTTP intake before forwarding to existing companion upload routes when available.
+ * 2.20.0 - Extend the generic multilingual adapter to taxonomy terms via POST /airano-mcp/v1/term-language, and add a narrow /term-update fallback for translated-term slug conflicts while keeping MCPHub plugin-agnostic.
+ * 2.19.0 - Add plugin-agnostic content primitives for MCPHub: POST /airano-mcp/v1/post-language applies generic language + translation links through a WPML/Polylang adapter registry, while /capabilities now advertises multilingual provider details and meta_passthrough support for stock REST create/update flows.
+ * 2.18.5 - Port remaining low-risk legacy MCPHub WordPress WP-CLI maintenance tools to companion REST: GET /transients, GET /admin/db/check, POST /admin/db/optimize. All are bounded to metadata / current WP table-prefix scope and require manage_options.
+ * 2.18.4 - Add POST /opcache-reset for public companion deployments to reset PHP OPcache without infra-level credentials or app restarts after theme/plugin deploys.
+ * 2.18.3 - Add PATCH /admin/themes/files/{slug}/{path} for line-range theme-file patching with expected_sha256 concurrency, avoiding full-file base64 uploads for iterative CSS/template edits.
+ * 2.18.2 - Cache purge route accepts scope={object,page,all}, enabling MCPHub's legacy wordpress_wp_cache_flush tool to purge page cache through the companion plugin without WP-CLI/Docker access.
  * 2.18.1 - wp.org review fixes: (a) drop unused `wp-admin/includes/media.php` requires from /upload-chunk + /upload-and-attach (the code only calls helpers from file.php and image.php); (b) split /upload-and-attach permission_callback into a dedicated method that explicitly checks `edit_post` on `attach_to_post` and rejects `set_featured` without a target — the per-target check is now enforced at the route gate (visible to static analysis), not just inside the callback.
  * 2.18.0 - F.19.3.2-.3: Database inspection (read) + bulk fan-out (write). Three new admin routes — `GET /admin/db/size` (single `information_schema.TABLES` aggregation: database_bytes + table_count + row_count_estimate, no SQL exposure), `GET /admin/db/tables` (per-table breakdown: name, engine, rows, data_bytes, index_bytes, total_bytes, collation), `POST /admin/db/search` body `{query, post_type?, status?, limit?}` wraps `WP_Query` with `s=$query` (NOT raw SQL), `query` sanitised via `sanitize_text_field` and capped at 200 chars server-side, `limit` capped at 100. New security rule S-25 — db/search wraps `WP_Query`, never raw SQL; `posts_clauses` filter (same as the WP search page) keeps non-readable posts (private/draft from other authors) out of the result set. Bulk write tools (`wp_bulk_post_update`, `wp_bulk_term_update`) ride stock REST `wp/v2/posts/{id}` and `wp/v2/{taxonomy}/{id}` — no companion routes needed for those. Companion-side cap: 50 items per call, mirror of S-26 (client-side caps at the same number; server is the binding gate). All admin routes gated on `manage_options`. Bundled with the wordpress_advanced sunset (the deprecated WP-CLI/Docker-socket plugin is removed in this round of MCPHub).
  * 2.17.0 - F.19.6.B: Site layout — menus + widgets + customizer (7 new routes). Menus: `GET /admin/menus`, `GET /admin/menus/{id}`, `PUT /admin/menus/{id}` (full-replace items + optional rename; slug stays frozen). Widgets: `GET /admin/widgets/areas`, `GET /admin/widgets/{area_id}`, `PUT /admin/widgets/{area_id}` (block-kind areas accept any block raw HTML; legacy areas accept `text` widget settings only — other legacy types are read-only this round). Customizer: `POST /admin/customizer/changeset` with `{action: get|apply|discard}` — single-tool wrapper around the changeset queue, lower priority since FSE themes don't use customizer. New security rules: S-22 dispatches per nav-menu item type — `post_type` checks `current_user_can('read_post', id)`, `taxonomy` checks public taxonomy OR `assign_terms` cap (deliberately NOT `manage_categories` which is a write cap), `custom` URL items skip object validation; S-23 sanitises widget HTML via `wp_kses_post` unless caller has `unfiltered_html` (mirrors S-13); S-24 customizer apply requires `customize` cap (not just `manage_options` — same bar as `/wp-admin/customize.php`). All routes gated on `manage_options`. Pre-validates every menu item before mutating so a partial failure leaves the menu untouched.
@@ -55,7 +65,7 @@ class SEO_API_Bridge {
     /**
      * Plugin version
      */
-    const VERSION = '2.18.1';
+    const VERSION = '2.21.1';
 
     /**
      * Single source of truth for the ``routes`` bitmap exposed to
@@ -75,9 +85,14 @@ class SEO_API_Bridge {
             'upload_and_attach'     => true,
             'capabilities'          => true,
             'bulk_meta'             => true,
+            'post_language'         => true,
+            'term_language'         => true,
+            'term_update'           => true,
             'export'                => true,
             'cache_purge'           => true,
+            'opcache_reset'         => true,
             'transient_flush'       => true,
+            'transient_list'        => true,
             'site_health'           => true,
             'audit_hook'            => true,
             'regenerate_thumbnails' => true,
@@ -110,6 +125,7 @@ class SEO_API_Bridge {
             'admin_theme_file_list'        => true,
             'admin_theme_file_read'        => true,
             'admin_theme_file_write'       => true,
+            'admin_theme_file_patch'       => true,
             'admin_theme_file_delete'      => true,
             // F.19.2.1 plugin write management
             'admin_plugin_install'         => true,
@@ -136,6 +152,8 @@ class SEO_API_Bridge {
             'admin_db_size'                => true,
             'admin_db_tables'              => true,
             'admin_db_search'              => true,
+            'admin_db_check'               => true,
+            'admin_db_optimize'            => true,
         ];
     }
 
@@ -368,6 +386,37 @@ class SEO_API_Bridge {
             },
         ]);
 
+        // --- F.20.1: Generic multilingual post/page language adapter -------
+        // POST /wp-json/airano-mcp/v1/post-language
+        // Body: {"post_id": 123, "language": "fa", "translation_of": 42}
+        // Provider-specific details stay inside the companion (WPML /
+        // Polylang adapter registry); MCPHub exposes only generic
+        // language + translation_of parameters on content tools.
+        register_rest_route('airano-mcp/v1', '/post-language', [
+            'methods' => 'POST',
+            'callback' => [$this, 'handle_post_language'],
+            'permission_callback' => [$this, 'require_post_language_capability'],
+        ]);
+
+        // --- F.20.2: Generic multilingual taxonomy-term adapter ----------
+        // POST /wp-json/airano-mcp/v1/term-language
+        // Body: {"taxonomy": "categories", "term_id": 123,
+        //        "language": "fa", "translation_of": 42}
+        register_rest_route('airano-mcp/v1', '/term-language', [
+            'methods' => 'POST',
+            'callback' => [$this, 'handle_term_language'],
+            'permission_callback' => [$this, 'require_term_language_capability'],
+        ]);
+
+        // Narrow fallback for translated-term slug duplicate failures in
+        // stock REST. This is not a provider-specific public surface; it
+        // resolves the generic taxonomy/rest_base and updates via wp_update_term().
+        register_rest_route('airano-mcp/v1', '/term-update', [
+            'methods' => 'POST',
+            'callback' => [$this, 'handle_term_update'],
+            'permission_callback' => [$this, 'require_term_update_capability'],
+        ]);
+
         // --- F.18.3: Structured JSON export ------------------------------
         // GET /wp-json/airano-mcp/v1/export
         // Query: post_type, status, since, limit, offset,
@@ -391,6 +440,18 @@ class SEO_API_Bridge {
             },
         ]);
 
+        // --- F.18.8: OPcache reset -------------------------------------
+        // POST /wp-json/airano-mcp/v1/opcache-reset
+        // Drops PHP OPcache after theme/plugin deploys on hosts where
+        // opcache.validate_timestamps=0, avoiding an app restart.
+        register_rest_route('airano-mcp/v1', '/opcache-reset', [
+            'methods' => 'POST',
+            'callback' => [$this, 'handle_opcache_reset'],
+            'permission_callback' => function () {
+                return current_user_can('manage_options');
+            },
+        ]);
+
         // --- F.18.5: Transient flush ------------------------------------
         // POST /wp-json/airano-mcp/v1/transient-flush
         // Body (optional): {"scope": "expired|all|pattern", "pattern": "foo_*",
@@ -398,6 +459,17 @@ class SEO_API_Bridge {
         register_rest_route('airano-mcp/v1', '/transient-flush', [
             'methods' => 'POST',
             'callback' => [$this, 'handle_transient_flush'],
+            'permission_callback' => function () {
+                return current_user_can('manage_options');
+            },
+        ]);
+
+        // GET /wp-json/airano-mcp/v1/transients
+        // Query: ?limit=100&include_site_transients=1
+        // Metadata only: names + expiration, never cached values.
+        register_rest_route('airano-mcp/v1', '/transients', [
+            'methods' => 'GET',
+            'callback' => [$this, 'handle_transient_list'],
             'permission_callback' => function () {
                 return current_user_can('manage_options');
             },
@@ -617,6 +689,11 @@ class SEO_API_Bridge {
             'permission_callback' => [$this, 'require_admin_capability'],
         ]);
         register_rest_route('airano-mcp/v1', '/admin/themes/files/(?P<slug>[A-Za-z0-9][A-Za-z0-9_\-]{0,63})/(?P<path>.+)', [
+            'methods' => 'PATCH',
+            'callback' => [$this, 'handle_admin_theme_file_patch'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/themes/files/(?P<slug>[A-Za-z0-9][A-Za-z0-9_\-]{0,63})/(?P<path>.+)', [
             'methods' => 'DELETE',
             'callback' => [$this, 'handle_admin_theme_file_delete'],
             'permission_callback' => [$this, 'require_admin_capability'],
@@ -671,6 +748,14 @@ class SEO_API_Bridge {
         register_rest_route('airano-mcp/v1', '/admin/site/identity', [
             'methods' => 'POST',
             'callback' => [$this, 'handle_admin_site_identity_set'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        // 2.21.0 (mcphub #93): push the WordPress site name into Rank Math's
+        // schema identity (website_name / knowledgegraph_name), which Rank
+        // Math only captures once during its setup wizard.
+        register_rest_route('airano-mcp/v1', '/admin/seo/rank-math/sync-identity', [
+            'methods' => 'POST',
+            'callback' => [$this, 'handle_admin_rank_math_sync_identity'],
             'permission_callback' => [$this, 'require_admin_capability'],
         ]);
         register_rest_route('airano-mcp/v1', '/admin/site/reading', [
@@ -757,6 +842,16 @@ class SEO_API_Bridge {
             'callback' => [$this, 'handle_admin_db_search'],
             'permission_callback' => [$this, 'require_admin_capability'],
         ]);
+        register_rest_route('airano-mcp/v1', '/admin/db/check', [
+            'methods' => 'GET',
+            'callback' => [$this, 'handle_admin_db_check'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
+        register_rest_route('airano-mcp/v1', '/admin/db/optimize', [
+            'methods' => 'POST',
+            'callback' => [$this, 'handle_admin_db_optimize'],
+            'permission_callback' => [$this, 'require_admin_capability'],
+        ]);
     }
 
     /**
@@ -818,6 +913,224 @@ class SEO_API_Bridge {
     }
 
     /**
+     * Permission callback for `/post-language`.
+     *
+     * The target always requires `edit_post`. When `translation_of` is
+     * supplied, the source must exist and be readable by the caller. Provider
+     * APIs (WPML / Polylang) run later inside the callback; this gate is only
+     * about the generic post objects.
+     */
+    public function require_post_language_capability( $request ) {
+        $post_id = (int) $request->get_param('post_id');
+        if ( $post_id <= 0 ) {
+            return new WP_Error(
+                'rest_invalid_param',
+                __( 'post_id must be a positive integer.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+
+        $post = get_post($post_id);
+        if ( ! $post ) {
+            return new WP_Error(
+                'post_not_found',
+                __( 'Target post was not found.', 'airano-mcp-bridge' ),
+                ['status' => 404, 'post_id' => $post_id]
+            );
+        }
+
+        if ( ! current_user_can('edit_post', $post_id) ) {
+            return new WP_Error(
+                'rest_cannot_edit',
+                __( 'Sorry, you are not allowed to edit this post.', 'airano-mcp-bridge' ),
+                ['status' => rest_authorization_required_code(), 'post_id' => $post_id]
+            );
+        }
+
+        $translation_of = (int) $request->get_param('translation_of');
+        if ( $translation_of > 0 ) {
+            $source = get_post($translation_of);
+            if ( ! $source ) {
+                return new WP_Error(
+                    'source_not_found',
+                    __( 'translation_of source post was not found.', 'airano-mcp-bridge' ),
+                    ['status' => 404, 'translation_of' => $translation_of]
+                );
+            }
+            if ( ! current_user_can('read_post', $translation_of) ) {
+                return new WP_Error(
+                    'rest_cannot_read_source',
+                    __( 'Sorry, you are not allowed to read the translation source post.', 'airano-mcp-bridge' ),
+                    ['status' => rest_authorization_required_code(), 'translation_of' => $translation_of]
+                );
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Resolve a taxonomy by canonical slug or REST base.
+     *
+     * MCPHub's generic term tools may receive either `category` /
+     * `post_tag` or the stock REST bases `categories` / `tags`. Custom
+     * taxonomies are matched on both `name` and `rest_base`.
+     */
+    private function resolve_taxonomy_object( $value ) {
+        if ( ! is_scalar($value) ) {
+            return null;
+        }
+        $candidate = sanitize_key((string) $value);
+        if ( $candidate === '' ) {
+            return null;
+        }
+        $taxonomies = get_taxonomies([], 'objects');
+        foreach ( $taxonomies as $taxonomy ) {
+            $name = isset($taxonomy->name) ? (string) $taxonomy->name : '';
+            $rest_base = isset($taxonomy->rest_base) && $taxonomy->rest_base
+                ? (string) $taxonomy->rest_base
+                : $name;
+            if ( $candidate === $name || $candidate === sanitize_key($rest_base) ) {
+                return $taxonomy;
+            }
+        }
+        return null;
+    }
+
+    private function get_term_for_taxonomy_object( $term_id, $taxonomy ) {
+        if ( ! $taxonomy || empty($taxonomy->name) ) {
+            return null;
+        }
+        $term = get_term((int) $term_id, (string) $taxonomy->name);
+        if ( ! $term || is_wp_error($term) ) {
+            return null;
+        }
+        return $term;
+    }
+
+    private function term_edit_capability( $taxonomy ) {
+        if ( $taxonomy && isset($taxonomy->cap) && ! empty($taxonomy->cap->edit_terms) ) {
+            return (string) $taxonomy->cap->edit_terms;
+        }
+        return 'manage_categories';
+    }
+
+    /**
+     * Permission callback for `/term-language`.
+     *
+     * Term translation linking mutates taxonomy state, so the caller needs
+     * the taxonomy's edit_terms capability for the target taxonomy. When a
+     * source is supplied it must exist in the same taxonomy.
+     */
+    public function require_term_language_capability( $request ) {
+        $taxonomy = $this->resolve_taxonomy_object($request->get_param('taxonomy'));
+        if ( ! $taxonomy ) {
+            return new WP_Error(
+                'taxonomy_not_found',
+                __( 'taxonomy must name a registered taxonomy or REST base.', 'airano-mcp-bridge' ),
+                ['status' => 404]
+            );
+        }
+
+        $capability = $this->term_edit_capability($taxonomy);
+        if ( ! current_user_can($capability) ) {
+            return new WP_Error(
+                'rest_cannot_edit_terms',
+                __( 'Sorry, you are not allowed to edit terms in this taxonomy.', 'airano-mcp-bridge' ),
+                ['status' => rest_authorization_required_code(), 'taxonomy' => $taxonomy->name]
+            );
+        }
+
+        $lookup_only = $this->truthy_request_value($request->get_param('lookup_only'));
+        $term_id = (int) $request->get_param('term_id');
+        if ( ! $lookup_only ) {
+            if ( $term_id <= 0 ) {
+                return new WP_Error(
+                    'rest_invalid_param',
+                    __( 'term_id must be a positive integer.', 'airano-mcp-bridge' ),
+                    ['status' => 400]
+                );
+            }
+
+            $term = $this->get_term_for_taxonomy_object($term_id, $taxonomy);
+            if ( ! $term ) {
+                return new WP_Error(
+                    'term_not_found',
+                    __( 'Target term was not found in the requested taxonomy.', 'airano-mcp-bridge' ),
+                    ['status' => 404, 'term_id' => $term_id, 'taxonomy' => $taxonomy->name]
+                );
+            }
+        }
+
+        $translation_of = (int) $request->get_param('translation_of');
+        if ( $lookup_only ) {
+            $language = $this->sanitize_language_code_value($request->get_param('language'));
+            if ( $language === '' || $translation_of <= 0 ) {
+                return new WP_Error(
+                    'invalid_lookup',
+                    __( 'lookup_only requires language and translation_of.', 'airano-mcp-bridge' ),
+                    ['status' => 400]
+                );
+            }
+        }
+        if ( $translation_of > 0 ) {
+            $source = $this->get_term_for_taxonomy_object($translation_of, $taxonomy);
+            if ( ! $source ) {
+                return new WP_Error(
+                    'source_not_found',
+                    __( 'translation_of source term was not found in the requested taxonomy.', 'airano-mcp-bridge' ),
+                    ['status' => 404, 'translation_of' => $translation_of, 'taxonomy' => $taxonomy->name]
+                );
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Permission callback for `/term-update`.
+     */
+    public function require_term_update_capability( $request ) {
+        $taxonomy = $this->resolve_taxonomy_object($request->get_param('taxonomy'));
+        if ( ! $taxonomy ) {
+            return new WP_Error(
+                'taxonomy_not_found',
+                __( 'taxonomy must name a registered taxonomy or REST base.', 'airano-mcp-bridge' ),
+                ['status' => 404]
+            );
+        }
+
+        $term_id = (int) $request->get_param('term_id');
+        if ( $term_id <= 0 ) {
+            return new WP_Error(
+                'rest_invalid_param',
+                __( 'term_id must be a positive integer.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+
+        $term = $this->get_term_for_taxonomy_object($term_id, $taxonomy);
+        if ( ! $term ) {
+            return new WP_Error(
+                'term_not_found',
+                __( 'Target term was not found in the requested taxonomy.', 'airano-mcp-bridge' ),
+                ['status' => 404, 'term_id' => $term_id, 'taxonomy' => $taxonomy->name]
+            );
+        }
+
+        $capability = $this->term_edit_capability($taxonomy);
+        if ( ! current_user_can($capability) ) {
+            return new WP_Error(
+                'rest_cannot_edit_terms',
+                __( 'Sorry, you are not allowed to edit terms in this taxonomy.', 'airano-mcp-bridge' ),
+                ['status' => rest_authorization_required_code(), 'taxonomy' => $taxonomy->name]
+            );
+        }
+
+        return true;
+    }
+
+    /**
      * Permission callback for the F.19.1 admin namespace.
      *
      * Strict ``manage_options`` check — same bar as the WP Settings page.
@@ -844,6 +1157,7 @@ class SEO_API_Bridge {
                 'upload_chunk'    => true,
                 'capabilities'    => true,
                 'bulk_meta'       => true,
+                'post_language'   => true,
                 'export'          => true,
                 'cache_purge'     => true,
                 'transient_flush' => true,
@@ -1930,6 +2244,12 @@ class SEO_API_Bridge {
             'yoast'        => $this->is_yoast_active(),
             'woocommerce' => $this->is_woocommerce_active(),
             'multisite'   => is_multisite(),
+            'multilingual' => $this->get_multilingual_feature(),
+            'meta_passthrough' => [
+                'create_post' => true,
+                'create_page' => true,
+                'update_post' => true,
+            ],
         ];
 
         // F.X.fix #10: read from the single-source route map so
@@ -1957,6 +2277,1198 @@ class SEO_API_Bridge {
         ];
 
         return rest_ensure_response($response);
+    }
+
+    // ------------------------------------------------------------------
+    //  F.20.1 — Generic multilingual adapter (airano-mcp/v1/post-language)
+    // ------------------------------------------------------------------
+
+    private function sanitize_language_code_value( $value ) {
+        if ( $value === null || ! is_scalar($value) ) {
+            return '';
+        }
+        $lang = sanitize_key((string) $value);
+        if ( ! preg_match('/^[a-z0-9_\-]{1,20}$/', $lang) ) {
+            return '';
+        }
+        return $lang;
+    }
+
+    private function is_wpml_active() {
+        return defined('ICL_SITEPRESS_VERSION')
+            || has_action('wpml_set_element_language_details')
+            || has_filter('wpml_element_language_details');
+    }
+
+    private function is_polylang_active() {
+        return defined('POLYLANG_VERSION')
+            || function_exists('pll_set_post_language')
+            || function_exists('pll_get_post_language')
+            || function_exists('pll_set_term_language')
+            || function_exists('pll_get_term_language');
+    }
+
+    private function get_multilingual_provider() {
+        if ( $this->is_wpml_active() ) {
+            return 'wpml';
+        }
+        if ( $this->is_polylang_active() ) {
+            return 'polylang';
+        }
+        return 'none';
+    }
+
+    private function get_wpml_default_language() {
+        $default = apply_filters('wpml_default_language', null);
+        return $this->sanitize_language_code_value($default);
+    }
+
+    private function get_wpml_languages() {
+        $out = [];
+        $active = apply_filters('wpml_active_languages', null, 'skip_missing=0');
+        if ( is_array($active) ) {
+            foreach ( $active as $code => $data ) {
+                $candidate = is_string($code) ? $code : '';
+                if ( is_array($data) && isset($data['language_code']) ) {
+                    $candidate = $data['language_code'];
+                }
+                $lang = $this->sanitize_language_code_value($candidate);
+                if ( $lang !== '' ) {
+                    $out[] = $lang;
+                }
+            }
+        }
+        $default = $this->get_wpml_default_language();
+        if ( $default !== '' ) {
+            $out[] = $default;
+        }
+        return array_values(array_unique($out));
+    }
+
+    private function get_polylang_default_language() {
+        if ( function_exists('pll_default_language') ) {
+            return $this->sanitize_language_code_value(pll_default_language('slug'));
+        }
+        return '';
+    }
+
+    private function get_polylang_languages() {
+        $out = [];
+        if ( function_exists('pll_languages_list') ) {
+            $languages = pll_languages_list(['fields' => 'slug']);
+            if ( is_array($languages) ) {
+                foreach ( $languages as $language ) {
+                    $lang = $this->sanitize_language_code_value($language);
+                    if ( $lang !== '' ) {
+                        $out[] = $lang;
+                    }
+                }
+            }
+        }
+        $default = $this->get_polylang_default_language();
+        if ( $default !== '' ) {
+            $out[] = $default;
+        }
+        return array_values(array_unique($out));
+    }
+
+    private function get_multilingual_feature() {
+        $provider = $this->get_multilingual_provider();
+        if ( $provider === 'wpml' ) {
+            $languages = $this->get_wpml_languages();
+            $default = $this->get_wpml_default_language();
+            $can_link = has_action('wpml_set_element_language_details')
+                && has_filter('wpml_element_language_details');
+            $can_link_terms = $can_link;
+        } elseif ( $provider === 'polylang' ) {
+            $languages = $this->get_polylang_languages();
+            $default = $this->get_polylang_default_language();
+            $can_link = function_exists('pll_set_post_language')
+                && function_exists('pll_save_post_translations');
+            $can_link_terms = function_exists('pll_set_term_language')
+                && function_exists('pll_save_term_translations');
+        } else {
+            $languages = [];
+            $default = function_exists('get_locale') ? (string) get_locale() : null;
+            $can_link = false;
+            $can_link_terms = false;
+        }
+
+        return [
+            'provider' => $provider,
+            'can_link' => (bool) $can_link,
+            'languages' => $languages,
+            'default' => $default !== '' ? $default : null,
+            'posts' => [
+                'can_link' => (bool) $can_link,
+            ],
+            'terms' => [
+                'can_link' => (bool) $can_link_terms,
+            ],
+        ];
+    }
+
+    private function wpml_detail_value( $details, $key ) {
+        if ( is_object($details) && isset($details->{$key}) ) {
+            return $details->{$key};
+        }
+        if ( is_array($details) && isset($details[$key]) ) {
+            return $details[$key];
+        }
+        return null;
+    }
+
+    private function get_wpml_term_language_details( $element_id, $taxonomy_name ) {
+        $prefixed_type = 'tax_' . $taxonomy_name;
+        $details = apply_filters('wpml_element_language_details', null, [
+            'element_id' => (int) $element_id,
+            'element_type' => $prefixed_type,
+        ]);
+        if ( $this->wpml_detail_value($details, 'trid')
+            || $this->wpml_detail_value($details, 'language_code') ) {
+            return $details;
+        }
+
+        return apply_filters('wpml_element_language_details', null, [
+            'element_id' => (int) $element_id,
+            'element_type' => $taxonomy_name,
+        ]);
+    }
+
+    private function truthy_request_value( $value ) {
+        return $value === true || $value === 1 || $value === '1' || $value === 'true';
+    }
+
+    private function term_lookup_payload( $term ) {
+        return [
+            'id'               => isset($term->term_id) ? (int) $term->term_id : null,
+            'term_taxonomy_id' => isset($term->term_taxonomy_id) ? (int) $term->term_taxonomy_id : null,
+            'name'             => isset($term->name) ? (string) $term->name : '',
+            'slug'             => isset($term->slug) ? (string) $term->slug : '',
+            'description'      => isset($term->description) ? (string) $term->description : '',
+            'parent'           => isset($term->parent) ? (int) $term->parent : 0,
+            'count'            => isset($term->count) ? (int) $term->count : 0,
+        ];
+    }
+
+    private function term_translation_lookup_payload(
+        $term,
+        $taxonomy,
+        $provider,
+        $language,
+        $translation_of,
+        $source_language,
+        $feature,
+        $already_existed,
+        $extra = []
+    ) {
+        $payload = [
+            'term_id'          => $term && isset($term->term_id) ? (int) $term->term_id : null,
+            'term_taxonomy_id' => $term && isset($term->term_taxonomy_id) ? (int) $term->term_taxonomy_id : null,
+            'taxonomy'         => $taxonomy ? $taxonomy->name : null,
+            'provider'         => $provider,
+            'language'         => $language !== '' ? $language : null,
+            'translation_of'   => $translation_of > 0 ? (int) $translation_of : null,
+            'source_language'  => $source_language !== '' ? $source_language : null,
+            'already_existed'  => (bool) $already_existed,
+            'lookup_only'      => true,
+            'applied'          => false,
+            'linked'           => (bool) $already_existed,
+            'feature'          => $feature,
+        ];
+        if ( $term ) {
+            $payload['term'] = $this->term_lookup_payload($term);
+        }
+        return array_merge($payload, $extra);
+    }
+
+    private function wpml_translation_value( $translation, $key ) {
+        if ( is_object($translation) && isset($translation->{$key}) ) {
+            return $translation->{$key};
+        }
+        if ( is_array($translation) && isset($translation[$key]) ) {
+            return $translation[$key];
+        }
+        return null;
+    }
+
+    private function find_wpml_existing_term_translation( $taxonomy, $target_lang, $translation_of, $feature ) {
+        $source = $this->get_term_for_taxonomy_object($translation_of, $taxonomy);
+        if ( ! $source || empty($source->term_taxonomy_id) ) {
+            return $this->term_translation_lookup_payload(
+                null,
+                $taxonomy,
+                'wpml',
+                $target_lang,
+                $translation_of,
+                null,
+                $feature,
+                false,
+                [
+                    'notice' => [
+                        'code' => 'source_term_missing',
+                        'message' => __( 'WPML could not resolve the translation source term.', 'airano-mcp-bridge' ),
+                    ],
+                ]
+            );
+        }
+
+        $source_details = $this->get_wpml_term_language_details(
+            (int) $source->term_taxonomy_id,
+            $taxonomy->name
+        );
+        $trid = $this->wpml_detail_value($source_details, 'trid');
+        $source_lang = $this->sanitize_language_code_value(
+            $this->wpml_detail_value($source_details, 'language_code')
+        );
+        if ( ! $trid ) {
+            return $this->term_translation_lookup_payload(
+                null,
+                $taxonomy,
+                'wpml',
+                $target_lang,
+                $translation_of,
+                $source_lang,
+                $feature,
+                false,
+                [
+                    'notice' => [
+                        'code' => 'source_language_missing',
+                        'message' => __( 'WPML could not find language details for the translation source term.', 'airano-mcp-bridge' ),
+                    ],
+                ]
+            );
+        }
+
+        $element_type = 'tax_' . $taxonomy->name;
+        $translations = apply_filters('wpml_get_element_translations', null, (int) $trid, $element_type);
+        if ( ! is_array($translations) && ! is_object($translations) ) {
+            $translations = [];
+        }
+
+        foreach ( $translations as $lang_code => $translation ) {
+            $translation_lang = $this->sanitize_language_code_value(
+                $this->wpml_translation_value($translation, 'language_code')
+            );
+            if ( $translation_lang === '' ) {
+                $translation_lang = $this->sanitize_language_code_value($lang_code);
+            }
+            if ( $translation_lang !== $target_lang ) {
+                continue;
+            }
+
+            $term = null;
+            $translation_term_id = (int) $this->wpml_translation_value($translation, 'term_id');
+            if ( $translation_term_id > 0 ) {
+                $term = get_term($translation_term_id, $taxonomy->name);
+            }
+            if ( ! $term || is_wp_error($term) ) {
+                $element_id = (int) $this->wpml_translation_value($translation, 'element_id');
+                if ( $element_id > 0 ) {
+                    $term = get_term_by('term_taxonomy_id', $element_id, $taxonomy->name);
+                }
+            }
+            if ( $term && ! is_wp_error($term) ) {
+                return $this->term_translation_lookup_payload(
+                    $term,
+                    $taxonomy,
+                    'wpml',
+                    $target_lang,
+                    $translation_of,
+                    $source_lang,
+                    $feature,
+                    true,
+                    [ 'trid' => (int) $trid ]
+                );
+            }
+        }
+
+        return $this->term_translation_lookup_payload(
+            null,
+            $taxonomy,
+            'wpml',
+            $target_lang,
+            $translation_of,
+            $source_lang,
+            $feature,
+            false,
+            [ 'trid' => (int) $trid ]
+        );
+    }
+
+    private function find_polylang_existing_term_translation( $taxonomy, $target_lang, $translation_of, $feature ) {
+        $source_lang = null;
+        if ( function_exists('pll_get_term_language') ) {
+            $source_lang = $this->sanitize_language_code_value(
+                pll_get_term_language($translation_of, 'slug')
+            );
+        }
+
+        $translations = function_exists('pll_get_term_translations')
+            ? pll_get_term_translations($translation_of)
+            : [];
+        if ( ! is_array($translations) ) {
+            $translations = [];
+        }
+
+        $existing_id = isset($translations[$target_lang]) ? (int) $translations[$target_lang] : 0;
+        if ( $existing_id > 0 ) {
+            $term = get_term($existing_id, $taxonomy->name);
+            if ( $term && ! is_wp_error($term) ) {
+                return $this->term_translation_lookup_payload(
+                    $term,
+                    $taxonomy,
+                    'polylang',
+                    $target_lang,
+                    $translation_of,
+                    $source_lang,
+                    $feature,
+                    true,
+                    [ 'translations' => $translations ]
+                );
+            }
+        }
+
+        return $this->term_translation_lookup_payload(
+            null,
+            $taxonomy,
+            'polylang',
+            $target_lang,
+            $translation_of,
+            $source_lang,
+            $feature,
+            false,
+            [ 'translations' => $translations ]
+        );
+    }
+
+    private function multilingual_notice_response(
+        $post,
+        $provider,
+        $language,
+        $translation_of,
+        $feature,
+        $code,
+        $message,
+        $applied = false,
+        $linked = false
+    ) {
+        return rest_ensure_response([
+            'post_id' => (int) $post->ID,
+            'post_type' => $post->post_type,
+            'provider' => $provider,
+            'language' => $language !== '' ? $language : null,
+            'translation_of' => $translation_of > 0 ? (int) $translation_of : null,
+            'applied' => (bool) $applied,
+            'linked' => (bool) $linked,
+            'feature' => $feature,
+            'notice' => [
+                'code' => $code,
+                'message' => $message,
+            ],
+        ]);
+    }
+
+    public function handle_post_language( $request ) {
+        $params = $request->get_json_params();
+        if ( ! is_array($params) ) {
+            $params = $request->get_params();
+        }
+        if ( ! is_array($params) ) {
+            $params = [];
+        }
+
+        $post_id = isset($params['post_id']) ? (int) $params['post_id'] : 0;
+        if ( $post_id <= 0 ) {
+            return new WP_Error(
+                'rest_invalid_param',
+                __( 'post_id must be a positive integer.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+
+        $post = get_post($post_id);
+        if ( ! $post ) {
+            return new WP_Error(
+                'post_not_found',
+                __( 'Target post was not found.', 'airano-mcp-bridge' ),
+                ['status' => 404, 'post_id' => $post_id]
+            );
+        }
+
+        $raw_language = array_key_exists('language', $params) ? $params['language'] : null;
+        $language_supplied = $raw_language !== null
+            && ! ( is_string($raw_language) && $raw_language === '' );
+        $language = $language_supplied ? $this->sanitize_language_code_value($raw_language) : '';
+        if ( $language_supplied && $language === '' ) {
+            return new WP_Error(
+                'invalid_language',
+                __( 'language must be a short language code such as en or fa.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+
+        $translation_of = isset($params['translation_of']) ? (int) $params['translation_of'] : 0;
+        if ( $translation_of < 0 ) {
+            return new WP_Error(
+                'invalid_translation_source',
+                __( 'translation_of must be a positive post ID when supplied.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+        if ( $language === '' && $translation_of <= 0 ) {
+            return new WP_Error(
+                'invalid_body',
+                __( 'Send at least one of language or translation_of.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+
+        $provider = $this->get_multilingual_provider();
+        $feature = $this->get_multilingual_feature();
+        if ( $provider === 'none' ) {
+            return $this->multilingual_notice_response(
+                $post,
+                'none',
+                $language,
+                $translation_of,
+                $feature,
+                'multilingual_provider_missing',
+                __( 'No supported multilingual provider is active; leaving language unchanged.', 'airano-mcp-bridge' ),
+                false,
+                false
+            );
+        }
+
+        if ( $provider === 'wpml' ) {
+            return $this->apply_wpml_post_language($post, $language, $translation_of, $feature);
+        }
+        if ( $provider === 'polylang' ) {
+            return $this->apply_polylang_post_language($post, $language, $translation_of, $feature);
+        }
+
+        return $this->multilingual_notice_response(
+            $post,
+            $provider,
+            $language,
+            $translation_of,
+            $feature,
+            'multilingual_provider_unsupported',
+            __( 'The active multilingual provider is not supported yet.', 'airano-mcp-bridge' ),
+            false,
+            false
+        );
+    }
+
+    private function apply_wpml_post_language( $post, $language, $translation_of, $feature ) {
+        if ( ! has_action('wpml_set_element_language_details') ) {
+            return $this->multilingual_notice_response(
+                $post,
+                'wpml',
+                $language,
+                $translation_of,
+                $feature,
+                'wpml_adapter_incomplete',
+                __( 'WPML is detected but the language-setting hook is unavailable.', 'airano-mcp-bridge' ),
+                false,
+                false
+            );
+        }
+
+        $post_id = (int) $post->ID;
+        $element_type = 'post_' . $post->post_type;
+        $target_details = apply_filters('wpml_element_language_details', null, [
+            'element_id' => $post_id,
+            'element_type' => $element_type,
+        ]);
+        $target_lang = $language;
+        if ( $target_lang === '' ) {
+            $target_lang = $this->sanitize_language_code_value(
+                $this->wpml_detail_value($target_details, 'language_code')
+            );
+        }
+        if ( $target_lang === '' ) {
+            return $this->multilingual_notice_response(
+                $post,
+                'wpml',
+                $language,
+                $translation_of,
+                $feature,
+                'language_required',
+                __( 'WPML needs a target language when the post has no existing language.', 'airano-mcp-bridge' ),
+                false,
+                false
+            );
+        }
+
+        $trid = false;
+        $source_lang = null;
+        if ( $translation_of > 0 ) {
+            $source = get_post($translation_of);
+            $source_element_type = $source ? 'post_' . $source->post_type : $element_type;
+            $source_details = apply_filters('wpml_element_language_details', null, [
+                'element_id' => $translation_of,
+                'element_type' => $source_element_type,
+            ]);
+            $source_trid = $this->wpml_detail_value($source_details, 'trid');
+            if ( ! $source_trid ) {
+                return $this->multilingual_notice_response(
+                    $post,
+                    'wpml',
+                    $target_lang,
+                    $translation_of,
+                    $feature,
+                    'source_language_missing',
+                    __( 'WPML could not find language details for the translation source.', 'airano-mcp-bridge' ),
+                    false,
+                    false
+                );
+            }
+            $trid = (int) $source_trid;
+            $source_lang = $this->sanitize_language_code_value(
+                $this->wpml_detail_value($source_details, 'language_code')
+            );
+        } else {
+            $target_trid = $this->wpml_detail_value($target_details, 'trid');
+            if ( $target_trid ) {
+                $trid = (int) $target_trid;
+            }
+            $source_lang = $this->sanitize_language_code_value(
+                $this->wpml_detail_value($target_details, 'source_language_code')
+            );
+        }
+
+        do_action('wpml_set_element_language_details', [
+            'element_id' => $post_id,
+            'element_type' => $element_type,
+            'trid' => $trid ? $trid : false,
+            'language_code' => $target_lang,
+            'source_language_code' => $source_lang !== '' ? $source_lang : null,
+        ]);
+
+        return rest_ensure_response([
+            'post_id' => $post_id,
+            'post_type' => $post->post_type,
+            'provider' => 'wpml',
+            'language' => $target_lang,
+            'translation_of' => $translation_of > 0 ? (int) $translation_of : null,
+            'source_language' => $source_lang !== '' ? $source_lang : null,
+            'trid' => $trid ? $trid : null,
+            'applied' => true,
+            'linked' => $translation_of > 0,
+            'feature' => $feature,
+        ]);
+    }
+
+    private function apply_polylang_post_language( $post, $language, $translation_of, $feature ) {
+        if ( ! function_exists('pll_set_post_language') ) {
+            return $this->multilingual_notice_response(
+                $post,
+                'polylang',
+                $language,
+                $translation_of,
+                $feature,
+                'polylang_adapter_incomplete',
+                __( 'Polylang is detected but pll_set_post_language is unavailable.', 'airano-mcp-bridge' ),
+                false,
+                false
+            );
+        }
+
+        $post_id = (int) $post->ID;
+        $target_lang = $language;
+        if ( $target_lang === '' && function_exists('pll_get_post_language') ) {
+            $target_lang = $this->sanitize_language_code_value(
+                pll_get_post_language($post_id, 'slug')
+            );
+        }
+        if ( $target_lang === '' ) {
+            return $this->multilingual_notice_response(
+                $post,
+                'polylang',
+                $language,
+                $translation_of,
+                $feature,
+                'language_required',
+                __( 'Polylang needs a target language when the post has no existing language.', 'airano-mcp-bridge' ),
+                false,
+                false
+            );
+        }
+
+        pll_set_post_language($post_id, $target_lang);
+
+        $linked = false;
+        $translations = null;
+        $source_lang = null;
+        if ( $translation_of > 0 ) {
+            if ( ! function_exists('pll_save_post_translations') ) {
+                return $this->multilingual_notice_response(
+                    $post,
+                    'polylang',
+                    $target_lang,
+                    $translation_of,
+                    $feature,
+                    'polylang_linking_unavailable',
+                    __( 'Polylang language was set, but translation linking is unavailable.', 'airano-mcp-bridge' ),
+                    true,
+                    false
+                );
+            }
+            $translations = function_exists('pll_get_post_translations')
+                ? pll_get_post_translations($translation_of)
+                : [];
+            if ( ! is_array($translations) ) {
+                $translations = [];
+            }
+            if ( function_exists('pll_get_post_language') ) {
+                $source_lang = $this->sanitize_language_code_value(
+                    pll_get_post_language($translation_of, 'slug')
+                );
+            }
+            if ( $source_lang === '' ) {
+                return $this->multilingual_notice_response(
+                    $post,
+                    'polylang',
+                    $target_lang,
+                    $translation_of,
+                    $feature,
+                    'source_language_missing',
+                    __( 'Polylang could not find a language for the translation source.', 'airano-mcp-bridge' ),
+                    true,
+                    false
+                );
+            }
+            $translations[$source_lang] = (int) $translation_of;
+            $translations[$target_lang] = $post_id;
+            pll_save_post_translations($translations);
+            $linked = true;
+        }
+
+        return rest_ensure_response([
+            'post_id' => $post_id,
+            'post_type' => $post->post_type,
+            'provider' => 'polylang',
+            'language' => $target_lang,
+            'translation_of' => $translation_of > 0 ? (int) $translation_of : null,
+            'source_language' => $source_lang,
+            'translations' => $translations,
+            'applied' => true,
+            'linked' => $linked,
+            'feature' => $feature,
+        ]);
+    }
+
+    private function multilingual_term_notice_response(
+        $term,
+        $taxonomy,
+        $provider,
+        $language,
+        $translation_of,
+        $feature,
+        $code,
+        $message,
+        $applied = false,
+        $linked = false
+    ) {
+        return rest_ensure_response([
+            'term_id' => (int) $term->term_id,
+            'term_taxonomy_id' => isset($term->term_taxonomy_id) ? (int) $term->term_taxonomy_id : null,
+            'taxonomy' => $taxonomy->name,
+            'provider' => $provider,
+            'language' => $language !== '' ? $language : null,
+            'translation_of' => $translation_of > 0 ? (int) $translation_of : null,
+            'applied' => (bool) $applied,
+            'linked' => (bool) $linked,
+            'feature' => $feature,
+            'notice' => [
+                'code' => $code,
+                'message' => $message,
+            ],
+        ]);
+    }
+
+    public function handle_term_language( $request ) {
+        $params = $request->get_json_params();
+        if ( ! is_array($params) ) {
+            $params = $request->get_params();
+        }
+        if ( ! is_array($params) ) {
+            $params = [];
+        }
+
+        $taxonomy = $this->resolve_taxonomy_object(isset($params['taxonomy']) ? $params['taxonomy'] : null);
+        if ( ! $taxonomy ) {
+            return new WP_Error(
+                'taxonomy_not_found',
+                __( 'taxonomy must name a registered taxonomy or REST base.', 'airano-mcp-bridge' ),
+                ['status' => 404]
+            );
+        }
+
+        $lookup_only = $this->truthy_request_value(isset($params['lookup_only']) ? $params['lookup_only'] : false);
+        $term_id = isset($params['term_id']) ? (int) $params['term_id'] : 0;
+        if ( $term_id <= 0 && ! $lookup_only ) {
+            return new WP_Error(
+                'rest_invalid_param',
+                __( 'term_id must be a positive integer.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+
+        $term = null;
+        if ( ! $lookup_only ) {
+            $term = $this->get_term_for_taxonomy_object($term_id, $taxonomy);
+        }
+        if ( ! $lookup_only && ! $term ) {
+            return new WP_Error(
+                'term_not_found',
+                __( 'Target term was not found in the requested taxonomy.', 'airano-mcp-bridge' ),
+                ['status' => 404, 'term_id' => $term_id, 'taxonomy' => $taxonomy->name]
+            );
+        }
+
+        $raw_language = array_key_exists('language', $params) ? $params['language'] : null;
+        $language_supplied = $raw_language !== null
+            && ! ( is_string($raw_language) && $raw_language === '' );
+        $language = $language_supplied ? $this->sanitize_language_code_value($raw_language) : '';
+        if ( $language_supplied && $language === '' ) {
+            return new WP_Error(
+                'invalid_language',
+                __( 'language must be a short language code such as en or fa.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+
+        $translation_of = isset($params['translation_of']) ? (int) $params['translation_of'] : 0;
+        if ( $translation_of < 0 ) {
+            return new WP_Error(
+                'invalid_translation_source',
+                __( 'translation_of must be a positive term ID when supplied.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+        if ( $language === '' && $translation_of <= 0 ) {
+            return new WP_Error(
+                'invalid_body',
+                __( 'Send at least one of language or translation_of.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+        if ( $lookup_only && ( $language === '' || $translation_of <= 0 ) ) {
+            return new WP_Error(
+                'invalid_lookup',
+                __( 'lookup_only requires language and translation_of.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+
+        $provider = $this->get_multilingual_provider();
+        $feature = $this->get_multilingual_feature();
+        if ( $lookup_only ) {
+            if ( $provider === 'wpml' ) {
+                return rest_ensure_response(
+                    $this->find_wpml_existing_term_translation($taxonomy, $language, $translation_of, $feature)
+                );
+            }
+            if ( $provider === 'polylang' ) {
+                return rest_ensure_response(
+                    $this->find_polylang_existing_term_translation($taxonomy, $language, $translation_of, $feature)
+                );
+            }
+            return rest_ensure_response(
+                $this->term_translation_lookup_payload(
+                    null,
+                    $taxonomy,
+                    $provider,
+                    $language,
+                    $translation_of,
+                    null,
+                    $feature,
+                    false,
+                    [
+                        'notice' => [
+                            'code' => $provider === 'none' ? 'multilingual_provider_missing' : 'multilingual_provider_unsupported',
+                            'message' => __( 'No supported multilingual provider can look up term translations.', 'airano-mcp-bridge' ),
+                        ],
+                    ]
+                )
+            );
+        }
+        if ( $provider === 'none' ) {
+            return $this->multilingual_term_notice_response(
+                $term,
+                $taxonomy,
+                'none',
+                $language,
+                $translation_of,
+                $feature,
+                'multilingual_provider_missing',
+                __( 'No supported multilingual provider is active; leaving term language unchanged.', 'airano-mcp-bridge' ),
+                false,
+                false
+            );
+        }
+
+        if ( $provider === 'wpml' ) {
+            return $this->apply_wpml_term_language($term, $taxonomy, $language, $translation_of, $feature);
+        }
+        if ( $provider === 'polylang' ) {
+            return $this->apply_polylang_term_language($term, $taxonomy, $language, $translation_of, $feature);
+        }
+
+        return $this->multilingual_term_notice_response(
+            $term,
+            $taxonomy,
+            $provider,
+            $language,
+            $translation_of,
+            $feature,
+            'multilingual_provider_unsupported',
+            __( 'The active multilingual provider is not supported yet.', 'airano-mcp-bridge' ),
+            false,
+            false
+        );
+    }
+
+    private function apply_wpml_term_language( $term, $taxonomy, $language, $translation_of, $feature ) {
+        if ( ! has_action('wpml_set_element_language_details') ) {
+            return $this->multilingual_term_notice_response(
+                $term,
+                $taxonomy,
+                'wpml',
+                $language,
+                $translation_of,
+                $feature,
+                'wpml_adapter_incomplete',
+                __( 'WPML is detected but the language-setting hook is unavailable.', 'airano-mcp-bridge' ),
+                false,
+                false
+            );
+        }
+
+        $element_id = isset($term->term_taxonomy_id) ? (int) $term->term_taxonomy_id : 0;
+        if ( $element_id <= 0 ) {
+            return $this->multilingual_term_notice_response(
+                $term,
+                $taxonomy,
+                'wpml',
+                $language,
+                $translation_of,
+                $feature,
+                'term_taxonomy_id_missing',
+                __( 'WPML needs the target term_taxonomy_id to set term language.', 'airano-mcp-bridge' ),
+                false,
+                false
+            );
+        }
+
+        $element_type = 'tax_' . $taxonomy->name;
+        $target_details = $this->get_wpml_term_language_details($element_id, $taxonomy->name);
+        $target_lang = $language;
+        if ( $target_lang === '' ) {
+            $target_lang = $this->sanitize_language_code_value(
+                $this->wpml_detail_value($target_details, 'language_code')
+            );
+        }
+        if ( $target_lang === '' ) {
+            return $this->multilingual_term_notice_response(
+                $term,
+                $taxonomy,
+                'wpml',
+                $language,
+                $translation_of,
+                $feature,
+                'language_required',
+                __( 'WPML needs a target language when the term has no existing language.', 'airano-mcp-bridge' ),
+                false,
+                false
+            );
+        }
+
+        $trid = false;
+        $source_lang = null;
+        if ( $translation_of > 0 ) {
+            $source = $this->get_term_for_taxonomy_object($translation_of, $taxonomy);
+            if ( ! $source || empty($source->term_taxonomy_id) ) {
+                return $this->multilingual_term_notice_response(
+                    $term,
+                    $taxonomy,
+                    'wpml',
+                    $target_lang,
+                    $translation_of,
+                    $feature,
+                    'source_term_missing',
+                    __( 'WPML could not resolve the translation source term.', 'airano-mcp-bridge' ),
+                    false,
+                    false
+                );
+            }
+            $source_details = $this->get_wpml_term_language_details(
+                (int) $source->term_taxonomy_id,
+                $taxonomy->name
+            );
+            $source_trid = $this->wpml_detail_value($source_details, 'trid');
+            if ( ! $source_trid ) {
+                return $this->multilingual_term_notice_response(
+                    $term,
+                    $taxonomy,
+                    'wpml',
+                    $target_lang,
+                    $translation_of,
+                    $feature,
+                    'source_language_missing',
+                    __( 'WPML could not find language details for the translation source term.', 'airano-mcp-bridge' ),
+                    false,
+                    false
+                );
+            }
+            $trid = (int) $source_trid;
+            $source_lang = $this->sanitize_language_code_value(
+                $this->wpml_detail_value($source_details, 'language_code')
+            );
+            $existing = $this->find_wpml_existing_term_translation(
+                $taxonomy,
+                $target_lang,
+                $translation_of,
+                $feature
+            );
+            if ( ! empty($existing['already_existed']) ) {
+                $existing['applied'] = true;
+                $existing['linked'] = true;
+                return rest_ensure_response($existing);
+            }
+        } else {
+            $target_trid = $this->wpml_detail_value($target_details, 'trid');
+            if ( $target_trid ) {
+                $trid = (int) $target_trid;
+            }
+            $source_lang = $this->sanitize_language_code_value(
+                $this->wpml_detail_value($target_details, 'source_language_code')
+            );
+        }
+
+        do_action('wpml_set_element_language_details', [
+            'element_id' => $element_id,
+            'element_type' => $element_type,
+            'trid' => $trid ? $trid : false,
+            'language_code' => $target_lang,
+            'source_language_code' => $source_lang !== '' ? $source_lang : null,
+        ]);
+
+        return rest_ensure_response([
+            'term_id' => (int) $term->term_id,
+            'term_taxonomy_id' => $element_id,
+            'taxonomy' => $taxonomy->name,
+            'provider' => 'wpml',
+            'language' => $target_lang,
+            'translation_of' => $translation_of > 0 ? (int) $translation_of : null,
+            'source_language' => $source_lang !== '' ? $source_lang : null,
+            'trid' => $trid ? $trid : null,
+            'applied' => true,
+            'linked' => $translation_of > 0,
+            'feature' => $feature,
+        ]);
+    }
+
+    private function apply_polylang_term_language( $term, $taxonomy, $language, $translation_of, $feature ) {
+        if ( ! function_exists('pll_set_term_language') ) {
+            return $this->multilingual_term_notice_response(
+                $term,
+                $taxonomy,
+                'polylang',
+                $language,
+                $translation_of,
+                $feature,
+                'polylang_adapter_incomplete',
+                __( 'Polylang is detected but pll_set_term_language is unavailable.', 'airano-mcp-bridge' ),
+                false,
+                false
+            );
+        }
+
+        $term_id = (int) $term->term_id;
+        $target_lang = $language;
+        if ( $target_lang === '' && function_exists('pll_get_term_language') ) {
+            $target_lang = $this->sanitize_language_code_value(
+                pll_get_term_language($term_id, 'slug')
+            );
+        }
+        if ( $target_lang === '' ) {
+            return $this->multilingual_term_notice_response(
+                $term,
+                $taxonomy,
+                'polylang',
+                $language,
+                $translation_of,
+                $feature,
+                'language_required',
+                __( 'Polylang needs a target language when the term has no existing language.', 'airano-mcp-bridge' ),
+                false,
+                false
+            );
+        }
+
+        pll_set_term_language($term_id, $target_lang);
+
+        $linked = false;
+        $translations = null;
+        $source_lang = null;
+        if ( $translation_of > 0 ) {
+            if ( ! function_exists('pll_save_term_translations') ) {
+                return $this->multilingual_term_notice_response(
+                    $term,
+                    $taxonomy,
+                    'polylang',
+                    $target_lang,
+                    $translation_of,
+                    $feature,
+                    'polylang_linking_unavailable',
+                    __( 'Polylang language was set, but translation linking is unavailable.', 'airano-mcp-bridge' ),
+                    true,
+                    false
+                );
+            }
+            $translations = function_exists('pll_get_term_translations')
+                ? pll_get_term_translations($translation_of)
+                : [];
+            if ( ! is_array($translations) ) {
+                $translations = [];
+            }
+            if ( function_exists('pll_get_term_language') ) {
+                $source_lang = $this->sanitize_language_code_value(
+                    pll_get_term_language($translation_of, 'slug')
+                );
+            }
+            if ( $source_lang === '' ) {
+                return $this->multilingual_term_notice_response(
+                    $term,
+                    $taxonomy,
+                    'polylang',
+                    $target_lang,
+                    $translation_of,
+                    $feature,
+                    'source_language_missing',
+                    __( 'Polylang could not find a language for the translation source term.', 'airano-mcp-bridge' ),
+                    true,
+                    false
+                );
+            }
+            $existing = $this->find_polylang_existing_term_translation(
+                $taxonomy,
+                $target_lang,
+                $translation_of,
+                $feature
+            );
+            if ( ! empty($existing['already_existed']) ) {
+                $existing['applied'] = true;
+                $existing['linked'] = true;
+                return rest_ensure_response($existing);
+            }
+            $translations[$source_lang] = (int) $translation_of;
+            $translations[$target_lang] = $term_id;
+            pll_save_term_translations($translations);
+            $linked = true;
+        }
+
+        return rest_ensure_response([
+            'term_id' => $term_id,
+            'term_taxonomy_id' => isset($term->term_taxonomy_id) ? (int) $term->term_taxonomy_id : null,
+            'taxonomy' => $taxonomy->name,
+            'provider' => 'polylang',
+            'language' => $target_lang,
+            'translation_of' => $translation_of > 0 ? (int) $translation_of : null,
+            'source_language' => $source_lang,
+            'translations' => $translations,
+            'applied' => true,
+            'linked' => $linked,
+            'feature' => $feature,
+        ]);
+    }
+
+    public function handle_term_update( $request ) {
+        $params = $request->get_json_params();
+        if ( ! is_array($params) ) {
+            $params = $request->get_params();
+        }
+        if ( ! is_array($params) ) {
+            $params = [];
+        }
+
+        $taxonomy = $this->resolve_taxonomy_object(isset($params['taxonomy']) ? $params['taxonomy'] : null);
+        if ( ! $taxonomy ) {
+            return new WP_Error(
+                'taxonomy_not_found',
+                __( 'taxonomy must name a registered taxonomy or REST base.', 'airano-mcp-bridge' ),
+                ['status' => 404]
+            );
+        }
+
+        $term_id = isset($params['term_id']) ? (int) $params['term_id'] : 0;
+        if ( $term_id <= 0 ) {
+            return new WP_Error(
+                'rest_invalid_param',
+                __( 'term_id must be a positive integer.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+
+        $term = $this->get_term_for_taxonomy_object($term_id, $taxonomy);
+        if ( ! $term ) {
+            return new WP_Error(
+                'term_not_found',
+                __( 'Target term was not found in the requested taxonomy.', 'airano-mcp-bridge' ),
+                ['status' => 404, 'term_id' => $term_id, 'taxonomy' => $taxonomy->name]
+            );
+        }
+
+        $args = [];
+        if ( array_key_exists('name', $params) && $params['name'] !== null ) {
+            $args['name'] = (string) $params['name'];
+        }
+        if ( array_key_exists('slug', $params) && $params['slug'] !== null ) {
+            $args['slug'] = sanitize_title((string) $params['slug']);
+        }
+        if ( array_key_exists('description', $params) && $params['description'] !== null ) {
+            $args['description'] = wp_kses_post((string) $params['description']);
+        }
+        if ( array_key_exists('parent', $params) && $params['parent'] !== null ) {
+            $args['parent'] = max(0, (int) $params['parent']);
+        }
+
+        if ( empty($args) ) {
+            return new WP_Error(
+                'invalid_body',
+                __( 'Send at least one supported term field: name, slug, description, or parent.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+
+        if ( ! array_key_exists('slug', $args) && ! empty($term->slug) ) {
+            $args['slug'] = (string) $term->slug;
+        }
+
+        $updated = wp_update_term($term_id, $taxonomy->name, $args);
+        if ( is_wp_error($updated) ) {
+            return $updated;
+        }
+
+        $fresh = get_term($term_id, $taxonomy->name);
+        if ( ! $fresh || is_wp_error($fresh) ) {
+            $fresh = $term;
+        }
+
+        return rest_ensure_response([
+            'term_id' => (int) $term_id,
+            'taxonomy' => $taxonomy->name,
+            'term_taxonomy_id' => isset($fresh->term_taxonomy_id) ? (int) $fresh->term_taxonomy_id : null,
+            'name' => isset($fresh->name) ? (string) $fresh->name : null,
+            'slug' => isset($fresh->slug) ? (string) $fresh->slug : null,
+            'description' => isset($fresh->description) ? (string) $fresh->description : null,
+            'parent' => isset($fresh->parent) ? (int) $fresh->parent : 0,
+            'updated' => true,
+            'fallback' => 'term_update',
+        ]);
     }
 
     // ------------------------------------------------------------------
@@ -2384,13 +3896,15 @@ class SEO_API_Bridge {
      * POST /airano-mcp/v1/cache-purge
      *
      * Auto-detects active cache plugins and invokes their "purge all"
-     * API. Always flushes the WP object cache (safe no-op when no
+     * API when scope is "page" or "all". Flushes the WP object cache
+     * when scope is "object" or "all" (safe no-op when no
      * persistent object cache is configured). Makes the Docker-socket +
      * WP-CLI fallback unnecessary for cache maintenance on platforms
      * that don't allow the socket mount.
      *
      * Response shape:
      *   {
+     *     "scope":     "all",
      *     "detected":  ["wp_rocket", "litespeed"],
      *     "purged":    ["wp_rocket_all", "litespeed_all", "object_cache"],
      *     "skipped":   [],
@@ -2399,12 +3913,23 @@ class SEO_API_Bridge {
      *   }
      */
     public function handle_cache_purge($request) {
+        $scope = sanitize_key($request->get_param('scope') ?: 'all');
+        if (!in_array($scope, ['object', 'page', 'all'], true)) {
+            return new WP_Error(
+                'invalid_scope',
+                'scope must be one of: object, page, all',
+                ['status' => 400]
+            );
+        }
+
         $detected = [];
         $purged   = [];
         $errors   = [];
+        $flush_page = in_array($scope, ['page', 'all'], true);
+        $flush_object = in_array($scope, ['object', 'all'], true);
 
         // --- WP Rocket ---
-        if (function_exists('rocket_clean_domain')) {
+        if ($flush_page && function_exists('rocket_clean_domain')) {
             $detected[] = 'wp_rocket';
             try {
                 rocket_clean_domain();
@@ -2418,7 +3943,7 @@ class SEO_API_Bridge {
         }
 
         // --- W3 Total Cache ---
-        if (function_exists('w3tc_flush_all')) {
+        if ($flush_page && function_exists('w3tc_flush_all')) {
             $detected[] = 'w3_total_cache';
             try {
                 w3tc_flush_all();
@@ -2429,7 +3954,7 @@ class SEO_API_Bridge {
         }
 
         // --- WP Super Cache ---
-        if (function_exists('wp_cache_clear_cache')) {
+        if ($flush_page && function_exists('wp_cache_clear_cache')) {
             $detected[] = 'wp_super_cache';
             try {
                 wp_cache_clear_cache();
@@ -2440,7 +3965,7 @@ class SEO_API_Bridge {
         }
 
         // --- LiteSpeed Cache ---
-        if (defined('LSCWP_V') || class_exists('\\LiteSpeed\\Purge')) {
+        if ($flush_page && (defined('LSCWP_V') || class_exists('\\LiteSpeed\\Purge'))) {
             $detected[] = 'litespeed';
             try {
                 // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- third-party hook
@@ -2452,7 +3977,7 @@ class SEO_API_Bridge {
         }
 
         // --- WP Fastest Cache ---
-        if (class_exists('WpFastestCache')) {
+        if ($flush_page && class_exists('WpFastestCache')) {
             $detected[] = 'wp_fastest_cache';
             try {
                 $wpfc = new \WpFastestCache();
@@ -2471,14 +3996,19 @@ class SEO_API_Bridge {
 
         // --- SiteGround Optimizer ---
         if (
-            function_exists('sg_cachepress_purge_cache')
-            || class_exists('SiteGround_Optimizer\\Supercacher\\Supercacher')
+            $flush_page
+            && (
+                function_exists('sg_cachepress_purge_cache')
+                || class_exists('SiteGround_Optimizer\\Supercacher\\Supercacher')
+            )
         ) {
             $detected[] = 'siteground_optimizer';
             try {
                 if (function_exists('sg_cachepress_purge_cache')) {
                     sg_cachepress_purge_cache();
-                } elseif (method_exists('SiteGround_Optimizer\\Supercacher\\Supercacher', 'purge_cache')) {
+                } elseif (
+                    method_exists('SiteGround_Optimizer\\Supercacher\\Supercacher', 'purge_cache')
+                ) {
                     \SiteGround_Optimizer\Supercacher\Supercacher::purge_cache();
                 }
                 $purged[] = 'siteground_optimizer_all';
@@ -2491,14 +4021,14 @@ class SEO_API_Bridge {
         // CF has no canonical "purge all" helper exposed publicly; skip unless
         // we detect the official plugin and even then we only advertise
         // detection so the user can act.
-        if (class_exists('CF\\WordPress\\Hooks')) {
+        if ($flush_page && class_exists('CF\\WordPress\\Hooks')) {
             $detected[] = 'cloudflare';
             // no-op — CF's purge requires the user's API token we don't have.
         }
 
-        // --- Object cache (always) ---
+        // --- Object cache ---
         // Safe no-op if no persistent object cache is configured.
-        if (function_exists('wp_cache_flush')) {
+        if ($flush_object && function_exists('wp_cache_flush')) {
             try {
                 wp_cache_flush();
                 $purged[] = 'object_cache';
@@ -2508,12 +4038,95 @@ class SEO_API_Bridge {
         }
 
         return rest_ensure_response([
+            'scope'          => $scope,
             'detected'       => array_values(array_unique($detected)),
             'purged'         => array_values(array_unique($purged)),
             'skipped'        => [],
             'errors'         => $errors,
             'ok'             => empty($errors),
             'plugin_version' => self::VERSION,
+        ]);
+    }
+
+    // ------------------------------------------------------------------
+    //  F.18.8 — OPcache reset (airano-mcp/v1/opcache-reset)
+    // ------------------------------------------------------------------
+
+    /**
+     * Return a compact, non-sensitive OPcache status snapshot.
+     */
+    private function get_opcache_summary() {
+        if (!function_exists('opcache_get_status')) {
+            return null;
+        }
+
+        $status = @opcache_get_status(false);
+        if (!is_array($status)) {
+            return null;
+        }
+
+        $memory = isset($status['memory_usage']) && is_array($status['memory_usage'])
+            ? $status['memory_usage']
+            : [];
+        $stats = isset($status['opcache_statistics']) && is_array($status['opcache_statistics'])
+            ? $status['opcache_statistics']
+            : [];
+
+        return [
+            'opcache_enabled'    => (bool) ($status['opcache_enabled'] ?? false),
+            'cache_full'         => (bool) ($status['cache_full'] ?? false),
+            'restart_pending'    => (bool) ($status['restart_pending'] ?? false),
+            'restart_in_progress'=> (bool) ($status['restart_in_progress'] ?? false),
+            'used_memory'        => (int) ($memory['used_memory'] ?? 0),
+            'free_memory'        => (int) ($memory['free_memory'] ?? 0),
+            'wasted_memory'      => (int) ($memory['wasted_memory'] ?? 0),
+            'num_cached_scripts' => (int) ($stats['num_cached_scripts'] ?? 0),
+            'hits'               => (int) ($stats['hits'] ?? 0),
+            'misses'             => (int) ($stats['misses'] ?? 0),
+        ];
+    }
+
+    /**
+     * POST /airano-mcp/v1/opcache-reset
+     *
+     * Calls PHP's opcache_reset() when the extension is available. This
+     * intentionally does not hold or require CDN/infra credentials; it only
+     * clears the local PHP bytecode cache on the WordPress origin.
+     */
+    public function handle_opcache_reset($request) {
+        $enabled = (bool) ini_get('opcache.enable');
+        $validate_timestamps = (bool) ini_get('opcache.validate_timestamps');
+
+        if (!function_exists('opcache_reset')) {
+            return rest_ensure_response([
+                'ok'                  => false,
+                'reset'               => false,
+                'opcache_available'   => false,
+                'enabled'             => $enabled,
+                'validate_timestamps' => $validate_timestamps,
+                'status_before'       => null,
+                'status_after'        => null,
+                'message'             => 'PHP OPcache extension is not available.',
+                'plugin_version'      => self::VERSION,
+            ]);
+        }
+
+        $before = $this->get_opcache_summary();
+        $reset = (bool) @opcache_reset();
+        $after = $this->get_opcache_summary();
+
+        return rest_ensure_response([
+            'ok'                  => $reset,
+            'reset'               => $reset,
+            'opcache_available'   => true,
+            'enabled'             => $enabled,
+            'validate_timestamps' => $validate_timestamps,
+            'status_before'       => $before,
+            'status_after'        => $after,
+            'message'             => $reset
+                ? 'OPcache reset completed.'
+                : 'opcache_reset() returned false.',
+            'plugin_version'      => self::VERSION,
         ]);
     }
 
@@ -2526,6 +4139,12 @@ class SEO_API_Bridge {
      * stays small even when thousands of transients are purged.
      */
     const TRANSIENT_SAMPLE_MAX = 100;
+
+    /**
+     * Cap transient inventory responses. Values are intentionally never
+     * returned; this route is for cleanup/debug metadata only.
+     */
+    const TRANSIENT_LIST_MAX = 500;
 
     /**
      * POST /airano-mcp/v1/transient-flush
@@ -2669,6 +4288,140 @@ class SEO_API_Bridge {
             'include_site_transients' => $include_site,
             'deleted_count'           => count($deleted_keys),
             'deleted_sample'          => array_slice($deleted_keys, 0, self::TRANSIENT_SAMPLE_MAX),
+            'plugin_version'          => self::VERSION,
+        ]);
+    }
+
+    /**
+     * GET /airano-mcp/v1/transients
+     *
+     * Query:
+     *   ?limit=100&include_site_transients=1
+     *
+     * Returns transient metadata only. Values are deliberately omitted
+     * because transient payloads often contain tokens, API responses, or
+     * plugin-internal state.
+     */
+    public function handle_transient_list(WP_REST_Request $request) {
+        global $wpdb;
+
+        $limit = (int) $request->get_param('limit');
+        if ($limit < 1) {
+            $limit = 100;
+        }
+        if ($limit > self::TRANSIENT_LIST_MAX) {
+            $limit = self::TRANSIENT_LIST_MAX;
+        }
+
+        $include_site = $this->bool_param($request->get_param('include_site_transients'), true);
+        $now = time();
+        $items = [];
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- transient inventory has no WP API; values are not returned
+        $regular_total = (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->options}
+             WHERE option_name LIKE %s AND option_name NOT LIKE %s",
+            $wpdb->esc_like('_transient_') . '%',
+            $wpdb->esc_like('_transient_timeout_') . '%'
+        ));
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- transient inventory has no WP API; values are not returned
+        $regular_rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT t.option_name AS transient_name,
+                    timeout.option_value AS expires_at
+             FROM {$wpdb->options} t
+             LEFT JOIN {$wpdb->options} timeout
+               ON timeout.option_name = CONCAT(%s, SUBSTRING(t.option_name, %d))
+             WHERE t.option_name LIKE %s
+               AND t.option_name NOT LIKE %s
+             ORDER BY t.option_name ASC
+             LIMIT %d",
+            '_transient_timeout_',
+            strlen('_transient_') + 1,
+            $wpdb->esc_like('_transient_') . '%',
+            $wpdb->esc_like('_transient_timeout_') . '%',
+            $limit
+        ), ARRAY_A);
+
+        if (!is_array($regular_rows)) {
+            return new WP_Error(
+                'transient_list_failed',
+                __( 'Failed to list transients.', 'airano-mcp-bridge' ),
+                ['status' => 500]
+            );
+        }
+
+        foreach ($regular_rows as $row) {
+            $key = preg_replace('/^_transient_/', '', (string) $row['transient_name']);
+            $expires_at = $row['expires_at'] !== null ? (int) $row['expires_at'] : null;
+            $items[] = [
+                'key'            => $key,
+                'type'           => 'transient',
+                'expires_at'     => $expires_at,
+                'expires_at_gmt' => $expires_at ? gmdate('c', $expires_at) : null,
+                'expired'        => $expires_at ? $expires_at < $now : false,
+            ];
+        }
+
+        $site_total = 0;
+        if ($include_site && is_multisite()) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- site-transient inventory has no WP API
+            $site_total = (int) $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM {$wpdb->sitemeta}
+                 WHERE meta_key LIKE %s AND meta_key NOT LIKE %s",
+                $wpdb->esc_like('_site_transient_') . '%',
+                $wpdb->esc_like('_site_transient_timeout_') . '%'
+            ));
+
+            $remaining = $limit - count($items);
+            if ($remaining > 0) {
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- site-transient inventory has no WP API
+                $site_rows = $wpdb->get_results($wpdb->prepare(
+                    "SELECT t.meta_key AS transient_name,
+                            timeout.meta_value AS expires_at
+                     FROM {$wpdb->sitemeta} t
+                     LEFT JOIN {$wpdb->sitemeta} timeout
+                       ON timeout.meta_key = CONCAT(%s, SUBSTRING(t.meta_key, %d))
+                     WHERE t.meta_key LIKE %s
+                       AND t.meta_key NOT LIKE %s
+                     ORDER BY t.meta_key ASC
+                     LIMIT %d",
+                    '_site_transient_timeout_',
+                    strlen('_site_transient_') + 1,
+                    $wpdb->esc_like('_site_transient_') . '%',
+                    $wpdb->esc_like('_site_transient_timeout_') . '%',
+                    $remaining
+                ), ARRAY_A);
+
+                if (!is_array($site_rows)) {
+                    return new WP_Error(
+                        'site_transient_list_failed',
+                        __( 'Failed to list site transients.', 'airano-mcp-bridge' ),
+                        ['status' => 500]
+                    );
+                }
+
+                foreach ($site_rows as $row) {
+                    $key = preg_replace('/^_site_transient_/', '', (string) $row['transient_name']);
+                    $expires_at = $row['expires_at'] !== null ? (int) $row['expires_at'] : null;
+                    $items[] = [
+                        'key'            => $key,
+                        'type'           => 'site_transient',
+                        'expires_at'     => $expires_at,
+                        'expires_at_gmt' => $expires_at ? gmdate('c', $expires_at) : null,
+                        'expired'        => $expires_at ? $expires_at < $now : false,
+                    ];
+                }
+            }
+        }
+
+        return rest_ensure_response([
+            'ok'                      => true,
+            'limit'                   => $limit,
+            'include_site_transients' => $include_site,
+            'total_count'             => $regular_total + $site_total,
+            'showing_count'           => count($items),
+            'transients'              => $items,
             'plugin_version'          => self::VERSION,
         ]);
     }
@@ -4878,11 +6631,11 @@ class SEO_API_Bridge {
             }
             $fs = $this->_theme_filesystem();
             if (is_wp_error($fs)) {
-                @unlink($tmp_path);
+                wp_delete_file($tmp_path);
                 return $fs;
             }
             if (!$fs->put_contents($tmp_path, $decoded, FS_CHMOD_FILE)) {
-                @unlink($tmp_path);
+                wp_delete_file($tmp_path);
                 return new WP_Error('write_failed', __( 'Could not write temp zip.', 'airano-mcp-bridge' ), ['status' => 500]);
             }
         }
@@ -4892,7 +6645,7 @@ class SEO_API_Bridge {
         $result = $upgrader->install($tmp_path, [
             'overwrite_package' => (bool) $overwrite,
         ]);
-        @unlink($tmp_path);
+        wp_delete_file($tmp_path);
 
         if (is_wp_error($result)) {
             return $result;
@@ -5166,6 +6919,170 @@ class SEO_API_Bridge {
     }
 
     /**
+     * PATCH /airano-mcp/v1/admin/themes/files/{slug}/{path}
+     *
+     * Body: {
+     *   from_line: int, to_line: int, content: string,
+     *   expected_sha256?: string
+     * }
+     *
+     * Lines are 1-based and inclusive. Use to_line=from_line-1 to insert
+     * without deleting existing lines. This keeps iterative edits small
+     * while preserving S-16/S-17/S-18/S-19 server-side checks.
+     */
+    public function handle_admin_theme_file_patch(WP_REST_Request $request) {
+        if (!current_user_can('edit_themes')) {
+            return new WP_Error('rest_forbidden', __( 'edit_themes capability required.', 'airano-mcp-bridge' ), ['status' => 403]);
+        }
+        $slug = $this->_validate_theme_slug($request['slug']);
+        if (is_wp_error($slug)) {
+            return $slug;
+        }
+        $params = $request->get_json_params();
+        if (!is_array($params)) {
+            return new WP_Error('invalid_body', __( 'Expected JSON body.', 'airano-mcp-bridge' ), ['status' => 400]);
+        }
+        $from_line_valid = isset($params['from_line'])
+            && (is_int($params['from_line']) || (is_string($params['from_line']) && ctype_digit($params['from_line'])));
+        $to_line_valid = isset($params['to_line'])
+            && (is_int($params['to_line']) || (is_string($params['to_line']) && ctype_digit($params['to_line'])));
+        if (!$from_line_valid || !$to_line_valid || !array_key_exists('content', $params) || !is_string($params['content'])) {
+            return new WP_Error(
+                'invalid_body',
+                __( 'from_line, to_line, and content are required.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+        $from_line = (int) $params['from_line'];
+        $to_line = (int) $params['to_line'];
+        if ($from_line < 1 || $to_line < 0 || $to_line < $from_line - 1) {
+            return new WP_Error(
+                'invalid_line_range',
+                __( 'Line range must satisfy from_line >= 1, to_line >= 0, and to_line >= from_line - 1.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+
+        $resolved = $this->_resolve_theme_file_path($slug, $request['path'], true);
+        if (is_wp_error($resolved)) {
+            return $resolved;
+        }
+        if (!empty($resolved['is_dir'])) {
+            return new WP_Error('path_invalid', __( 'path refers to a directory.', 'airano-mcp-bridge' ), ['status' => 400]);
+        }
+        $allowed = $this->_theme_write_allowed($resolved['relative']);
+        if (is_wp_error($allowed)) {
+            return $allowed;
+        }
+
+        $absolute = $resolved['absolute'];
+        $current_body = file_get_contents($absolute);
+        if ($current_body === false) {
+            return new WP_Error('read_failed', __( 'Could not read file.', 'airano-mcp-bridge' ), ['status' => 500]);
+        }
+        $current_sha = hash('sha256', $current_body);
+
+        if (isset($params['expected_sha256']) && is_string($params['expected_sha256']) && $params['expected_sha256'] !== '') {
+            $expected = strtolower($params['expected_sha256']);
+            if (!preg_match('/^[0-9a-f]{64}$/', $expected)) {
+                return new WP_Error('invalid_body', __( 'expected_sha256 must be 64 hex chars.', 'airano-mcp-bridge' ), ['status' => 400]);
+            }
+            if ($current_sha !== $expected) {
+                return new WP_Error(
+                    'sha_mismatch',
+                    __( 'On-disk sha256 does not match expected_sha256.', 'airano-mcp-bridge' ),
+                    ['status' => 409]
+                );
+            }
+        }
+
+        $normalised_current = str_replace(["\r\n", "\r"], "\n", $current_body);
+        $normalised_patch = str_replace(["\r\n", "\r"], "\n", $params['content']);
+        $current_has_final_newline = $normalised_current !== '' && substr($normalised_current, -1) === "\n";
+        $patch_has_final_newline = $normalised_patch !== '' && substr($normalised_patch, -1) === "\n";
+
+        if ($normalised_current === '') {
+            $lines = [];
+        } else {
+            $lines = explode("\n", $normalised_current);
+            if ($current_has_final_newline) {
+                array_pop($lines);
+            }
+        }
+
+        if ($normalised_patch === '') {
+            $patch_lines = [];
+        } else {
+            $patch_lines = explode("\n", $normalised_patch);
+            if ($patch_has_final_newline) {
+                array_pop($patch_lines);
+            }
+        }
+
+        $line_count_before = count($lines);
+        if ($from_line > $line_count_before + 1) {
+            return new WP_Error(
+                'invalid_line_range',
+                __( 'from_line is beyond the end of the file.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+        if ($to_line > $line_count_before) {
+            return new WP_Error(
+                'invalid_line_range',
+                __( 'to_line is beyond the end of the file.', 'airano-mcp-bridge' ),
+                ['status' => 400]
+            );
+        }
+
+        $remove_count = max(0, $to_line - $from_line + 1);
+        array_splice($lines, $from_line - 1, $remove_count, $patch_lines);
+
+        $line_count_after = count($lines);
+        $new_body = implode("\n", $lines);
+        $reaches_eof = $to_line >= $line_count_before;
+        $should_end_with_newline = $reaches_eof ? $patch_has_final_newline : $current_has_final_newline;
+        if ($new_body !== '' && $should_end_with_newline) {
+            $new_body .= "\n";
+        }
+
+        if (strlen($new_body) > self::THEME_FILE_MAX_BYTES) {
+            return new WP_Error(
+                'file_too_large',
+                sprintf(
+                    /* translators: %d is the byte cap. */
+                    __( 'Patched file exceeds %d byte cap.', 'airano-mcp-bridge' ),
+                    self::THEME_FILE_MAX_BYTES
+                ),
+                ['status' => 413]
+            );
+        }
+
+        $fs = $this->_theme_filesystem();
+        if (is_wp_error($fs)) {
+            return $fs;
+        }
+        if (!$fs->put_contents($absolute, $new_body, FS_CHMOD_FILE)) {
+            return new WP_Error('write_failed', __( 'Theme file patch failed.', 'airano-mcp-bridge' ), ['status' => 500]);
+        }
+
+        $new_sha = hash('sha256', $new_body);
+        $modified = @filemtime($absolute);
+        return rest_ensure_response([
+            'theme_slug'        => $slug,
+            'path'              => $resolved['relative'],
+            'from_line'         => $from_line,
+            'to_line'           => $to_line,
+            'line_count_before' => $line_count_before,
+            'line_count_after'  => $line_count_after,
+            'size'              => strlen($new_body),
+            'sha256'            => $new_sha,
+            'previous_sha256'   => $current_sha,
+            'modified_at'       => $modified === false ? null : (int) $modified,
+        ]);
+    }
+
+    /**
      * DELETE /airano-mcp/v1/admin/themes/files/{slug}/{path}
      */
     public function handle_admin_theme_file_delete(WP_REST_Request $request) {
@@ -5193,7 +7110,9 @@ class SEO_API_Bridge {
         if (is_wp_error($allowed)) {
             return $allowed;
         }
-        if (!@unlink($resolved['absolute'])) {
+        wp_delete_file($resolved['absolute']);
+        clearstatcache(true, $resolved['absolute']);
+        if (file_exists($resolved['absolute'])) {
             return new WP_Error('delete_failed', __( 'Theme file delete failed.', 'airano-mcp-bridge' ), ['status' => 500]);
         }
         return rest_ensure_response([
@@ -5382,11 +7301,11 @@ class SEO_API_Bridge {
             }
             $fs = $this->_theme_filesystem();  // reuse helper from F.19.7
             if (is_wp_error($fs)) {
-                @unlink($tmp_path);
+                wp_delete_file($tmp_path);
                 return $fs;
             }
             if (!$fs->put_contents($tmp_path, $decoded, FS_CHMOD_FILE)) {
-                @unlink($tmp_path);
+                wp_delete_file($tmp_path);
                 return new WP_Error('write_failed', __( 'Could not write temp zip.', 'airano-mcp-bridge' ), ['status' => 500]);
             }
         }
@@ -5396,7 +7315,7 @@ class SEO_API_Bridge {
         $result = $upgrader->install($tmp_path, [
             'overwrite_package' => (bool) $overwrite,
         ]);
-        @unlink($tmp_path);
+        wp_delete_file($tmp_path);
 
         if (is_wp_error($result)) {
             return $result;
@@ -5656,6 +7575,69 @@ class SEO_API_Bridge {
      * POST /airano-mcp/v1/admin/site/identity
      * Body: { title?, tagline?, site_icon_id?, custom_logo_id? }
      */
+    /**
+     * POST /airano-mcp/v1/admin/seo/rank-math/sync-identity
+     *
+     * Rank Math stores the schema site name (WebSite.name) and the
+     * Person/Organization name in the `rank-math-options-titles` option,
+     * captured once by its setup wizard. Renaming the site later leaves the
+     * JSON-LD on the old name. This writes the current site title (or the
+     * supplied values) into those keys. Only these keys are touched.
+     *
+     * Body (all optional): name, alternate_name, knowledgegraph_name.
+     */
+    public function handle_admin_rank_math_sync_identity(WP_REST_Request $request) {
+        if (!defined('RANK_MATH_VERSION') && !class_exists('RankMath')) {
+            return new WP_Error(
+                'rank_math_inactive',
+                __( 'Rank Math is not active on this site.', 'airano-mcp-bridge' ),
+                ['status' => 409]
+            );
+        }
+        $params = $request->get_json_params();
+        $params = is_array($params) ? $params : [];
+        foreach (['name', 'alternate_name', 'knowledgegraph_name'] as $key) {
+            if (array_key_exists($key, $params) && !is_string($params[$key])) {
+                return new WP_Error('invalid_' . $key, $key . ' must be a string.', ['status' => 400]);
+            }
+        }
+
+        $name = isset($params['name']) && $params['name'] !== ''
+            ? sanitize_text_field($params['name'])
+            : get_bloginfo('name');
+        $kg_name = isset($params['knowledgegraph_name']) && $params['knowledgegraph_name'] !== ''
+            ? sanitize_text_field($params['knowledgegraph_name'])
+            : $name;
+
+        $titles = get_option('rank-math-options-titles', []);
+        if (!is_array($titles)) {
+            $titles = [];
+        }
+        $keys = ['website_name', 'website_alternate_name', 'knowledgegraph_name'];
+        $before = [];
+        foreach ($keys as $key) {
+            $before[$key] = isset($titles[$key]) ? $titles[$key] : null;
+        }
+
+        $titles['website_name'] = $name;
+        $titles['knowledgegraph_name'] = $kg_name;
+        if (isset($params['alternate_name'])) {
+            $titles['website_alternate_name'] = sanitize_text_field($params['alternate_name']);
+        }
+        update_option('rank-math-options-titles', $titles);
+
+        $after = [];
+        foreach ($keys as $key) {
+            $after[$key] = isset($titles[$key]) ? $titles[$key] : null;
+        }
+        return rest_ensure_response([
+            'updated' => $before !== $after,
+            'before'  => $before,
+            'after'   => $after,
+            'note'    => 'Purge any page cache so the new JSON-LD is served.',
+        ]);
+    }
+
     public function handle_admin_site_identity_set(WP_REST_Request $request) {
         $params = $request->get_json_params();
         if (!is_array($params) || empty($params)) {
@@ -6466,6 +8448,42 @@ class SEO_API_Bridge {
     }
 
     /**
+     * Return table names in the current database that belong to this
+     * WordPress install's prefix. Callers never supply table names.
+     *
+     * @return array|WP_Error
+     */
+    private function get_prefixed_database_tables() {
+        global $wpdb;
+        $like = $wpdb->esc_like($wpdb->prefix) . '%';
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- bounded metadata query; no WP API exposes table inventory
+        $tables = $wpdb->get_col($wpdb->prepare(
+            "SELECT table_name
+             FROM information_schema.TABLES
+             WHERE table_schema = %s
+               AND table_name LIKE %s
+             ORDER BY table_name ASC",
+            DB_NAME,
+            $like
+        ));
+        if (!is_array($tables)) {
+            return new WP_Error(
+                'db_tables_query_failed',
+                __( 'Failed to read information_schema.TABLES.', 'airano-mcp-bridge' ),
+                ['status' => 500]
+            );
+        }
+        return array_values(array_filter(array_map('strval', $tables)));
+    }
+
+    /**
+     * Quote an identifier returned by information_schema.
+     */
+    private function quote_sql_identifier($identifier) {
+        return '`' . str_replace('`', '``', (string) $identifier) . '`';
+    }
+
+    /**
      * GET /airano-mcp/v1/admin/db/size
      *
      * Single ``information_schema.TABLES`` aggregation scoped to the
@@ -6646,6 +8664,115 @@ class SEO_API_Bridge {
             'limit' => $limit,
             'count' => count($hits),
             'hits'  => $hits,
+        ]);
+    }
+
+    /**
+     * GET /airano-mcp/v1/admin/db/check
+     *
+     * Runs CHECK TABLE on current-prefix WordPress tables only. No
+     * caller-supplied SQL or table names are accepted.
+     */
+    public function handle_admin_db_check(WP_REST_Request $request) {
+        global $wpdb;
+        $tables = $this->get_prefixed_database_tables();
+        if (is_wp_error($tables)) {
+            return $tables;
+        }
+
+        $rows_out = [];
+        $ok = true;
+        foreach ($tables as $table) {
+            $quoted = $this->quote_sql_identifier($table);
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- table identifiers cannot be bound as placeholders; $quoted is an allowlisted table from get_prefixed_database_tables() (information_schema, scoped to DB_NAME + $wpdb->prefix, no caller input) escaped by quote_sql_identifier()
+            $rows = $wpdb->get_results("CHECK TABLE {$quoted}", ARRAY_A);
+            if (!is_array($rows)) {
+                $ok = false;
+                $rows_out[] = [
+                    'table'        => $table,
+                    'operation'    => 'check',
+                    'message_type' => 'error',
+                    'message'      => 'CHECK TABLE returned no result.',
+                ];
+                continue;
+            }
+            foreach ($rows as $row) {
+                $message_type = strtolower((string) ($row['Msg_type'] ?? ''));
+                if (in_array($message_type, ['error', 'warning'], true)) {
+                    $ok = false;
+                }
+                $rows_out[] = [
+                    'table'        => $table,
+                    'operation'    => (string) ($row['Op'] ?? 'check'),
+                    'message_type' => (string) ($row['Msg_type'] ?? ''),
+                    'message'      => (string) ($row['Msg_text'] ?? ''),
+                ];
+            }
+        }
+
+        return rest_ensure_response([
+            'ok'             => $ok,
+            'action'         => 'check',
+            'database_name'  => DB_NAME,
+            'table_prefix'   => $wpdb->prefix,
+            'table_count'    => count($tables),
+            'results'        => $rows_out,
+            'plugin_version' => self::VERSION,
+        ]);
+    }
+
+    /**
+     * POST /airano-mcp/v1/admin/db/optimize
+     *
+     * Runs OPTIMIZE TABLE on current-prefix WordPress tables only. This
+     * is intentionally table-prefix scoped and accepts no caller table
+     * selection to avoid arbitrary maintenance queries.
+     */
+    public function handle_admin_db_optimize(WP_REST_Request $request) {
+        global $wpdb;
+        $tables = $this->get_prefixed_database_tables();
+        if (is_wp_error($tables)) {
+            return $tables;
+        }
+
+        $rows_out = [];
+        $ok = true;
+        foreach ($tables as $table) {
+            $quoted = $this->quote_sql_identifier($table);
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- table identifiers cannot be bound as placeholders; $quoted is an allowlisted table from get_prefixed_database_tables() (information_schema, scoped to DB_NAME + $wpdb->prefix, no caller input) escaped by quote_sql_identifier()
+            $rows = $wpdb->get_results("OPTIMIZE TABLE {$quoted}", ARRAY_A);
+            if (!is_array($rows)) {
+                $ok = false;
+                $rows_out[] = [
+                    'table'        => $table,
+                    'operation'    => 'optimize',
+                    'message_type' => 'error',
+                    'message'      => 'OPTIMIZE TABLE returned no result.',
+                ];
+                continue;
+            }
+            foreach ($rows as $row) {
+                $message_type = strtolower((string) ($row['Msg_type'] ?? ''));
+                if (in_array($message_type, ['error', 'warning'], true)) {
+                    $ok = false;
+                }
+                $rows_out[] = [
+                    'table'        => $table,
+                    'operation'    => (string) ($row['Op'] ?? 'optimize'),
+                    'message_type' => (string) ($row['Msg_type'] ?? ''),
+                    'message'      => (string) ($row['Msg_text'] ?? ''),
+                ];
+            }
+        }
+
+        return rest_ensure_response([
+            'ok'             => $ok,
+            'action'         => 'optimize',
+            'database_name'  => DB_NAME,
+            'table_prefix'   => $wpdb->prefix,
+            'table_count'    => count($tables),
+            'results'        => $rows_out,
+            'plugin_version' => self::VERSION,
         ]);
     }
 }

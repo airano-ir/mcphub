@@ -16,7 +16,7 @@ import base64
 import logging
 from typing import Any
 
-import aiohttp
+from core import net_guard
 
 
 class SupabaseClient:
@@ -124,7 +124,7 @@ class SupabaseClient:
         if params:
             params = {k: v for k, v in params.items() if v is not None}
 
-        async with aiohttp.ClientSession() as session:
+        async with net_guard.client_session() as session:
             async with session.head(url, params=params or None, headers=headers) as response:
                 # Normalise to lowercase so callers can use consistent keys
                 # (aiohttp CIMultiDictProxy is case-insensitive but dict() is not)
@@ -180,7 +180,7 @@ class SupabaseClient:
 
         self.logger.debug(f"{method} {url}")
 
-        async with aiohttp.ClientSession() as session:
+        async with net_guard.client_session() as session:
             kwargs = {
                 "method": method,
                 "url": url,
